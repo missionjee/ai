@@ -16,6 +16,7 @@ export const UIControls = {
         this.engineRef = engine;
 
         this.initNavigation();
+        this.initSidebarToggle();
         this.updateClock();
         setInterval(() => this.updateClock(), 1000);
     },
@@ -61,6 +62,29 @@ export const UIControls = {
     },
 
     /**
+     * Bind sidebar slide in/out toggle handler
+     */
+    initSidebarToggle() {
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const appContainer = document.getElementById('dashboardContent');
+        if (!toggleBtn || !appContainer) return;
+
+        // Load state from localStorage so it persists across refreshes
+        const isCollapsed = localStorage.getItem('hiroto_sidebar_collapsed') === 'true';
+        if (isCollapsed) {
+            appContainer.classList.add('sidebar-collapsed');
+            toggleBtn.textContent = '▶';
+        }
+
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const collapsed = appContainer.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('hiroto_sidebar_collapsed', collapsed);
+            toggleBtn.textContent = collapsed ? '▶' : '◀';
+        });
+    },
+
+    /**
      * Tick clock interface
      */
     updateClock() {
@@ -74,7 +98,7 @@ export const UIControls = {
     /**
      * Render active signal outcomes in AI Command Center
      */
-    updateHUD(pred, targetPeriod) {
+    updateHUD(pred, targetPeriod, numbers) {
         const valueEl = document.getElementById('predictionValue');
         if (!valueEl) return;
 
@@ -86,13 +110,13 @@ export const UIControls = {
         const consensusEl = document.getElementById('consensusVal');
 
         if (!pred.isValid) {
-            valueEl.textContent = "HOLD";
+            valueEl.textContent = pred.prediction.toUpperCase();
             valueEl.className = "pred-value hold";
             valueEl.style.color = "var(--accent-gold)";
             valueEl.style.textShadow = "0 0 10px var(--accent-gold)";
 
             if (confEl) {
-                confEl.innerHTML = `${pred.confidence}% <span style="font-size:10px;color:var(--text-secondary);display:block;margin-top:4px;">RAW: ${pred.prediction.toUpperCase()} (GATED)</span>`;
+                confEl.innerHTML = `${pred.confidence}% <span style="font-size:10px;color:var(--accent-gold);font-weight:bold;display:block;margin-top:4px;">GATED / HOLD</span>`;
             }
             if (stratEl) stratEl.textContent = pred.gateReason ? pred.gateReason.toUpperCase() : "GATING CRITERIA BLOCKED";
             if (consensusEl) consensusEl.textContent = (pred.consensus * 100).toFixed(0) + '% (SPLIT)';
@@ -105,6 +129,23 @@ export const UIControls = {
             if (confEl) confEl.textContent = pred.confidence + '%';
             if (stratEl) stratEl.textContent = pred.strategy.toUpperCase().replace(/_/g, ' ');
             if (consensusEl) consensusEl.textContent = (pred.consensus * 100).toFixed(0) + '%';
+        }
+
+        // Pull dynamic "Dual-Digit Intelligence" targets directly into the hero prediction HUD card
+        if (numbers) {
+            const total = Object.values(numbers.distribution || {}).reduce((a, b) => a + b, 0) || 1;
+            const hFreq = numbers.primary ? Math.round((numbers.primary.freq / total) * 100) : 0;
+            const sFreq = numbers.secondary ? Math.round((numbers.secondary.freq / total) * 100) : 0;
+
+            const hudHighDigit = document.getElementById('hudHighDigit');
+            const hudHighDigitProb = document.getElementById('hudHighDigitProb');
+            const hudSecDigit = document.getElementById('hudSecDigit');
+            const hudSecDigitProb = document.getElementById('hudSecDigitProb');
+
+            if (hudHighDigit) hudHighDigit.textContent = numbers.primary?.number ?? '--';
+            if (hudHighDigitProb) hudHighDigitProb.textContent = `(${hFreq}%)`;
+            if (hudSecDigit) hudSecDigit.textContent = numbers.secondary?.number ?? '--';
+            if (hudSecDigitProb) hudSecDigitProb.textContent = `(${sFreq}%)`;
         }
 
         // Probability distribution slider

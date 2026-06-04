@@ -43,6 +43,7 @@
                     <span class="brand-main">HIROTO</span>
                     <span class="brand-sub">AI TERMINAL v4.0</span>
                 </div>
+                <button class="sidebar-toggle" id="sidebarToggle" style="margin-left: auto; background: none; border: none; color: var(--accent-blue); cursor: pointer; font-size: 14px; outline: none; transition: transform 0.3s ease; padding: 4px 8px; border-radius: 4px;">◀</button>
             </div>
 
             <nav class="sidebar-nav">
@@ -160,6 +161,12 @@
                                         <span class="meta-value" id="riskLevelVal">--</span>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div class="hud-digits-display" style="display: flex; gap: 20px; justify-content: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.03); font-family: 'Share Tech Mono', monospace; font-size: 11px;">
+                                <div>HIGH PROBABILITY TARGET: <span id="hudHighDigit" style="color: var(--accent-blue); font-weight: bold; font-size: 14px; font-family: 'Orbitron', sans-serif;">--</span> <span id="hudHighDigitProb" style="color: var(--text-secondary); font-size: 9px;">(0%)</span></div>
+                                <div style="width: 1px; background: rgba(255,255,255,0.05);"></div>
+                                <div>SECONDARY TARGET: <span id="hudSecDigit" style="color: var(--accent-cyan); font-weight: bold; font-size: 14px; font-family: 'Orbitron', sans-serif;">--</span> <span id="hudSecDigitProb" style="color: var(--text-secondary); font-size: 9px;">(0%)</span></div>
                             </div>
 
                             <!-- Probability distribution -->

@@ -243,7 +243,7 @@ function processData(latest) {
     resolvePendingPredictions();
 
     // Trigger HUD and visualizations updates
-    UIControls.updateHUD(prediction, state.currentTargetPeriod);
+    UIControls.updateHUD(prediction, state.currentTargetPeriod, numbers);
     updateNumberIntelligence(numbers);
     updateMonteCarlo(mcResult);
     updateUncertaintyMetrics(prediction, chiResult, autoCorr);
