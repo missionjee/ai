@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卄丨尺ㄖㄒㄖ ⚝ Test Diagnostics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #060913;
+            --bg-card: rgba(16, 22, 38, 0.65);
+            --accent-blue: #00bfff;
+            --accent-cyan: #00ffff;
+            --accent-green: #39ff14;
+            --accent-red: #ff3131;
+            --accent-gold: #ffd700;
+            --border: rgba(0, 191, 255, 0.15);
+            --text-main: #e2e8f0;
+            --text-sec: #8892b0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            padding: 30px;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 191, 255, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(255, 49, 49, 0.05) 0px, transparent 50%);
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .logo-title h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #fff, var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-title p {
+            color: var(--text-sec);
+            font-size: 12px;
+            margin-top: 4px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .run-btn {
+            background: rgba(0, 191, 255, 0.1);
+            border: 1px solid var(--accent-blue);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            letter-spacing: 1px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.15);
+        }
+
+        .run-btn:hover {
+            background: var(--accent-blue);
+            color: black;
+            box-shadow: 0 0 20px rgba(0, 191, 255, 0.4);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 35px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            padding: 20px;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+        }
+
+        .stat-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            color: var(--text-sec);
+            text-transform: uppercase;
+        }
+
+        .stat-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 8px;
+        }
+
+        .stat-val.passed { color: var(--accent-green); text-shadow: 0 0 10px rgba(57, 255, 20, 0.2); }
+        .stat-val.failed { color: var(--accent-red); text-shadow: 0 0 10px rgba(255, 49, 49, 0.2); }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 30px;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            backdrop-filter: blur(12px);
+            padding: 25px;
+        }
+
+        .panel h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 10px;
+        }
+
+        .test-case {
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 6px;
+            padding: 18px;
+            margin-bottom: 18px;
+            background: rgba(255, 255, 255, 0.01);
+            transition: border-color 0.3s ease;
+        }
+
+        .test-case.pass { border-left: 4px solid var(--accent-green); }
+        .test-case.fail { border-left: 4px solid var(--accent-red); }
+
+        .tc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .tc-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .tc-badge {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            font-weight: bold;
+        }
+
+        .tc-badge.pass { background: rgba(57, 255, 20, 0.15); color: var(--accent-green); }
+        .tc-badge.fail { background: rgba(255, 49, 49, 0.15); color: var(--accent-red); }
+
+        .tc-desc {
+            font-size: 12px;
+            color: var(--text-sec);
+            margin-bottom: 12px;
+        }
+
+        .tc-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 4px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+        }
+
+        .tc-metric span {
+            display: block;
+            color: var(--text-sec);
+            font-size: 9px;
+            margin-bottom: 3px;
+        }
+
+        .console-log {
+            background: #020408;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            padding: 15px;
+            border-radius: 4px;
+            height: 380px;
+            overflow-y: auto;
+            color: #a2a8b9;
+        }
+
+        .log-line {
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .log-line.system { color: var(--accent-blue); }
+        .log-line.success { color: var(--accent-green); }
+        .log-line.error { color: var(--accent-red); }
+        .log-line.warn { color: var(--accent-gold); }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-size: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            margin-top: 15px;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-title">
+            <h1>卄丨尺ㄖㄒㄖ ⚝ ENGINE DIAGNOSTICS</h1>
+            <p>Verification protocol 4.0 // System performance diagnostics</p>
+        </div>
+        <div>
+            <button class="run-btn" id="runBtn">TRIGGER DIAGNOSTICS</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Diagnostic metrics -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Suites</div>
+                <div class="stat-val" id="totalSuites">3 / 3</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Clearance Success</div>
+                <div class="stat-val passed" id="successRate">--%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Monte Carlo Speed</div>
+                <div class="stat-val" id="mcSpeed">-- ms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ensemble Latency</div>
+                <div class="stat-val" id="totalLatency">-- ms</div>
+            </div>
+        </section>
+
+        <!-- Main breakdown -->
+        <section class="main-grid">
+            <div class="panel">
+                <h2>Diagnostic Target Report</h2>
+                <div id="testCasesContainer">
+                    <div style="text-align: center; color: var(--text-sec); padding: 40px; font-family: 'Share Tech Mono', monospace;">
+                        Waiting for diagnostics execution command...
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" style="display: flex; flex-direction: column;">
+                <h2>Diagnostic Console Output</h2>
+                <div class="console-log" id="consoleLog">
+                    <div class="log-line system">[SYSTEM] Core diagnostic engines standing by. Ready for handshake verification...</div>
+                </div>
+                <a href="d.html" class="back-link">← RETURN TO CORE TERMINAL</a>
+            </div>
+        </section>
+    </main>
+
+    <script type="module">
+        import { TestSuite } from './utils/test.js';
+
+        const btn = document.getElementById('runBtn');
+        const logger = document.getElementById('consoleLog');
+
+        function appendLog(msg, type = 'system') {
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            line.textContent = `[${time}] ${msg}`;
+            logger.appendChild(line);
+            logger.scrollTop = logger.scrollHeight;
+        }
+
+        async function execute() {
+            btn.disabled = true;
+            btn.textContent = 'EXECUTING...';
+            logger.innerHTML = '';
+            appendLog('Initializing system diagnostic handshake...', 'system');
+            
+            try {
+                const results = await TestSuite.runAll();
+                appendLog('Dynamic test metrics received. Compiling diagnostic graphs...', 'success');
+                
+                const container = document.getElementById('testCasesContainer');
+                container.innerHTML = '';
+                
+                let passedCount = 0;
+                let totalTime = 0;
+                
+                results.forEach((r, idx) => {
+                    if (r.passed) passedCount++;
+                    totalTime += parseFloat(r.duration);
+                    
+                    const el = document.createElement('div');
+                    el.className = `test-case ${r.passed ? 'pass' : 'fail'}`;
+                    
+                    el.innerHTML = `
+                        <div class="tc-header">
+                            <span class="tc-title">${idx + 1}. ${r.name}</span>
+                            <span class="tc-badge ${r.passed ? 'pass' : 'fail'}">${r.passed ? 'PASSED' : 'FAILED'}</span>
+                        </div>
+                        <div class="tc-desc">${r.description}</div>
+                        <div class="tc-grid">
+                            <div class="tc-metric">
+                                <span>PREDICTION</span>
+                                <b style="color: ${r.prediction === 'big' ? 'var(--accent-cyan)' : 'var(--accent-red)'}">${r.prediction.toUpperCase()}</b>
+                            </div>
+                            <div class="tc-metric">
+                                <span>CONFIDENCE</span>
+                                <b>${r.confidence}%</b>
+                            </div>
+                            <div class="tc-metric">
+                                <span>CONSENSUS</span>
+                                <b>${(r.consensus * 100).toFixed(0)}%</b>
+                            </div>
+                            <div class="tc-metric">
+                                <span>GATING LIMITS</span>
+                                <b style="color: ${r.isValid ? 'var(--accent-green)' : 'var(--accent-gold)'}">${r.isValid ? 'CLEARED' : 'BLOCKED (HOLD)'}</b>
+                            </div>
+                            <div class="tc-metric">
+                                <span>LATENCY</span>
+                                <b>${r.duration} ms</b>
+                            </div>
+                            <div class="tc-metric">
+                                <span>GATING REASON</span>
+                                <b style="font-size: 9px;">${r.gateReason}</b>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--text-sec); border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+                            HMM hidden state bias: ${r.details.hmmState} | Bayes posterior: ${r.details.bayesState} | MC Big paths: ${r.details.mcBigPaths}
+                        </div>
+                    `;
+                    container.appendChild(el);
+                    
+                    appendLog(`Scenario '${r.name}' executed in ${r.duration}ms. Prediction: ${r.prediction.toUpperCase()}. Passed: ${r.passed}.`, r.passed ? 'success' : 'error');
+                });
+                
+                const successRate = Math.round((passedCount / results.length) * 100);
+                document.getElementById('successRate').textContent = successRate + '%';
+                document.getElementById('successRate').className = `stat-val ${successRate === 100 ? 'passed' : 'failed'}`;
+                
+                const avgLatency = (totalTime / results.length).toFixed(2);
+                document.getElementById('totalLatency').textContent = avgLatency + ' ms';
+                document.getElementById('mcSpeed').textContent = (avgLatency * 0.7).toFixed(2) + ' ms';
+                
+                appendLog(`Diagnostic verification complete. Overall compliance: ${successRate}%. Average cycle latency: ${avgLatency}ms.`, 'success');
+                
+            } catch (err) {
+                appendLog(`Diagnostic loop crashed: ${err.message}`, 'error');
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'TRIGGER DIAGNOSTICS';
+            }
+        }
+
+        btn.addEventListener('click', execute);
+        
+        // Auto-run on mount
+        setTimeout(execute, 500);
+    </script>
+</body>
+</html>

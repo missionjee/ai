@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hiroto Signals — Authentication</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+JP:wght@400;500&family=Space+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Background -->
+    <div class="bg-grid"></div>
+    <div class="bg-orb"></div>
+
+    <!-- Login Container -->
+    <main class="login-container">
+        
+        <!-- Brand Section -->
+        <div class="brand-section">
+            <div class="logo-wrap">
+                <img src="https://i.ibb.co/jPXgdMN6/logo.jpg" alt="." class="logo">
+            </div>
+            <div class="brand-text">
+                <h1 class="brand-name">卄丨尺ㄖㄒㄖ ⚝ -SIGNALS</h1>
+                <span class="brand-jp">ヒロト信号</span>
+            </div>
+        </div>
+
+        <!-- Login Card -->
+        <div class="login-card">
+            <div class="card-accent"></div>
+            
+            <div class="form-header">
+                <span class="header-icon">◈</span>
+                <h2>Secure Access</h2>
+                <p>Enter your authentication key</p>
+            </div>
+
+            <div class="form-body">
+                <div class="input-group">
+                    <label for="keyInput">Access Key</label>
+                    <input 
+                        type="text" 
+                        id="keyInput" 
+                        class="key-input" 
+                        placeholder="XXXX-XXXX-XXXX" 
+                        maxlength="14"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <button class="submit-btn" id="authBtn" onclick="authenticate()">
+                    <span class="btn-text">Verify Access</span>
+                    <span class="btn-loader hidden"></span>
+                </button>
+
+                <div class="status-msg" id="statusMsg"></div>
+
+                <div class="session-info" id="sessionInfo">
+                    <div class="info-row">
+                        <span>Status</span>
+                        <span class="active" id="sessStatus">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Expires</span>
+                        <span id="sessExpiry">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Remaining</span>
+                        <span id="sessRemain">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->             
+        <footer class="login-footer">
+            <p> • 卄丨尺ㄖㄒㄖ ⚝ SIGNALS Core Gateway </p>
+        </footer>
+    </main>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCBouQx_5CL0aZdK_HrHx3fuHvHQwhj4LQ",
+            authDomain: "enigma-app-25066.firebaseapp.com",
+            projectId: "enigma-app-25066"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.db = db;
+        window.collection = collection;
+        window.getDocs = getDocs;
+    </script>
+
+    <script src="script.js"></script>
+</body>
+</html>
