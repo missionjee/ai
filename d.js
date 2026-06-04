@@ -216,7 +216,7 @@ function processData(latest) {
     const prediction = engine.generatePrediction(lastResult, analysisHistory, CONFIG.MIN_CONFIDENCE);
     state.lastPrediction = prediction;
     
-    const numbers = engine.calculateNumberDistribution(analysisHistory);
+    const numbers = engine.calculateNumberDistribution(analysisHistory, prediction.prediction);
     const mcResult = engine.monteCarloSimulation(analysisHistory, 10000);
     const chiResult = MathUtils.chiSquareTest(analysisHistory);
     const autoCorr = MathUtils.autocorrelation(analysisHistory.map(h => h.actual_result === 'big' ? 1 : 0), 1);

@@ -119,13 +119,22 @@ export class NeuralMatrixEngine {
         // Confidence Engine Logic
         let confidence = Math.round(Math.max(bigProb, smallProb) * 100);
         const sampleScale = history.length < 15 ? (history.length / 15) : 1.0;
-        const entropyPenalty = Math.max(0, (entropy - 0.5) * 15) * sampleScale;
-        const volatilityPenalty = Math.max(0, (volatility - 0.45) * 10) * sampleScale;
+        
+        // Relax penalties to improve signal strength and prevent persistent holds
+        const entropyPenalty = Math.max(0, (entropy - 0.58) * 8) * sampleScale;
+        const volatilityPenalty = Math.max(0, (volatility - 0.48) * 6) * sampleScale;
         confidence -= (entropyPenalty + volatilityPenalty);
 
+        // Consensus Bonus: Boost signal strength when models strongly agree
+        if (consensus >= 0.58) {
+            const bonus = Math.round((consensus - 0.53) * 20); // up to +10% bonus for full consensus
+            confidence += bonus;
+        }
+
         const recentAccuracy = this.getRecentAccuracy();
-        confidence = Math.round(confidence * (0.8 + recentAccuracy * 0.2));
-        confidence = Math.max(minConfidence, Math.min(95, confidence));
+        // Boost scaling factor to keep baseline signal strength higher
+        confidence = Math.round(confidence * (0.86 + recentAccuracy * 0.14));
+        confidence = Math.max(minConfidence, Math.min(96, confidence));
 
         let riskLevel = 'HIGH';
         if (confidence >= 75) riskLevel = 'LOW';
@@ -233,28 +242,76 @@ export class NeuralMatrixEngine {
     }
 
     /**
-     * Calculate digit frequency distribution from history
+     * Calculate digit probability distribution from history, transition stats, and prediction bias
      */
-    calculateNumberDistribution(history) {
+    calculateNumberDistribution(history, predictedType = 'big') {
         const distribution = {};
-        for (let i = 0; i <= 9; i++) distribution[i] = 0;
+        for (let i = 0; i <= 9; i++) distribution[i] = 0.0001; // small baseline
         
         const valid = history.filter(h => h.actual_number !== undefined && h.actual_number !== null);
-        valid.forEach(h => {
-            const num = parseInt(h.actual_number);
-            if (num >= 0 && num <= 9) {
-                distribution[num]++;
-            }
-        });
+        const seq = valid.map(h => parseInt(h.actual_number)).filter(n => !isNaN(n) && n >= 0 && n <= 9).reverse(); // chronological
         
+        // 1. Overall base historical frequency
+        const baseFreq = {};
+        for (let i = 0; i <= 9; i++) baseFreq[i] = 0;
+        seq.forEach(num => baseFreq[num]++);
+        
+        // 2. Transition Markov Chain for digits
+        const transitionCounts = {};
+        for (let i = 0; i <= 9; i++) transitionCounts[i] = 0;
+        
+        let transitionWeightSum = 0;
+        if (seq.length >= 2) {
+            const lastNum = seq[seq.length - 1];
+            // Find all transitions from lastNum
+            for (let i = 0; i < seq.length - 1; i++) {
+                if (seq[i] === lastNum) {
+                    const nextNum = seq[i + 1];
+                    const recencyWeight = Math.pow(0.95, seq.length - 1 - i);
+                    transitionCounts[nextNum] += recencyWeight;
+                    transitionWeightSum += recencyWeight;
+                }
+            }
+        }
+        
+        // 3. Blend transition probability with base frequency
+        for (let i = 0; i <= 9; i++) {
+            const transProb = transitionWeightSum > 0 ? (transitionCounts[i] / transitionWeightSum) : (baseFreq[i] / (seq.length || 1));
+            const baseProb = baseFreq[i] / (seq.length || 1);
+            // Blend: 70% transition prediction, 30% base frequency
+            distribution[i] = (transProb * 0.7) + (baseProb * 0.3);
+        }
+        
+        // 4. Apply prediction bias (BIG/SMALL gating)
+        for (let i = 0; i <= 9; i++) {
+            if (predictedType === 'big') {
+                distribution[i] *= (i >= 5 ? 2.5 : 0.15);
+            } else {
+                distribution[i] *= (i < 5 ? 2.5 : 0.15);
+            }
+        }
+        
+        // 5. Convert to normalized percentages
+        const totalScore = Object.values(distribution).reduce((sum, v) => sum + v, 0) || 1.0;
         const sorted = Object.entries(distribution)
-            .map(([num, freq]) => ({ number: parseInt(num), freq }))
+            .map(([num, score]) => {
+                const percentage = (score / totalScore) * 100;
+                return { number: parseInt(num), freq: Math.round(percentage) };
+            })
             .sort((a, b) => b.freq - a.freq);
             
+        // Map back to a simple distribution count map for visualization compatibility (e.g. d Dist bar charts)
+        const compatDist = {};
+        for (let i = 0; i <= 9; i++) {
+            // scale baseFreq to reflect prediction probability
+            const score = distribution[i] / totalScore;
+            compatDist[i] = Math.round(score * seq.length) || 1;
+        }
+
         return {
-            primary: sorted[0] || { number: 0, freq: 0 },
-            secondary: sorted[1] || { number: 1, freq: 0 },
-            distribution
+            primary: sorted[0] || { number: 0, freq: 10 },
+            secondary: sorted[1] || { number: 1, freq: 10 },
+            distribution: compatDist
         };
     }
 
