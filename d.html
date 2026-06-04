@@ -43,7 +43,6 @@
                     <span class="brand-main">HIROTO</span>
                     <span class="brand-sub">AI TERMINAL v4.0</span>
                 </div>
-                <button class="sidebar-toggle" id="sidebarToggle" style="margin-left: auto; background: none; border: none; color: var(--accent-blue); cursor: pointer; font-size: 14px; outline: none; transition: transform 0.3s ease; padding: 4px 8px; border-radius: 4px;">◀</button>
             </div>
 
             <nav class="sidebar-nav">
@@ -90,9 +89,12 @@
         <main class="main-content">
             <!-- Top Status Bar -->
             <header class="top-bar">
-                <div class="top-left">
-                    <h1 class="page-title" id="pageTitle">AI Command Center</h1>
-                    <span class="page-subtitle" id="pageSubtitle">Real-time predictive signal intelligence</span>
+                <div class="top-left" style="display: flex; align-items: center; gap: 16px;">
+                    <button class="sidebar-toggle" id="sidebarToggle">◀</button>
+                    <div>
+                        <h1 class="page-title" id="pageTitle">AI Command Center</h1>
+                        <span class="page-subtitle" id="pageSubtitle">Real-time predictive signal intelligence</span>
+                    </div>
                 </div>
                 <div class="top-right">
                     <div class="clock-module">
