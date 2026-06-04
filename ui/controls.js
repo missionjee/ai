@@ -82,6 +82,18 @@ export const UIControls = {
             localStorage.setItem('hiroto_sidebar_collapsed', collapsed);
             toggleBtn.textContent = collapsed ? '▶' : '◀';
         });
+
+        // Auto-close sidebar on mobile when clicking outside
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+            mainContent.addEventListener('click', () => {
+                if (window.innerWidth <= 768 && !appContainer.classList.contains('sidebar-collapsed')) {
+                    appContainer.classList.add('sidebar-collapsed');
+                    localStorage.setItem('hiroto_sidebar_collapsed', 'true');
+                    toggleBtn.textContent = '▶';
+                }
+            });
+        }
     },
 
     /**
