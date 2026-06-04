@@ -91,9 +91,11 @@ export const UIControls = {
             valueEl.style.color = "var(--accent-gold)";
             valueEl.style.textShadow = "0 0 10px var(--accent-gold)";
 
-            if (confEl) confEl.textContent = pred.confidence + '% (BLOCKED)';
+            if (confEl) {
+                confEl.innerHTML = `${pred.confidence}% <span style="font-size:10px;color:var(--text-secondary);display:block;margin-top:4px;">RAW: ${pred.prediction.toUpperCase()} (GATED)</span>`;
+            }
             if (stratEl) stratEl.textContent = pred.gateReason ? pred.gateReason.toUpperCase() : "GATING CRITERIA BLOCKED";
-            if (consensusEl) consensusEl.textContent = "--%";
+            if (consensusEl) consensusEl.textContent = (pred.consensus * 100).toFixed(0) + '% (SPLIT)';
         } else {
             valueEl.textContent = pred.prediction.toUpperCase();
             valueEl.className = 'pred-value ' + pred.prediction;
