@@ -1,0 +1,6 @@
+.chrome_debug_profile/
+.chrome_profile/
+login_mock.html
+scratch/
+node_modules/
+.DS_Store
