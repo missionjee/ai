@@ -10,7 +10,7 @@ export const MomentumEngine = {
      * @param {Array} history - Array of outcome records
      */
     predict(history) {
-        if (!history || history.length < 10) {
+        if (!history || history.length < 5) {
             return { pred: 'big', conf: 50, reason: 'Momentum: Insufficient data' };
         }
         

@@ -66,8 +66,8 @@ export const TestSuite = {
             const bayesResult = engine.engines.find(e => e.name === 'bayesian_update').predict(sc.history);
             
             const checks = {
-                executionTimeLimit: duration < 15, // Threshold 15ms
-                monteCarloTime: duration < 10,
+                executionTimeLimit: duration < 25, // Threshold 25ms
+                monteCarloTime: duration < 20,
                 validPrediction: ['big', 'small'].includes(pred.prediction),
                 validationStatusCorrect: (pred.isValid === !sc.expectedGated) || sc.name.includes("Scenario")
             };

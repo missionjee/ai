@@ -10,12 +10,12 @@ export const ReversalEngine = {
      * @param {Array} history - Array of outcome records
      */
     predict(history) {
-        if (!history || history.length < 15) {
+        if (!history || history.length < 5) {
             return { pred: 'big', conf: 50, reason: 'Reversal: Insufficient data' };
         }
         
         const nums = history.slice(0, 20).map(h => h.actual_number).filter(n => n !== undefined && n !== null);
-        if (nums.length < 8) {
+        if (nums.length < 4) {
             return { pred: 'big', conf: 50, reason: 'Reversal: No numbers' };
         }
 

@@ -12,7 +12,7 @@ export const ValidationPipeline = {
      * @returns {Object} Validation status and explanation
      */
     validate(predResult, history, minConfidence = 52) {
-        if (!predResult || !history || history.length < 10) {
+        if (!predResult || !history || history.length < 5) {
             return { isValid: false, reason: 'Insufficient validation context' };
         }
 

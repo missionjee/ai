@@ -12,7 +12,7 @@ export const VolatilityEngine = {
      * @param {Array} history - Array of outcome records
      */
     predict(history) {
-        if (!history || history.length < 10) {
+        if (!history || history.length < 5) {
             return { pred: 'big', conf: 50, reason: 'Volatility: Insufficient history' };
         }
         
