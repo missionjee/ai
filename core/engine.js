@@ -118,8 +118,9 @@ export class NeuralMatrixEngine {
 
         // Confidence Engine Logic
         let confidence = Math.round(Math.max(bigProb, smallProb) * 100);
-        const entropyPenalty = Math.max(0, (entropy - 0.5) * 15);
-        const volatilityPenalty = Math.max(0, (volatility - 0.45) * 10);
+        const sampleScale = history.length < 15 ? (history.length / 15) : 1.0;
+        const entropyPenalty = Math.max(0, (entropy - 0.5) * 15) * sampleScale;
+        const volatilityPenalty = Math.max(0, (volatility - 0.45) * 10) * sampleScale;
         confidence -= (entropyPenalty + volatilityPenalty);
 
         const recentAccuracy = this.getRecentAccuracy();
