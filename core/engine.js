@@ -232,6 +232,39 @@ export class NeuralMatrixEngine {
     }
 
     /**
+     * Calculate digit frequency distribution from history
+     */
+    calculateNumberDistribution(history) {
+        const distribution = {};
+        for (let i = 0; i <= 9; i++) distribution[i] = 0;
+        
+        const valid = history.filter(h => h.actual_number !== undefined && h.actual_number !== null);
+        valid.forEach(h => {
+            const num = parseInt(h.actual_number);
+            if (num >= 0 && num <= 9) {
+                distribution[num]++;
+            }
+        });
+        
+        const sorted = Object.entries(distribution)
+            .map(([num, freq]) => ({ number: parseInt(num), freq }))
+            .sort((a, b) => b.freq - a.freq);
+            
+        return {
+            primary: sorted[0] || { number: 0, freq: 0 },
+            secondary: sorted[1] || { number: 1, freq: 0 },
+            distribution
+        };
+    }
+
+    /**
+     * Run Monte Carlo simulation paths
+     */
+    monteCarloSimulation(history, runs = 10000) {
+        return MonteCarloEngine.predict(history);
+    }
+
+    /**
      * Fetch strategy stats array
      */
     getStrategyStats() {
