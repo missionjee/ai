@@ -254,6 +254,8 @@ function processData(latest) {
     if (state.activePanel === 'models') UIControls.refreshObservatoryCharts();
     if (state.activePanel === 'trends') UIControls.refreshTrendPanel();
     if (state.activePanel === 'risk') UIControls.refreshRiskPanel();
+    if (state.activePanel === 'history') UIControls.refreshConfidenceTrendChart();
+
 
     if (state.isFirstPrediction) state.isFirstPrediction = false;
 }
@@ -546,6 +548,24 @@ function init() {
 
     UIControls.bind(state, engine);
     state.fullHistory = HistoryManager.load();
+    
+    // Sidebar close (mobile X) and hide (desktop footer) buttons
+    const appContainer = document.getElementById('dashboardContent');
+    const toggleBtn = document.getElementById('sidebarToggle');
+
+    function collapseSidebar() {
+        if (!appContainer || !toggleBtn) return;
+        appContainer.classList.add('sidebar-collapsed');
+        localStorage.setItem('hiroto_sidebar_collapsed', 'true');
+        toggleBtn.textContent = '▶';
+    }
+
+    const closeBtn = document.getElementById('sidebarCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); collapseSidebar(); });
+
+    const hideBtn = document.getElementById('sidebarHideBtn');
+    if (hideBtn) hideBtn.addEventListener('click', (e) => { e.stopPropagation(); collapseSidebar(); });
+
     
     // Restore pending states
     state.fullHistory.forEach(h => {

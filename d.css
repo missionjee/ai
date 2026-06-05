@@ -1415,3 +1415,88 @@ body {
         display: none !important; /* Hide divider line */
     }
 }
+
+/* ============================================
+   SIDEBAR HIDE / CLOSE BUTTONS
+   ============================================ */
+
+/* Desktop hide button (at sidebar footer) */
+.sidebar-hide-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(0, 191, 255, 0.04);
+    border: 1px solid rgba(0, 191, 255, 0.12);
+    border-radius: 5px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+.sidebar-hide-btn:hover {
+    background: rgba(0, 191, 255, 0.10);
+    border-color: rgba(0, 191, 255, 0.3);
+    color: var(--accent-blue);
+}
+
+/* Mobile X close button (top-right of sidebar brand) */
+.sidebar-close-btn {
+    display: none; /* Hidden on desktop */
+    margin-left: auto;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 49, 49, 0.1);
+    border: 1px solid rgba(255, 49, 49, 0.25);
+    color: var(--accent-red);
+    font-size: 13px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.sidebar-close-btn:hover {
+    background: rgba(255, 49, 49, 0.2);
+    box-shadow: 0 0 8px rgba(255, 49, 49, 0.3);
+}
+
+@media (max-width: 768px) {
+    .sidebar-close-btn {
+        display: flex; /* Show on mobile */
+    }
+    .sidebar-hide-btn {
+        display: none; /* Hide footer btn on mobile (use X instead) */
+    }
+}
+
+/* Weights chart and feature chart containers: ensure visible */
+#weightsChart {
+    min-height: 280px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+#featureList {
+    min-height: 160px;
+    overflow-y: auto;
+}
+
+#diagnostics {
+    min-height: 100px;
+}
+
+/* Confidence trend chart */
+#confidenceTrendChart {
+    min-height: 140px;
+    padding: 4px;
+}
+

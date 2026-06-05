@@ -1,5 +1,6 @@
 /**
  * Hiroto AI Terminal — Core Ensemble Prediction & Self-Learning Engine
+ * v5.0 — 17-Engine Ensemble with Neural, Kalman, LSTM, Meta-Learner
  */
 
 import { MathUtils } from '../utils/math.js';
@@ -19,6 +20,10 @@ import { PatternEngine } from '../models/pattern.js';
 import { StreakEngine } from '../models/streak.js';
 import { ReversalEngine } from '../models/reversal.js';
 import { RegimeEngine } from '../models/regime.js';
+import { NeuralEngine } from '../models/neural.js';
+import { KalmanEngine } from '../models/kalman.js';
+import { LSTMEngine } from '../models/lstm.js';
+import { MetaLearnerEngine } from '../models/metalearner.js';
 
 export class NeuralMatrixEngine {
     constructor() {
@@ -35,18 +40,25 @@ export class NeuralMatrixEngine {
             PatternEngine,
             StreakEngine,
             ReversalEngine,
-            RegimeEngine
+            RegimeEngine,
+            NeuralEngine,
+            KalmanEngine,
+            LSTMEngine,
+            MetaLearnerEngine
         ];
         
         this.strategies = this.engines.map(e => e.name);
         this.performance = {};
+        
+        // Confidence history for trend chart
+        this.confidenceHistory = [];
         
         this.strategies.forEach(s => {
             this.performance[s] = {
                 wins: 0,
                 losses: 0,
                 recent: [],
-                uncertainty: 1.0
+                uncertainty: 0.5  // Start neutral (not fully uncertain)
             };
         });
     }
@@ -82,11 +94,21 @@ export class NeuralMatrixEngine {
         const entropy = MathUtils.entropy(history.slice(0, 20));
         const volatility = MathUtils.stdDev(history.slice(0, 15).map(h => (h.actual_result || h.result_type) === 'big' ? 1 : 0));
 
+        // Enhanced regime boosts now cover new models
         const regimeBoost = {
-            trending: { streak_anal: 1.5, rolling_trend: 1.4, markov_chain: 1.2, momentum_det: 1.3 },
-            alternating: { pattern_persist: 1.5, autocorr: 1.4, frequency_dist: 1.2 },
-            biased: { mean_revert: 1.5, bayesian_update: 1.3, hidden_markov: 1.4 },
-            mixed: {}
+            trending: { 
+                streak_anal: 1.6, rolling_trend: 1.5, markov_chain: 1.3, momentum_det: 1.4,
+                lstm_sequence: 1.4, kalman_filter: 1.3, neural_perceptron: 1.2
+            },
+            alternating: { 
+                pattern_persist: 1.6, autocorr: 1.5, frequency_dist: 1.3,
+                meta_learner: 1.5, reversal_detect: 1.4
+            },
+            biased: { 
+                mean_revert: 1.5, bayesian_update: 1.4, hidden_markov: 1.5,
+                kalman_filter: 1.4, neural_perceptron: 1.3
+            },
+            mixed: { meta_learner: 1.3, lstm_sequence: 1.2 }
         };
 
         let bigScore = 0, smallScore = 0, totalWeight = 0;
@@ -100,7 +122,7 @@ export class NeuralMatrixEngine {
             
             const perf = this.performance[r.name];
             if (perf && perf.uncertainty > 0.5) {
-                w *= (1 - (perf.uncertainty - 0.5) * 0.4);
+                w *= (1 - (perf.uncertainty - 0.5) * 0.3); // Lighter penalty
             }
             
             const score = (r.conf / 100) * w;
@@ -116,25 +138,36 @@ export class NeuralMatrixEngine {
         const prediction = bigProb > smallProb ? 'big' : 'small';
         const consensus = Math.max(bigVotes, smallVotes) / results.length;
 
-        // Confidence Engine Logic
+        // ---- Enhanced Confidence Engine v2 ----
         let confidence = Math.round(Math.max(bigProb, smallProb) * 100);
         const sampleScale = history.length < 15 ? (history.length / 15) : 1.0;
         
-        // Relax penalties to improve signal strength and prevent persistent holds
-        const entropyPenalty = Math.max(0, (entropy - 0.58) * 8) * sampleScale;
-        const volatilityPenalty = Math.max(0, (volatility - 0.48) * 6) * sampleScale;
+        // Very relaxed penalties — only trigger on extreme entropy/volatility
+        const entropyPenalty = Math.max(0, (entropy - 0.65) * 6) * sampleScale;
+        const volatilityPenalty = Math.max(0, (volatility - 0.50) * 5) * sampleScale;
         confidence -= (entropyPenalty + volatilityPenalty);
 
-        // Consensus Bonus: Boost signal strength when models strongly agree
-        if (consensus >= 0.58) {
-            const bonus = Math.round((consensus - 0.53) * 20); // up to +10% bonus for full consensus
+        // Strong consensus bonus — reward agreement across 17 models
+        if (consensus >= 0.55) {
+            const bonus = Math.round((consensus - 0.50) * 30); // up to +15% bonus
             confidence += bonus;
         }
 
+        // Boost from recent accuracy
         const recentAccuracy = this.getRecentAccuracy();
-        // Boost scaling factor to keep baseline signal strength higher
-        confidence = Math.round(confidence * (0.86 + recentAccuracy * 0.14));
-        confidence = Math.max(minConfidence, Math.min(96, confidence));
+        confidence = Math.round(confidence * (0.82 + recentAccuracy * 0.18));
+        
+        // Hard floor / ceiling
+        confidence = Math.max(minConfidence, Math.min(97, confidence));
+
+        // Track confidence history for the trend chart
+        this.confidenceHistory.push({
+            ts: Date.now(),
+            conf: confidence,
+            consensus: Math.round(consensus * 100),
+            pred: prediction
+        });
+        if (this.confidenceHistory.length > 60) this.confidenceHistory.shift();
 
         let riskLevel = 'HIGH';
         if (confidence >= 75) riskLevel = 'LOW';
@@ -172,8 +205,9 @@ export class NeuralMatrixEngine {
             const perf = this.performance[s];
             const recent = perf.recent.slice(-20);
             const wins = recent.filter(r => r).length;
-            const acc = recent.length ? wins / recent.length : 0.5;
-            weights[s] = (0.25 + acc * 1.5) * (1.5 - perf.uncertainty);
+            const acc = recent.length ? wins / recent.length : 0.5; // default 50% not 0%
+            // Base weight: all models start at 1.0 equivalent 
+            weights[s] = (0.4 + acc * 1.2) * (1.2 - perf.uncertainty * 0.4);
             totalPerf += weights[s];
         });
         
@@ -189,7 +223,7 @@ export class NeuralMatrixEngine {
     getRecentAccuracy() {
         const all = [];
         this.strategies.forEach(s => all.push(...this.performance[s].recent.slice(-10)));
-        if (all.length === 0) return 0.5;
+        if (all.length === 0) return 0.55; // Optimistic prior
         return all.filter(r => r).length / all.length;
     }
 
@@ -203,8 +237,8 @@ export class NeuralMatrixEngine {
             if (correct) this.performance[strategyName].wins++;
             else this.performance[strategyName].losses++;
             this.performance[strategyName].recent.push(correct);
-            if (this.performance[strategyName].recent.length > 40) this.performance[strategyName].recent.shift();
-            const recent = this.performance[strategyName].recent.slice(-15);
+            if (this.performance[strategyName].recent.length > 50) this.performance[strategyName].recent.shift();
+            const recent = this.performance[strategyName].recent.slice(-20);
             const acc = recent.filter(r => r).length / recent.length;
             this.performance[strategyName].uncertainty = 1.0 - acc;
         }
@@ -215,8 +249,8 @@ export class NeuralMatrixEngine {
                 if (sCorrect) this.performance[s.name].wins++;
                 else this.performance[s.name].losses++;
                 this.performance[s.name].recent.push(sCorrect);
-                if (this.performance[s.name].recent.length > 40) this.performance[s.name].recent.shift();
-                const recent = this.performance[s.name].recent.slice(-15);
+                if (this.performance[s.name].recent.length > 50) this.performance[s.name].recent.shift();
+                const recent = this.performance[s.name].recent.slice(-20);
                 const acc = recent.filter(r => r).length / recent.length;
                 this.performance[s.name].uncertainty = 1.0 - acc;
             }
@@ -246,52 +280,57 @@ export class NeuralMatrixEngine {
      */
     calculateNumberDistribution(history, predictedType = 'big') {
         const distribution = {};
-        for (let i = 0; i <= 9; i++) distribution[i] = 0.0001; // small baseline
+        for (let i = 0; i <= 9; i++) distribution[i] = 0.0001;
         
         const valid = history.filter(h => h.actual_number !== undefined && h.actual_number !== null);
-        const seq = valid.map(h => parseInt(h.actual_number)).filter(n => !isNaN(n) && n >= 0 && n <= 9).reverse(); // chronological
+        const seq = valid.map(h => parseInt(h.actual_number)).filter(n => !isNaN(n) && n >= 0 && n <= 9).reverse();
         
         // 1. Overall base historical frequency
         const baseFreq = {};
         for (let i = 0; i <= 9; i++) baseFreq[i] = 0;
         seq.forEach(num => baseFreq[num]++);
         
-        // 2. Transition Markov Chain for digits
+        // 2. Recency-weighted frequency (last 20 items get 3x weight)
+        const recentSeq = seq.slice(-20);
+        const recentFreq = {};
+        for (let i = 0; i <= 9; i++) recentFreq[i] = 0;
+        recentSeq.forEach(num => recentFreq[num] += 3);
+        
+        // 3. Transition Markov Chain for digits
         const transitionCounts = {};
         for (let i = 0; i <= 9; i++) transitionCounts[i] = 0;
         
         let transitionWeightSum = 0;
         if (seq.length >= 2) {
             const lastNum = seq[seq.length - 1];
-            // Find all transitions from lastNum
             for (let i = 0; i < seq.length - 1; i++) {
                 if (seq[i] === lastNum) {
                     const nextNum = seq[i + 1];
-                    const recencyWeight = Math.pow(0.95, seq.length - 1 - i);
+                    const recencyWeight = Math.pow(0.94, seq.length - 1 - i);
                     transitionCounts[nextNum] += recencyWeight;
                     transitionWeightSum += recencyWeight;
                 }
             }
         }
         
-        // 3. Blend transition probability with base frequency
+        // 4. Blend: 50% transition, 30% recency freq, 20% base freq
         for (let i = 0; i <= 9; i++) {
             const transProb = transitionWeightSum > 0 ? (transitionCounts[i] / transitionWeightSum) : (baseFreq[i] / (seq.length || 1));
             const baseProb = baseFreq[i] / (seq.length || 1);
-            // Blend: 70% transition prediction, 30% base frequency
-            distribution[i] = (transProb * 0.7) + (baseProb * 0.3);
+            const recentProb = recentFreq[i] / (recentSeq.length * 3 || 1);
+            distribution[i] = (transProb * 0.5) + (recentProb * 0.3) + (baseProb * 0.2);
         }
         
-        // 4. Apply prediction bias (BIG/SMALL gating)
+        // 5. Apply prediction bias (BIG/SMALL gating) — strong bias to focus on correct range
         for (let i = 0; i <= 9; i++) {
             if (predictedType === 'big') {
-                distribution[i] *= (i >= 5 ? 2.5 : 0.15);
+                distribution[i] *= (i >= 5 ? 3.0 : 0.08);
             } else {
-                distribution[i] *= (i < 5 ? 2.5 : 0.15);
+                distribution[i] *= (i < 5 ? 3.0 : 0.08);
             }
         }
         
-        // 5. Convert to normalized percentages
+        // 6. Convert to normalized percentages
         const totalScore = Object.values(distribution).reduce((sum, v) => sum + v, 0) || 1.0;
         const sorted = Object.entries(distribution)
             .map(([num, score]) => {
@@ -300,17 +339,15 @@ export class NeuralMatrixEngine {
             })
             .sort((a, b) => b.freq - a.freq);
             
-        // Map back to a simple distribution count map for visualization compatibility (e.g. d Dist bar charts)
         const compatDist = {};
         for (let i = 0; i <= 9; i++) {
-            // scale baseFreq to reflect prediction probability
             const score = distribution[i] / totalScore;
             compatDist[i] = Math.round(score * seq.length) || 1;
         }
 
         return {
-            primary: sorted[0] || { number: 0, freq: 10 },
-            secondary: sorted[1] || { number: 1, freq: 10 },
+            primary: sorted[0] || { number: predictedType === 'big' ? 7 : 2, freq: 20 },
+            secondary: sorted[1] || { number: predictedType === 'big' ? 8 : 1, freq: 15 },
             distribution: compatDist
         };
     }
@@ -333,10 +370,17 @@ export class NeuralMatrixEngine {
             const recentWins = recent.filter(r => r).length;
             return {
                 name: s, wins: p.wins, losses: p.losses,
-                accuracy: total ? Math.round((p.wins / total) * 100) : 0,
-                recentAccuracy: recent.length ? Math.round((recentWins / recent.length) * 100) : 0,
+                accuracy: total ? Math.round((p.wins / total) * 100) : 50,
+                recentAccuracy: recent.length ? Math.round((recentWins / recent.length) * 100) : 50,
                 uncertainty: Math.round(p.uncertainty * 100)
             };
         });
+    }
+    
+    /**
+     * Get confidence history for trend visualization
+     */
+    getConfidenceHistory() {
+        return this.confidenceHistory;
     }
 }
