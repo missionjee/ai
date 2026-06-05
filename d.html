@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>卄丨尺ㄖㄒㄖ ⚝ Institutional AI Terminal</title>
     <link rel="stylesheet" href="d.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <base target="_blank">
 </head>
@@ -169,22 +169,30 @@
                                 </div>
                             </div>
 
-                            <div class="hud-digits-display" style="display: flex; gap: 20px; justify-content: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.03); font-family: 'Share Tech Mono', monospace; font-size: 11px;">
-                                <div>HIGH PROBABILITY TARGET: <span id="hudHighDigit" style="color: var(--accent-blue); font-weight: bold; font-size: 14px; font-family: 'Orbitron', sans-serif;">--</span> <span id="hudHighDigitProb" style="color: var(--text-secondary); font-size: 9px;">(0%)</span></div>
-                                <div style="width: 1px; background: rgba(255,255,255,0.05);"></div>
-                                <div>SECONDARY TARGET: <span id="hudSecDigit" style="color: var(--accent-cyan); font-weight: bold; font-size: 14px; font-family: 'Orbitron', sans-serif;">--</span> <span id="hudSecDigitProb" style="color: var(--text-secondary); font-size: 9px;">(0%)</span></div>
+                            <div class="hud-digits-display" style="display:flex; gap:24px; justify-content:center; align-items:center; margin-top:22px; padding-top:14px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:10px; color:var(--text-secondary);">
+                                <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                                    <span style="font-size:8px; letter-spacing:2px; text-transform:uppercase; opacity:0.6;">HIGH PROB</span>
+                                    <span id="hudHighDigit" style="color:var(--blue); font-weight:700; font-size:22px; font-family:var(--font-header); text-shadow:0 0 14px rgba(0,212,255,0.5);">--</span>
+                                    <span id="hudHighDigitProb" style="color:var(--text-muted); font-size:9px;">(0%)</span>
+                                </div>
+                                <div style="width:1px; height:40px; background:var(--border);"></div>
+                                <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                                    <span style="font-size:8px; letter-spacing:2px; text-transform:uppercase; opacity:0.6;">SECONDARY</span>
+                                    <span id="hudSecDigit" style="color:var(--cyan); font-weight:700; font-size:22px; font-family:var(--font-header); text-shadow:0 0 14px rgba(0,255,204,0.4);">--</span>
+                                    <span id="hudSecDigitProb" style="color:var(--text-muted); font-size:9px;">(0%)</span>
+                                </div>
                             </div>
 
                             <!-- Probability distribution -->
-                            <div class="prob-distribution" style="margin-top: 25px;">
-                                <div class="prob-labels" style="display: flex; justify-content: space-between; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
-                                    <span>SMALL <b id="probSmall">50%</b></span>
-                                    <span>BIG <b id="probBig">50%</b></span>
+                            <div style="margin-top:20px;">
+                                <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; color:var(--text-secondary); margin-bottom:8px; letter-spacing:1px;">
+                                    <span style="display:flex; align-items:center; gap:6px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block;"></span>SMALL <b id="probSmall" style="color:var(--red);">50%</b></span>
+                                    <span style="display:flex; align-items:center; gap:6px;">BIG <b id="probBig" style="color:var(--cyan);">50%</b><span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);display:inline-block;"></span></span>
                                 </div>
-                                <div class="prob-bar" style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; position: relative; overflow: hidden; display: flex;">
-                                    <div class="prob-fill small" id="probFillSmall" style="height: 100%; background: var(--accent-red); width: 50%; transition: width 0.5s ease;"></div>
-                                    <div class="prob-fill big" id="probFillBig" style="height: 100%; background: var(--accent-cyan); width: 50%; transition: width 0.5s ease;"></div>
-                                    <div class="prob-marker" id="probMarker" style="position: absolute; width: 2px; height: 100%; background: white; left: 50%; transition: left 0.5s ease;"></div>
+                                <div style="width:100%; height:5px; background:rgba(255,255,255,0.04); border-radius:3px; overflow:hidden; display:flex; position:relative;">
+                                    <div id="probFillSmall" style="height:100%; background:linear-gradient(90deg,var(--red),rgba(255,68,102,0.4)); width:50%; transition:width 0.5s var(--ease); border-radius:3px 0 0 3px;"></div>
+                                    <div id="probFillBig"   style="height:100%; background:linear-gradient(90deg,rgba(0,255,204,0.4),var(--cyan)); width:50%; transition:width 0.5s var(--ease); border-radius:0 3px 3px 0;"></div>
+                                    <div id="probMarker" style="position:absolute; width:2px; height:100%; background:rgba(255,255,255,0.7); left:50%; transition:left 0.5s var(--ease); top:0;"></div>
                                 </div>
                             </div>
                         </div>
@@ -261,8 +269,8 @@
                             <span class="panel-badge pulse">LIVE SYNC</span>
                         </div>
                         <div class="stream-grid" id="streamContent">
-                            <div class="stream-loading" style="grid-column: span 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-secondary);">
-                                <div class="stream-spinner" style="width: 20px; height: 20px; border: 2px solid rgba(0, 191, 255, 0.2); border-left-color: var(--accent-blue); border-radius: 50%; animation: rotateCW 1s linear infinite;"></div>
+                            <div style="grid-column:span 6; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted); padding:16px 0;">
+                                <div style="width:18px; height:18px; border:2px solid var(--border); border-left-color:var(--blue); border-radius:50%; animation:rotateCW 1s linear infinite;"></div>
                                 <span>Synchronizing result streams...</span>
                             </div>
                         </div>
@@ -360,14 +368,14 @@
                         </div>
                         <div class="pipeline-risk-grid" style="font-family: 'Share Tech Mono', monospace; font-size: 12px;">
                             <div>
-                                <h4 style="color: var(--accent-cyan); font-size: 13px; margin-bottom: 12px;">VALIDATION PIPELINE</h4>
-                                <div style="display: flex; flex-direction: column; gap: 8px;" id="pipelineValidationList">
+                                <h4 style="color:var(--cyan); font-family:var(--font-header); font-size:10px; letter-spacing:2px; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid var(--border);">VALIDATION PIPELINE</h4>
+                                <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11px;" id="pipelineValidationList">
                                     <!-- Dynamic Validation Pipeline -->
                                 </div>
                             </div>
                             <div>
-                                <h4 style="color: var(--accent-gold); font-size: 13px; margin-bottom: 12px;">RISK ANALYSIS MATRIX</h4>
-                                <div style="display: flex; flex-direction: column; gap: 8px;" id="riskAnalysisMetrics">
+                                <h4 style="color:var(--gold); font-family:var(--font-header); font-size:10px; letter-spacing:2px; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid var(--border);">RISK ANALYSIS MATRIX</h4>
+                                <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11px;" id="riskAnalysisMetrics">
                                     <!-- Dynamic Risk Matrix -->
                                 </div>
                             </div>
@@ -449,9 +457,9 @@
                                 </thead>
                                 <tbody id="historyBody">
                                     <tr class="loading-row">
-                                        <td colspan="6" style="text-align: center; padding: 24px;">
-                                            <div class="table-loader" style="display: flex; flex-direction: column; align-items: center; gap: 10px; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-secondary);">
-                                                <div class="loader-ring" style="width: 24px; height: 24px; border: 2px solid rgba(0, 191, 255, 0.2); border-left-color: var(--accent-blue); border-radius: 50%; animation: rotateCW 1s linear infinite;"></div>
+                                        <td colspan="6" style="text-align:center; padding:28px;">
+                                            <div style="display:flex; flex-direction:column; align-items:center; gap:10px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">
+                                                <div style="width:22px; height:22px; border:2px solid var(--border); border-left-color:var(--blue); border-radius:50%; animation:rotateCW 1s linear infinite;"></div>
                                                 <span>Decrypting historical archives...</span>
                                             </div>
                                         </td>
