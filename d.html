@@ -3,196 +3,121 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>HIROTO AI — Signal Intelligence Terminal</title>
-  <meta name="description" content="Institutional-grade predictive signal intelligence terminal with real-time ensemble forecasting.">
+  <title>HIROTO — Predictive Signal Terminal</title>
+  <meta name="description" content="Institutional predictive signal intelligence terminal.">
 
-  <!-- Fonts -->
+  <!-- Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Visual Effects: Canvas & Aurora Background -->
-  <div class="aurora-mesh"></div>
-  <canvas id="terminalCanvas" class="bg-canvas"></canvas>
+  <!-- Win Celebration Canvas Overlay -->
+  <canvas id="celebrationCanvas" class="celebration-canvas"></canvas>
 
   <div class="app-shell">
     
-    <!-- 1. Header with Brand, Status, Clearance & Logout -->
+    <!-- 1. Minimal Header -->
     <header class="top-header">
       <div class="brand-area">
-        <div class="brand-logo">⚝</div>
+        <div class="brand-badge">⚝</div>
         <div class="brand-info">
-          <h1>HIROTO AI</h1>
-          <p>Signal Intelligence Terminal</p>
+          <h1>HIROTO</h1>
+          <span class="brand-sub">AI TERMINAL</span>
         </div>
       </div>
 
       <div class="header-controls">
-        <!-- Live Connection Pill -->
         <div class="status-pill" id="statusPill">
           <span class="pulse-dot"></span>
-          <span id="statusText">LIVE FEED</span>
+          <span id="statusText">LIVE</span>
         </div>
 
-        <!-- Clearance Badge -->
-        <div class="clearance-badge" id="clearanceBadge">
-          <span class="badge-icon">◈</span>
-          <span id="clearanceText">ACTIVE ACCESS</span>
-        </div>
-
-        <!-- Audio Toggle -->
-        <button class="btn-icon" id="btnSound" title="Toggle sound alerts" aria-label="Toggle Sound">🔊</button>
-        
-        <!-- Refresh Button -->
-        <button class="btn-icon" id="btnSync" title="Sync latest data" aria-label="Force Sync">↻</button>
-        
-        <!-- Logout Button -->
-        <button class="btn-icon danger" id="btnLogout" title="Logout session" aria-label="Logout">⎋</button>
+        <button class="btn-icon" id="btnSound" title="Toggle Sound" aria-label="Toggle Sound">🔊</button>
+        <button class="btn-icon" id="btnSync" title="Sync Latest" aria-label="Sync">↻</button>
+        <button class="btn-icon danger" id="btnLogout" title="Logout" aria-label="Logout">⎋</button>
       </div>
     </header>
 
-    <!-- 2. Layout View Switcher -->
-    <div class="view-mode-bar">
-      <div class="view-toggle-wrap">
-        <button class="view-toggle-btn active" id="btnViewFocus" data-mode="focus">
-          <span>⚡ Focus Mode</span>
-        </button>
-        <button class="view-toggle-btn" id="btnViewPro" data-mode="pro">
-          <span>📊 Pro Terminal</span>
-        </button>
-      </div>
-      <div class="live-clock" id="liveClock">00:00:00 UTC</div>
-    </div>
-
-    <!-- 3. Metrics Summary Bar -->
+    <!-- 2. Performance Summary -->
     <section class="metrics-row">
-      <div class="metric-box emerald">
+      <div class="metric-box">
         <span class="metric-label">Win Rate</span>
-        <span class="metric-value" id="metricWinRate">--%</span>
-        <span class="metric-sub">Historical accuracy</span>
+        <span class="metric-value emerald" id="metricWinRate">--%</span>
       </div>
-      <div class="metric-box gold">
-        <span class="metric-label">Streak</span>
-        <span class="metric-value" id="metricStreak">0 🔥</span>
-        <span class="metric-sub">Current momentum</span>
+      <div class="metric-box">
+        <span class="metric-label">Win Streak</span>
+        <span class="metric-value gold" id="metricStreak">0 🔥</span>
       </div>
-      <div class="metric-box cyan">
-        <span class="metric-label">Analyzed</span>
+      <div class="metric-box">
+        <span class="metric-label">Total Rounds</span>
         <span class="metric-value" id="metricTotal">0</span>
-        <span class="metric-sub">Total verified rounds</span>
       </div>
-      <div class="metric-box purple">
-        <span class="metric-label">Consensus</span>
-        <span class="metric-value" id="metricConsensus">--</span>
-        <span class="metric-sub">Model agreement</span>
+      <div class="metric-box">
+        <span class="metric-label">AI Consensus</span>
+        <span class="metric-value cyan" id="metricConsensus">--</span>
       </div>
     </section>
 
-    <!-- 4. MAIN FOCUS: Prediction Hero Card -->
-    <main class="prediction-hero">
+    <!-- 3. PREDICTION HERO CARD -->
+    <main class="prediction-hero" id="predictionHero">
+      <!-- Target Period & Countdown Header -->
       <div class="hero-top">
         <div class="period-badge-wrap">
-          <span class="period-title">Target Period</span>
-          <span class="period-num" id="targetPeriodNum">----------</span>
+          <span class="period-title">TARGET</span>
+          <span class="period-num" id="targetPeriodNum">#----</span>
         </div>
         <div class="countdown-box">
-          <span class="countdown-label">Draw In</span>
+          <span class="countdown-label">DRAW IN</span>
           <span class="countdown-timer" id="countdownTimer">00:60</span>
         </div>
       </div>
 
-      <div class="hero-body">
-        <!-- Giant Signal Banner (BIG / SMALL) -->
+      <!-- Main Prediction Banner -->
+      <div class="hero-main-banner">
         <div class="signal-banner BIG" id="signalBanner">
-          <span class="signal-tag">ACTIVE PREDICTIVE SIGNAL</span>
+          <span class="signal-tag">RECOMMENDED SIGNAL</span>
           <span class="signal-text" id="signalText">BIG</span>
-          <span class="signal-range" id="signalRange">RANGE: 5, 6, 7, 8, 9</span>
+          <span class="signal-range" id="signalRange">5 · 6 · 7 · 8 · 9</span>
         </div>
 
-        <!-- Details & Actions -->
-        <div class="hero-details">
-          <!-- Confidence Meter -->
-          <div class="confidence-block">
+        <!-- Quick Details & Action -->
+        <div class="signal-action-wrap">
+          <!-- Confidence Bar -->
+          <div class="confidence-wrap">
             <div class="confidence-header">
-              <span class="confidence-title">Signal Confidence</span>
-              <span class="confidence-pct" id="confidencePct">--%</span>
+              <span>Confidence</span>
+              <strong id="confidencePct">--%</strong>
             </div>
-            <div class="confidence-bar-wrap">
-              <div class="confidence-bar-fill" id="confidenceBar" style="width: 50%;"></div>
-            </div>
-          </div>
-
-          <!-- Lucky Target Digits -->
-          <div class="lucky-digits-wrap">
-            <div class="lucky-digits-title">
-              <span>Target Lucky Digits</span>
-              <small>Calculated peak digit distributions</small>
-            </div>
-            <div class="digits-chips">
-              <div class="digit-chip" id="luckyDigit1">-</div>
-              <div class="digit-chip secondary" id="luckyDigit2">-</div>
+            <div class="confidence-track">
+              <div class="confidence-fill" id="confidenceBar" style="width: 50%;"></div>
             </div>
           </div>
 
-          <!-- Action & Gating Row -->
-          <div class="hero-footer-row">
-            <div class="gating-status CLEARED" id="gatingStatus">
-              CLEARED • Signal verified
+          <!-- Target Lucky Digits & Copy Button Row -->
+          <div class="action-bar-row">
+            <div class="lucky-digits-box">
+              <span class="lucky-label">LUCKY DIGITS</span>
+              <div class="digits-group">
+                <span class="digit-chip primary" id="luckyDigit1">-</span>
+                <span class="digit-chip secondary" id="luckyDigit2">-</span>
+              </div>
             </div>
+
             <button class="btn-copy-signal" id="btnCopySignal">
-              <span>📋 Copy Signal</span>
+              <span>📋 Copy</span>
             </button>
-          </div>
-
-          <!-- Strategy Tag -->
-          <div class="strategy-caption" id="strategyReason">
-            Markov Chain + Streak Hazard Consensus
           </div>
         </div>
       </div>
     </main>
 
-    <!-- 5. PRO MODE: Extended Intelligence Grid (Visible in Pro Mode) -->
-    <section class="pro-analytics-grid" id="proAnalytics">
-      <div class="pro-card">
-        <div class="pro-card-header">
-          <h3>Market Regime & Volatility</h3>
-          <span class="pro-badge" id="proRegimeBadge">TRENDING</span>
-        </div>
-        <div class="pro-stat-row">
-          <span>Volatility Index</span>
-          <strong id="proVolatility" style="color:var(--neon-cyan)">0.48</strong>
-        </div>
-        <div class="pro-stat-row">
-          <span>Shannon Entropy</span>
-          <strong id="proEntropy" style="color:var(--neon-gold)">0.92</strong>
-        </div>
-        <div class="pro-stat-row">
-          <span>Ensemble Spread</span>
-          <strong id="proSpread" style="color:var(--neon-emerald)">High Certainty</strong>
-        </div>
-      </div>
-
-      <div class="pro-card">
-        <div class="pro-card-header">
-          <h3>Digit Probability Radar</h3>
-          <span class="pro-badge">TOP 5</span>
-        </div>
-        <div class="digit-radar-bars" id="digitRadarBars">
-          <!-- Dynamic Digit Progress Bars -->
-        </div>
-      </div>
-    </section>
-
-    <!-- 6. Draw History Feed -->
+    <!-- 4. DRAW HISTORY (FITS WITHOUT HORIZONTAL SCROLL) -->
     <section class="history-card">
       <div class="history-header">
-        <div class="history-title-wrap">
-          <h2><span>◊</span> Recent Draw History</h2>
-        </div>
+        <h2 class="history-title">Draw History</h2>
         <div class="filter-pills">
           <button class="filter-pill active" data-filter="ALL">All</button>
           <button class="filter-pill" data-filter="WINS">Wins</button>
@@ -200,22 +125,21 @@
         </div>
       </div>
 
-      <div class="table-wrap">
+      <!-- No-Scroll Responsive History Table -->
+      <div class="history-table-container">
         <table class="history-table">
           <thead>
             <tr>
-              <th>Period</th>
-              <th>AI Signal</th>
-              <th>Result</th>
-              <th>Outcome</th>
-              <th>Confidence</th>
-              <th>Strategy</th>
+              <th class="col-period">Period</th>
+              <th class="col-signal">Signal</th>
+              <th class="col-result">Result</th>
+              <th class="col-outcome">Outcome</th>
             </tr>
           </thead>
           <tbody id="historyBody">
             <tr>
-              <td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">
-                Synchronizing live history archives...
+              <td colspan="4" class="empty-cell">
+                Synchronizing draw archives...
               </td>
             </tr>
           </tbody>
@@ -228,7 +152,7 @@
   <!-- Toast Notification -->
   <div class="toast-msg" id="toastMsg">✓ Notification</div>
 
-  <!-- App Core Script -->
+  <!-- Core Script -->
   <script type="module" src="app.js"></script>
 </body>
 </html>

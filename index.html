@@ -8,24 +8,24 @@
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   
   <style>
     :root {
-      --bg-deep: #060913;
-      --bg-card: rgba(13, 19, 36, 0.78);
+      --bg-deep: #0a0d13;
+      --bg-card: rgba(16, 21, 30, 0.85);
       --border-subtle: rgba(255, 255, 255, 0.09);
-      --neon-cyan: #00f2fe;
-      --neon-pink: #ff2a6d;
-      --neon-emerald: #00f5a0;
-      --neon-gold: #ffb703;
-      --neon-purple: #9d4edd;
-      --text-primary: #ffffff;
+      --gold-accent: #e5a93c;
+      --gold-glow: rgba(229, 169, 60, 0.25);
+      --emerald-win: #00e676;
+      --crimson-big: #ff3b5c;
+      --ice-small: #38bdf8;
+      --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
-      --font-main: 'Rajdhani', -apple-system, sans-serif;
-      --font-mono: 'Space Mono', monospace;
-      --font-display: 'Orbitron', sans-serif;
+      --font-main: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-display: 'Space Grotesk', sans-serif;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -33,6 +33,12 @@
     body {
       min-height: 100vh;
       background-color: var(--bg-deep);
+      background-image: 
+        linear-gradient(180deg, rgba(10, 13, 19, 0.88) 0%, rgba(8, 10, 15, 0.95) 100%),
+        url('bg.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
       color: var(--text-primary);
       font-family: var(--font-main);
       display: flex;
@@ -102,7 +108,7 @@
       left: 0;
       right: 0;
       height: 3px;
-      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink));
+      background: linear-gradient(90deg, var(--gold-accent), var(--emerald-win));
     }
 
     /* Brand Section */
@@ -116,7 +122,7 @@
       height: 60px;
       margin: 0 auto 16px;
       border-radius: 16px;
-      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+      background: linear-gradient(135deg, var(--gold-accent), rgba(255,255,255,0.05));
       display: flex;
       align-items: center;
       justify-content: center;
@@ -130,7 +136,7 @@
       font-size: 22px;
       font-weight: 900;
       letter-spacing: 1.5px;
-      background: linear-gradient(90deg, #ffffff, var(--neon-cyan));
+      color: #ffffff;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 6px;
@@ -173,7 +179,7 @@
     .key-input {
       width: 100%;
       background: rgba(0, 0, 0, 0.4);
-      border: 1.5px solid var(--border-subtle);
+      border: 1px solid var(--border-subtle);
       border-radius: 14px;
       padding: 14px 16px;
       font-family: var(--font-mono);
@@ -195,8 +201,8 @@
     }
 
     .key-input:focus {
-      border-color: var(--neon-cyan);
-      box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
+      border-color: var(--gold-accent);
+      box-shadow: 0 0 20px var(--gold-glow);
       background: rgba(0, 0, 0, 0.55);
     }
 
@@ -215,7 +221,7 @@
     /* Submit Button */
     .btn-submit {
       width: 100%;
-      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-blue), var(--neon-purple));
+      background: linear-gradient(135deg, var(--gold-accent), #d4af37);
       background-size: 200% auto;
       color: #040814;
       border: none;
@@ -230,7 +236,7 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
-      box-shadow: 0 6px 25px rgba(0, 242, 254, 0.35);
+      box-shadow: 0 6px 25px var(--gold-glow);
       transition: all 0.3s ease;
       margin-top: 8px;
     }
