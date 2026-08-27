@@ -1,6 +1,9 @@
 .chrome_debug_profile/
 .chrome_profile/
 login_mock.html
+keygen.html
+*keygen*
+*key*.html
 scratch/
 node_modules/
 .DS_Store
