@@ -1,1072 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hiroto Signals — Secure Access Gateway</title>
-    <meta name="description" content="Hiroto AI Terminal — Institutional-grade signal intelligence platform. Secure authentication required.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        /* ============================================
-           HIROTO SIGNALS v5.0 — PREMIUM LOGIN PAGE
-           ============================================ */
-        :root {
-            --bg: #050810;
-            --bg-card: rgba(8, 14, 28, 0.75);
-            --accent-blue: #00bfff;
-            --accent-cyan: #00f5d4;
-            --accent-gold: #ffdf00;
-            --accent-purple: #a855f7;
-            --text-primary: #e8edf5;
-            --text-secondary: #6b7ba4;
-            --border: rgba(0, 191, 255, 0.15);
-            --border-glow: rgba(0, 191, 255, 0.4);
-            --success: #10b981;
-            --error: #ff3131;
-            --font-header: 'Orbitron', sans-serif;
-            --font-body: 'Rajdhani', sans-serif;
-            --font-mono: 'Space Mono', monospace;
-            --glow-blue: 0 0 20px rgba(0, 191, 255, 0.3);
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        html, body {
-            height: 100%;
-            background: var(--bg);
-            color: var(--text-primary);
-            font-family: var(--font-body);
-            overflow: hidden;
-        }
-
-        /* ── NEURAL CANVAS BACKGROUND ── */
-        #loginCanvas {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* ── AURORA OVERLAY ── */
-        .aurora {
-            position: fixed;
-            inset: 0;
-            z-index: 1;
-            pointer-events: none;
-            background:
-                radial-gradient(ellipse 70% 50% at 10% 0%, rgba(0, 191, 255, 0.08) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(168, 85, 247, 0.06) 0%, transparent 60%),
-                radial-gradient(ellipse 50% 60% at 50% 50%, rgba(0, 245, 212, 0.03) 0%, transparent 70%);
-            animation: auroraShift 12s ease-in-out infinite alternate;
-        }
-
-        @keyframes auroraShift {
-            0% { filter: hue-rotate(0deg); opacity: 0.8; }
-            100% { filter: hue-rotate(25deg); opacity: 1; }
-        }
-
-        /* ── SCANLINE OVERLAY ── */
-        .scanlines {
-            position: fixed;
-            inset: 0;
-            z-index: 2;
-            pointer-events: none;
-            background: repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 2px,
-                rgba(0, 0, 0, 0.03) 2px,
-                rgba(0, 0, 0, 0.03) 4px
-            );
-        }
-
-        /* ── LAYOUT ── */
-        .login-wrapper {
-            position: relative;
-            z-index: 10;
-            min-height: 100vh;
-            display: grid;
-            grid-template-columns: 1fr 460px 1fr;
-            grid-template-rows: 1fr;
-            align-items: center;
-            padding: 20px;
-        }
-
-        /* ── LEFT COLUMN: BRAND + STATS ── */
-        .login-left {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 48px;
-            padding: 40px;
-            animation: slideInLeft 1s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-
-        @keyframes slideInLeft {
-            from { opacity: 0; transform: translateX(-40px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-
-        .brand-logo-wrap {
-            position: relative;
-            width: 160px;
-            height: 160px;
-        }
-
-        .brand-logo-wrap::before,
-        .brand-logo-wrap::after {
-            content: '';
-            position: absolute;
-            inset: -16px;
-            border-radius: 50%;
-            border: 1px solid rgba(0, 191, 255, 0.15);
-            animation: ringPulse 3s ease-in-out infinite;
-        }
-
-        .brand-logo-wrap::after {
-            inset: -32px;
-            border-color: rgba(0, 191, 255, 0.08);
-            animation-delay: 0.6s;
-        }
-
-        @keyframes ringPulse {
-            0%, 100% { transform: scale(1); opacity: 0.6; }
-            50% { transform: scale(1.06); opacity: 1; }
-        }
-
-        .brand-logo-ring {
-            position: absolute;
-            inset: -8px;
-            border-radius: 50%;
-            background: conic-gradient(
-                from 0deg,
-                transparent 0deg,
-                var(--accent-blue) 60deg,
-                transparent 120deg,
-                var(--accent-cyan) 200deg,
-                transparent 260deg,
-                var(--accent-gold) 320deg,
-                transparent 360deg
-            );
-            animation: spinRing 8s linear infinite;
-            filter: blur(1px);
-            opacity: 0.6;
-        }
-
-        @keyframes spinRing {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
-        }
-
-        .brand-logo {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid rgba(0, 191, 255, 0.2);
-            box-shadow: 0 0 40px rgba(0, 191, 255, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.5);
-        }
-
-        /* Online indicator on logo */
-        .brand-logo-wrap .online-dot {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            width: 14px;
-            height: 14px;
-            background: var(--success);
-            border-radius: 50%;
-            border: 2px solid var(--bg);
-            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
-            animation: pulseDot 2s ease-in-out infinite;
-        }
-
-        @keyframes pulseDot {
-            0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
-            50% { box-shadow: 0 0 16px rgba(16, 185, 129, 0.9); }
-        }
-
-        .brand-text-block {
-            text-align: center;
-        }
-
-        .brand-tagline {
-            font-family: var(--font-header);
-            font-size: 11px;
-            letter-spacing: 4px;
-            color: var(--accent-blue);
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            opacity: 0.8;
-        }
-
-        .brand-name {
-            font-family: var(--font-header);
-            font-size: 28px;
-            font-weight: 900;
-            letter-spacing: 3px;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan), var(--accent-gold));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            filter: drop-shadow(0 0 20px rgba(0, 191, 255, 0.4));
-        }
-
-        .brand-jp {
-            font-family: 'Noto Sans JP', sans-serif;
-            font-size: 12px;
-            color: var(--text-secondary);
-            letter-spacing: 6px;
-            margin-top: 6px;
-        }
-
-        /* LIVE METRICS GRID */
-        .live-metrics {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            width: 100%;
-            max-width: 280px;
-        }
-
-        .metric-box {
-            background: rgba(0, 191, 255, 0.03);
-            border: 1px solid rgba(0, 191, 255, 0.12);
-            border-radius: 8px;
-            padding: 14px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .metric-box:hover {
-            background: rgba(0, 191, 255, 0.07);
-            border-color: rgba(0, 191, 255, 0.25);
-        }
-
-        .metric-val {
-            font-family: var(--font-header);
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--accent-cyan);
-            text-shadow: 0 0 12px rgba(0, 245, 212, 0.4);
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-
-        .metric-val.gold { color: var(--accent-gold); text-shadow: 0 0 12px rgba(255, 223, 0, 0.4); }
-        .metric-val.green { color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
-
-        .metric-lbl {
-            font-size: 9px;
-            color: var(--text-secondary);
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            font-family: var(--font-mono);
-        }
-
-        /* ── CENTER: LOGIN CARD ── */
-        .login-card {
-            position: relative;
-            background: linear-gradient(145deg, rgba(8, 14, 30, 0.92), rgba(5, 10, 20, 0.85));
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 44px 40px;
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            box-shadow:
-                0 0 0 1px rgba(255, 255, 255, 0.02) inset,
-                0 20px 80px rgba(0, 0, 0, 0.7),
-                0 0 60px rgba(0, 191, 255, 0.04);
-            animation: slideInUp 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
-        }
-
-        @keyframes slideInUp {
-            from { opacity: 0; transform: translateY(30px) scale(0.97); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        /* Card top accent line */
-        .login-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            border-radius: 16px 16px 0 0;
-            background: linear-gradient(90deg,
-                transparent 0%,
-                var(--accent-blue) 30%,
-                var(--accent-cyan) 50%,
-                var(--accent-gold) 70%,
-                transparent 100%
-            );
-            animation: cardShimmer 4s ease-in-out infinite;
-        }
-
-        @keyframes cardShimmer {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-        }
-
-        /* Corner decorations */
-        .login-card::after {
-            content: '';
-            position: absolute;
-            bottom: 16px; right: 16px;
-            width: 40px; height: 40px;
-            border-bottom: 1px solid rgba(0, 191, 255, 0.15);
-            border-right: 1px solid rgba(0, 191, 255, 0.15);
-            border-radius: 0 0 6px 0;
-        }
-
-        .card-corner-tl {
-            position: absolute;
-            top: 16px; left: 16px;
-            width: 40px; height: 40px;
-            border-top: 1px solid rgba(0, 191, 255, 0.15);
-            border-left: 1px solid rgba(0, 191, 255, 0.15);
-            border-radius: 6px 0 0 0;
-        }
-
-        /* CARD HEADER */
-        .card-header {
-            text-align: center;
-            margin-bottom: 36px;
-        }
-
-        .card-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(0, 191, 255, 0.08);
-            border: 1px solid rgba(0, 191, 255, 0.2);
-            border-radius: 20px;
-            padding: 4px 14px;
-            font-family: var(--font-mono);
-            font-size: 9px;
-            letter-spacing: 2px;
-            color: var(--accent-blue);
-            margin-bottom: 20px;
-        }
-
-        .card-badge-dot {
-            width: 5px;
-            height: 5px;
-            background: var(--accent-cyan);
-            border-radius: 50%;
-            box-shadow: 0 0 6px var(--accent-cyan);
-            animation: blink 1.5s ease-in-out infinite;
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        .card-title {
-            font-family: var(--font-header);
-            font-size: 22px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-        }
-
-        .card-subtitle {
-            font-size: 12px;
-            color: var(--text-secondary);
-            letter-spacing: 1px;
-        }
-
-        /* INPUT SECTION */
-        .input-section {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-bottom: 28px;
-        }
-
-        .input-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-family: var(--font-mono);
-            font-size: 9px;
-            letter-spacing: 2.5px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }
-
-        .input-label::before {
-            content: '';
-            width: 16px;
-            height: 1px;
-            background: var(--accent-blue);
-            opacity: 0.5;
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .key-input {
-            width: 100%;
-            padding: 16px 20px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text-primary);
-            font-family: var(--font-mono);
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: 6px;
-            text-align: center;
-            text-transform: uppercase;
-            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            caret-color: var(--accent-cyan);
-        }
-
-        .key-input::placeholder {
-            color: rgba(107, 123, 164, 0.35);
-            font-size: 16px;
-            letter-spacing: 4px;
-        }
-
-        .key-input:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-            background: rgba(0, 191, 255, 0.03);
-            box-shadow:
-                0 0 0 3px rgba(0, 191, 255, 0.08),
-                0 0 30px rgba(0, 191, 255, 0.08),
-                inset 0 1px 0 rgba(255, 255, 255, 0.03);
-            transform: translateY(-1px);
-        }
-
-        .key-input.error {
-            border-color: var(--error);
-            box-shadow: 0 0 0 3px rgba(255, 49, 49, 0.1);
-            animation: inputShake 0.4s ease both;
-        }
-
-        @keyframes inputShake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-6px); }
-            40% { transform: translateX(6px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
-        }
-
-        /* Input glow line bottom */
-        .input-glow-line {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%) scaleX(0);
-            width: 80%;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
-            transition: transform 0.4s ease;
-            border-radius: 1px;
-        }
-
-        .input-wrapper:focus-within .input-glow-line {
-            transform: translateX(-50%) scaleX(1);
-        }
-
-        /* SUBMIT BUTTON */
-        .submit-btn {
-            position: relative;
-            width: 100%;
-            padding: 18px;
-            background: linear-gradient(135deg, rgba(0, 191, 255, 0.12), rgba(0, 245, 212, 0.08));
-            border: 1px solid rgba(0, 191, 255, 0.35);
-            border-radius: 10px;
-            color: var(--text-primary);
-            font-family: var(--font-header);
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            cursor: pointer;
-            overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .submit-btn::before {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 245, 212, 0.15), transparent);
-            transition: left 0.6s ease;
-        }
-
-        .submit-btn:hover:not(:disabled)::before { left: 100%; }
-
-        .submit-btn:hover:not(:disabled) {
-            background: linear-gradient(135deg, rgba(0, 191, 255, 0.2), rgba(0, 245, 212, 0.14));
-            border-color: var(--accent-blue);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(0, 191, 255, 0.2), 0 0 0 1px rgba(0, 191, 255, 0.1);
-        }
-
-        .submit-btn:active:not(:disabled) { transform: translateY(0); }
-
-        .submit-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-icon { font-size: 14px; }
-
-        .btn-loader {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.15);
-            border-top-color: var(--accent-cyan);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .hidden { display: none !important; }
-
-        /* STATUS MESSAGE */
-        .status-msg {
-            display: none;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            letter-spacing: 0.5px;
-            border: 1px solid transparent;
-            text-align: center;
-        }
-
-        .status-msg.show { display: block; animation: fadeInSlide 0.3s ease; }
-
-        @keyframes fadeInSlide {
-            from { opacity: 0; transform: translateY(-8px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .status-msg.success {
-            background: rgba(16, 185, 129, 0.08);
-            color: var(--success);
-            border-color: rgba(16, 185, 129, 0.2);
-        }
-
-        .status-msg.error {
-            background: rgba(255, 49, 49, 0.08);
-            color: var(--error);
-            border-color: rgba(255, 49, 49, 0.2);
-        }
-
-        /* SESSION INFO */
-        .session-info {
-            display: none;
-            background: rgba(0, 191, 255, 0.04);
-            border: 1px solid rgba(0, 191, 255, 0.12);
-            border-radius: 10px;
-            padding: 16px;
-            animation: fadeInSlide 0.4s ease;
-        }
-
-        .session-info.show { display: block; }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            font-size: 12px;
-        }
-
-        .info-row:last-child { border-bottom: none; }
-        .info-row span:first-child { color: var(--text-secondary); font-family: var(--font-mono); font-size: 10px; }
-        .info-row span:last-child { font-family: var(--font-mono); color: var(--text-primary); font-size: 11px; }
-        .info-row .active { color: var(--success); text-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
-
-        /* SECURITY NOTICE */
-        .security-notice {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 14px;
-            background: rgba(255, 223, 0, 0.04);
-            border: 1px solid rgba(255, 223, 0, 0.1);
-            border-radius: 8px;
-            margin-top: 4px;
-        }
-
-        .security-notice-icon { font-size: 12px; }
-        .security-notice-text {
-            font-family: var(--font-mono);
-            font-size: 9px;
-            color: var(--text-secondary);
-            letter-spacing: 0.5px;
-            line-height: 1.5;
-        }
-
-        /* TOAST */
-        .toast {
-            position: fixed;
-            bottom: 28px;
-            left: 50%;
-            transform: translateX(-50%) translateY(80px);
-            padding: 12px 20px;
-            background: rgba(8, 14, 28, 0.95);
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--accent-blue);
-            border-radius: 8px;
-            backdrop-filter: blur(20px);
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--text-primary);
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 999;
-            white-space: nowrap;
-        }
-
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
-
-        /* ── RIGHT COLUMN: STATUS FEED ── */
-        .login-right {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 24px;
-            padding: 40px;
-            animation: slideInRight 1s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-
-        @keyframes slideInRight {
-            from { opacity: 0; transform: translateX(40px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-
-        .system-feed {
-            width: 100%;
-            max-width: 260px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 191, 255, 0.1);
-            border-radius: 10px;
-            padding: 16px;
-        }
-
-        .feed-title {
-            font-family: var(--font-mono);
-            font-size: 9px;
-            letter-spacing: 2px;
-            color: var(--accent-blue);
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .feed-title::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: var(--accent-cyan);
-            border-radius: 50%;
-            box-shadow: 0 0 6px var(--accent-cyan);
-            animation: blink 1.2s ease-in-out infinite;
-        }
-
-        .feed-lines {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .feed-line {
-            font-family: var(--font-mono);
-            font-size: 10px;
-            color: var(--text-secondary);
-            display: flex;
-            gap: 8px;
-            align-items: flex-start;
-            opacity: 0;
-            animation: feedIn 0.4s ease forwards;
-        }
-
-        .feed-line .timestamp { color: rgba(0, 191, 255, 0.5); flex-shrink: 0; }
-        .feed-line .ok { color: var(--success); font-weight: bold; }
-        .feed-line .warn { color: var(--accent-gold); font-weight: bold; }
-
-        .ai-status-grid {
-            width: 100%;
-            max-width: 260px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .ai-status-item {
-            background: rgba(0, 0, 0, 0.25);
-            border: 1px solid rgba(0, 191, 255, 0.08);
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-
-        .ai-status-icon {
-            font-size: 18px;
-            margin-bottom: 4px;
-            display: block;
-        }
-
-        .ai-status-lbl {
-            font-family: var(--font-mono);
-            font-size: 8px;
-            color: var(--text-secondary);
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            display: block;
-        }
-
-        /* FOOTER */
-        .login-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
-            border-top: 1px solid rgba(0, 191, 255, 0.06);
-            background: rgba(5, 8, 16, 0.7);
-            backdrop-filter: blur(10px);
-        }
-
-        .footer-text {
-            font-family: var(--font-mono);
-            font-size: 9px;
-            color: var(--text-secondary);
-            letter-spacing: 2px;
-            opacity: 0.6;
-            text-transform: uppercase;
-        }
-
-        /* ── MOBILE RESPONSIVE ── */
-        @media (max-width: 900px) {
-            .login-wrapper {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto;
-                overflow-y: auto;
-                padding: 20px 16px 60px;
-                align-items: flex-start;
-            }
-
-            .login-left, .login-right { display: none; }
-
-            .login-card {
-                padding: 36px 28px;
-                border-radius: 12px;
-            }
-
-            /* Show a compact brand on mobile above the card */
-            .login-wrapper::before {
-                content: '⚝ 卄丨尺ㄖㄒㄖ SIGNALS';
-                display: block;
-                text-align: center;
-                font-family: 'Orbitron', sans-serif;
-                font-size: 14px;
-                letter-spacing: 3px;
-                color: var(--accent-blue);
-                padding: 24px 0 20px;
-                grid-column: 1;
-            }
-        }
-
-        @media (max-width: 480px) {
-            html, body { overflow: auto; }
-            .login-card { padding: 28px 20px; }
-            .card-title { font-size: 18px; }
-            .key-input { font-size: 16px; letter-spacing: 4px; padding: 14px 16px; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HIROTO AI — Signal Intelligence</title>
+  <meta name="description" content="Minimal, high-precision predictive signal intelligence terminal.">
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Neural canvas background -->
-    <canvas id="loginCanvas"></canvas>
-    <div class="aurora"></div>
-    <div class="scanlines"></div>
+  <div class="app-shell">
+    
+    <!-- 1. Header & Live Connection Status -->
+    <header class="top-header">
+      <div class="brand-area">
+        <div class="brand-logo">⚝</div>
+        <div class="brand-info">
+          <h1>HIROTO AI</h1>
+          <p>Signal Intelligence & Probability Terminal</p>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="status-pill" id="statusPill">
+          <span class="pulse-dot"></span>
+          <span id="statusText">LIVE FEED</span>
+        </div>
+        <button class="btn-icon" id="btnSound" title="Toggle audio chimes">🔊 Sound ON</button>
+        <button class="btn-icon" id="btnSync" title="Force sync latest results">↻ Sync</button>
+      </div>
+    </header>
 
-    <div class="login-wrapper">
-        <!-- LEFT COLUMN -->
-        <div class="login-left">
-            <div class="brand-logo-wrap">
-                <div class="brand-logo-ring"></div>
-                <img src="https://i.ibb.co/jPXgdMN6/logo.jpg" alt="Hiroto Logo" class="brand-logo">
-                <div class="online-dot"></div>
-            </div>
+    <!-- 2. Needy Metrics Bar -->
+    <section class="metrics-row">
+      <div class="metric-box emerald">
+        <span class="metric-label">Win Rate</span>
+        <span class="metric-value" id="metricWinRate">--%</span>
+        <span class="metric-sub">Historical accuracy</span>
+      </div>
+      <div class="metric-box gold">
+        <span class="metric-label">Win Streak</span>
+        <span class="metric-value" id="metricStreak">0 🔥</span>
+        <span class="metric-sub">Current momentum</span>
+      </div>
+      <div class="metric-box cyan">
+        <span class="metric-label">Total Signals</span>
+        <span class="metric-value" id="metricTotal">0</span>
+        <span class="metric-sub">Analyzed rounds</span>
+      </div>
+      <div class="metric-box purple">
+        <span class="metric-label">AI Consensus</span>
+        <span class="metric-value" id="metricConsensus">--</span>
+        <span class="metric-sub">Multi-model agreement</span>
+      </div>
+    </section>
 
-            <div class="brand-text-block">
-                <div class="brand-tagline">Institutional Grade Intelligence</div>
-                <div class="brand-name">HIROTO ⚝</div>
-                <div class="brand-jp">ヒロト信号システム</div>
-            </div>
+    <!-- 3. MAIN FOCUS: Prediction Hero Card -->
+    <main class="prediction-hero">
+      <div class="hero-top">
+        <div class="period-badge-wrap">
+          <span class="period-title">Target Period</span>
+          <span class="period-num" id="targetPeriodNum">----------</span>
+        </div>
+        <div class="countdown-box">
+          <span class="countdown-label">Next Draw In</span>
+          <span class="countdown-timer" id="countdownTimer">00:60</span>
+        </div>
+      </div>
 
-            <div class="live-metrics">
-                <div class="metric-box">
-                    <div class="metric-val">17</div>
-                    <div class="metric-lbl">AI Engines</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-val gold">5.0</div>
-                    <div class="metric-lbl">Version</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-val green">LIVE</div>
-                    <div class="metric-lbl">Signal Feed</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-val">256</div>
-                    <div class="metric-lbl">Bit Security</div>
-                </div>
-            </div>
+      <div class="hero-body">
+        <!-- Main Signal Banner (BIG / SMALL) -->
+        <div class="signal-banner BIG" id="signalBanner">
+          <span class="signal-tag">CURRENT AI SIGNAL</span>
+          <span class="signal-text" id="signalText">BIG</span>
+          <span class="signal-range" id="signalRange">RANGE: 5, 6, 7, 8, 9</span>
         </div>
 
-        <!-- CENTER: LOGIN CARD -->
-        <div class="login-card">
-            <div class="card-corner-tl"></div>
-
-            <div class="card-header">
-                <div class="card-badge">
-                    <div class="card-badge-dot"></div>
-                    SECURE GATEWAY ACTIVE
-                </div>
-                <div class="card-title">SECURE ACCESS</div>
-                <div class="card-subtitle">Authentication key required for signal access</div>
+        <!-- Details & Utilities -->
+        <div class="hero-details">
+          <!-- Confidence Bar -->
+          <div class="confidence-block">
+            <div class="confidence-header">
+              <span class="confidence-title">AI Confidence</span>
+              <span class="confidence-pct" id="confidencePct">--%</span>
             </div>
-
-            <div class="input-section">
-                <div>
-                    <div class="input-label">Access Key</div>
-                    <div class="input-wrapper">
-                        <input
-                            type="text"
-                            id="keyInput"
-                            class="key-input"
-                            placeholder="XXXX-XXXX-XXXX"
-                            maxlength="14"
-                            autocomplete="off"
-                            spellcheck="false"
-                        >
-                        <div class="input-glow-line"></div>
-                    </div>
-                </div>
-
-                <button class="submit-btn" id="authBtn" onclick="authenticate()">
-                    <span class="btn-icon">◈</span>
-                    <span class="btn-text">VERIFY ACCESS</span>
-                    <span class="btn-loader hidden" id="btnLoader"></span>
-                </button>
-
-                <div class="status-msg" id="statusMsg"></div>
-
-                <div class="session-info" id="sessionInfo">
-                    <div class="info-row">
-                        <span>Status</span>
-                        <span class="active" id="sessStatus">--</span>
-                    </div>
-                    <div class="info-row">
-                        <span>Expires</span>
-                        <span id="sessExpiry">--</span>
-                    </div>
-                    <div class="info-row">
-                        <span>Remaining</span>
-                        <span id="sessRemain">--</span>
-                    </div>
-                </div>
-
-                <div class="security-notice">
-                    <span class="security-notice-icon">⚠</span>
-                    <span class="security-notice-text">This is a private system. Unauthorized access attempts are logged.</span>
-                </div>
+            <div class="confidence-bar-wrap">
+              <div class="confidence-bar-fill" id="confidenceBar" style="width: 50%;"></div>
             </div>
+          </div>
+
+          <!-- Lucky Target Digits -->
+          <div class="lucky-digits-wrap">
+            <div class="lucky-digits-title">
+              <span>Target Lucky Digits</span>
+              <small>High-probability outcome targets</small>
+            </div>
+            <div class="digits-chips">
+              <div class="digit-chip" id="luckyDigit1">-</div>
+              <div class="digit-chip secondary" id="luckyDigit2">-</div>
+            </div>
+          </div>
+
+          <!-- Strategy & Copy Button -->
+          <div class="hero-footer-row">
+            <div class="gating-status CLEARED" id="gatingStatus">
+              CLEARED • Signal verified
+            </div>
+            <button class="btn-copy-signal" id="btnCopySignal">
+              <span>📋 Copy Signal</span>
+            </button>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);" id="strategyReason">
+            Markov Chain + Streak Hazard Consensus
+          </div>
         </div>
+      </div>
+    </main>
 
-        <!-- RIGHT COLUMN -->
-        <div class="login-right">
-            <div class="system-feed">
-                <div class="feed-title">System Feed</div>
-                <div class="feed-lines" id="feedLines">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-
-            <div class="ai-status-grid">
-                <div class="ai-status-item">
-                    <span class="ai-status-icon">◈</span>
-                    <span class="ai-status-lbl">Bayesian</span>
-                </div>
-                <div class="ai-status-item">
-                    <span class="ai-status-icon">◊</span>
-                    <span class="ai-status-lbl">Neural Net</span>
-                </div>
-                <div class="ai-status-item">
-                    <span class="ai-status-icon">◉</span>
-                    <span class="ai-status-lbl">Kalman</span>
-                </div>
-                <div class="ai-status-item">
-                    <span class="ai-status-icon">▲</span>
-                    <span class="ai-status-lbl">LSTM</span>
-                </div>
-            </div>
+    <!-- 4. MAIN FOCUS: Live History Feed -->
+    <section class="history-card">
+      <div class="history-header">
+        <div class="history-title-wrap">
+          <h2><span>◊</span> Recent Draw History</h2>
         </div>
-    </div>
+        <div class="filter-pills">
+          <button class="filter-pill active" data-filter="ALL">All</button>
+          <button class="filter-pill" data-filter="WINS">Wins Only</button>
+          <button class="filter-pill" data-filter="LOSSES">Losses Only</button>
+        </div>
+      </div>
 
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
+      <div class="table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>AI Signal</th>
+              <th>Result</th>
+              <th>Outcome</th>
+              <th>Confidence</th>
+              <th>Model Strategy</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">
+                Synchronizing live history archives...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-    <!-- Footer -->
-    <footer class="login-footer">
-        <span class="footer-text">● 卄丨尺ㄖㄒㄖ ⚝ SIGNALS CORE GATEWAY // v5.0 SECURE ●</span>
-    </footer>
+  </div>
 
-    <!-- Neural canvas animation -->
-    <script>
-        (function() {
-            const canvas = document.getElementById('loginCanvas');
-            const ctx = canvas.getContext('2d');
-            let W, H, nodes = [], animId;
+  <!-- Toast Notification Feedback -->
+  <div class="toast-msg" id="toastMsg">✓ Notification</div>
 
-            function resize() {
-                W = canvas.width = window.innerWidth;
-                H = canvas.height = window.innerHeight;
-            }
-
-            function createNodes() {
-                nodes = [];
-                const count = Math.min(60, Math.floor((W * H) / 18000));
-                for (let i = 0; i < count; i++) {
-                    nodes.push({
-                        x: Math.random() * W,
-                        y: Math.random() * H,
-                        vx: (Math.random() - 0.5) * 0.3,
-                        vy: (Math.random() - 0.5) * 0.3,
-                        r: Math.random() * 1.5 + 0.5
-                    });
-                }
-            }
-
-            function draw() {
-                ctx.clearRect(0, 0, W, H);
-
-                // Draw connections
-                for (let i = 0; i < nodes.length; i++) {
-                    for (let j = i + 1; j < nodes.length; j++) {
-                        const dx = nodes[i].x - nodes[j].x;
-                        const dy = nodes[i].y - nodes[j].y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist < 150) {
-                            ctx.beginPath();
-                            ctx.moveTo(nodes[i].x, nodes[i].y);
-                            ctx.lineTo(nodes[j].x, nodes[j].y);
-                            ctx.strokeStyle = `rgba(0, 191, 255, ${(1 - dist / 150) * 0.12})`;
-                            ctx.lineWidth = 0.5;
-                            ctx.stroke();
-                        }
-                    }
-                }
-
-                // Draw nodes
-                nodes.forEach(n => {
-                    ctx.beginPath();
-                    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(0, 191, 255, 0.4)';
-                    ctx.fill();
-
-                    // Move
-                    n.x += n.vx;
-                    n.y += n.vy;
-                    if (n.x < 0 || n.x > W) n.vx *= -1;
-                    if (n.y < 0 || n.y > H) n.vy *= -1;
-                });
-
-                animId = requestAnimationFrame(draw);
-            }
-
-            resize();
-            createNodes();
-            draw();
-            window.addEventListener('resize', () => {
-                cancelAnimationFrame(animId);
-                resize();
-                createNodes();
-                draw();
-            });
-        })();
-    </script>
-
-    <!-- Live feed lines animation -->
-    <script>
-        (function() {
-            const feedLines = [
-                { ts: 'SYS', cls: 'ok', msg: 'Neural matrix online' },
-                { ts: 'SEC', cls: 'ok', msg: 'Encryption layer active' },
-                { ts: 'API', cls: 'ok', msg: 'Feed connection established' },
-                { ts: 'AI', cls: 'ok', msg: '17 engines initialized' },
-                { ts: 'DB', cls: 'ok', msg: 'Firebase auth ready' },
-                { ts: 'VLD', cls: 'warn', msg: 'Awaiting credentials...' }
-            ];
-
-            const container = document.getElementById('feedLines');
-            if (!container) return;
-
-            feedLines.forEach((line, i) => {
-                setTimeout(() => {
-                    const el = document.createElement('div');
-                    el.className = 'feed-line';
-                    el.style.animationDelay = '0ms';
-                    el.innerHTML = `<span class="timestamp">[${line.ts}]</span><span class="${line.cls}">✓</span><span>${line.msg}</span>`;
-                    container.appendChild(el);
-                }, i * 350);
-            });
-        })();
-    </script>
-
-    <!-- Firebase -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCBouQx_5CL0aZdK_HrHx3fuHvHQwhj4LQ",
-            authDomain: "enigma-app-25066.firebaseapp.com",
-            projectId: "enigma-app-25066"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        window.db = db;
-        window.collection = collection;
-        window.getDocs = getDocs;
-    </script>
-
-    <script src="script.js"></script>
+  <!-- App Logic -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
