@@ -2,11 +2,233 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=index.html">
-  <title>Redirecting to HIROTO AI Terminal...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HIROTO AI — Signal Intelligence Terminal</title>
+  <meta name="description" content="Institutional-grade predictive signal intelligence terminal with real-time ensemble forecasting.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
 </head>
-<body style="background:#080c16; color:#fff; font-family:sans-serif; text-align:center; padding-top:100px;">
-  <p>Loading HIROTO AI Terminal...</p>
-  <script>window.location.href = "index.html";</script>
+<body>
+  <!-- Visual Effects: Canvas & Aurora Background -->
+  <div class="aurora-mesh"></div>
+  <canvas id="terminalCanvas" class="bg-canvas"></canvas>
+
+  <div class="app-shell">
+    
+    <!-- 1. Header with Brand, Status, Clearance & Logout -->
+    <header class="top-header">
+      <div class="brand-area">
+        <div class="brand-logo">⚝</div>
+        <div class="brand-info">
+          <h1>HIROTO AI</h1>
+          <p>Signal Intelligence Terminal</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <!-- Live Connection Pill -->
+        <div class="status-pill" id="statusPill">
+          <span class="pulse-dot"></span>
+          <span id="statusText">LIVE FEED</span>
+        </div>
+
+        <!-- Clearance Badge -->
+        <div class="clearance-badge" id="clearanceBadge">
+          <span class="badge-icon">◈</span>
+          <span id="clearanceText">ACTIVE ACCESS</span>
+        </div>
+
+        <!-- Audio Toggle -->
+        <button class="btn-icon" id="btnSound" title="Toggle sound alerts" aria-label="Toggle Sound">🔊</button>
+        
+        <!-- Refresh Button -->
+        <button class="btn-icon" id="btnSync" title="Sync latest data" aria-label="Force Sync">↻</button>
+        
+        <!-- Logout Button -->
+        <button class="btn-icon danger" id="btnLogout" title="Logout session" aria-label="Logout">⎋</button>
+      </div>
+    </header>
+
+    <!-- 2. Layout View Switcher -->
+    <div class="view-mode-bar">
+      <div class="view-toggle-wrap">
+        <button class="view-toggle-btn active" id="btnViewFocus" data-mode="focus">
+          <span>⚡ Focus Mode</span>
+        </button>
+        <button class="view-toggle-btn" id="btnViewPro" data-mode="pro">
+          <span>📊 Pro Terminal</span>
+        </button>
+      </div>
+      <div class="live-clock" id="liveClock">00:00:00 UTC</div>
+    </div>
+
+    <!-- 3. Metrics Summary Bar -->
+    <section class="metrics-row">
+      <div class="metric-box emerald">
+        <span class="metric-label">Win Rate</span>
+        <span class="metric-value" id="metricWinRate">--%</span>
+        <span class="metric-sub">Historical accuracy</span>
+      </div>
+      <div class="metric-box gold">
+        <span class="metric-label">Streak</span>
+        <span class="metric-value" id="metricStreak">0 🔥</span>
+        <span class="metric-sub">Current momentum</span>
+      </div>
+      <div class="metric-box cyan">
+        <span class="metric-label">Analyzed</span>
+        <span class="metric-value" id="metricTotal">0</span>
+        <span class="metric-sub">Total verified rounds</span>
+      </div>
+      <div class="metric-box purple">
+        <span class="metric-label">Consensus</span>
+        <span class="metric-value" id="metricConsensus">--</span>
+        <span class="metric-sub">Model agreement</span>
+      </div>
+    </section>
+
+    <!-- 4. MAIN FOCUS: Prediction Hero Card -->
+    <main class="prediction-hero">
+      <div class="hero-top">
+        <div class="period-badge-wrap">
+          <span class="period-title">Target Period</span>
+          <span class="period-num" id="targetPeriodNum">----------</span>
+        </div>
+        <div class="countdown-box">
+          <span class="countdown-label">Draw In</span>
+          <span class="countdown-timer" id="countdownTimer">00:60</span>
+        </div>
+      </div>
+
+      <div class="hero-body">
+        <!-- Giant Signal Banner (BIG / SMALL) -->
+        <div class="signal-banner BIG" id="signalBanner">
+          <span class="signal-tag">ACTIVE PREDICTIVE SIGNAL</span>
+          <span class="signal-text" id="signalText">BIG</span>
+          <span class="signal-range" id="signalRange">RANGE: 5, 6, 7, 8, 9</span>
+        </div>
+
+        <!-- Details & Actions -->
+        <div class="hero-details">
+          <!-- Confidence Meter -->
+          <div class="confidence-block">
+            <div class="confidence-header">
+              <span class="confidence-title">Signal Confidence</span>
+              <span class="confidence-pct" id="confidencePct">--%</span>
+            </div>
+            <div class="confidence-bar-wrap">
+              <div class="confidence-bar-fill" id="confidenceBar" style="width: 50%;"></div>
+            </div>
+          </div>
+
+          <!-- Lucky Target Digits -->
+          <div class="lucky-digits-wrap">
+            <div class="lucky-digits-title">
+              <span>Target Lucky Digits</span>
+              <small>Calculated peak digit distributions</small>
+            </div>
+            <div class="digits-chips">
+              <div class="digit-chip" id="luckyDigit1">-</div>
+              <div class="digit-chip secondary" id="luckyDigit2">-</div>
+            </div>
+          </div>
+
+          <!-- Action & Gating Row -->
+          <div class="hero-footer-row">
+            <div class="gating-status CLEARED" id="gatingStatus">
+              CLEARED • Signal verified
+            </div>
+            <button class="btn-copy-signal" id="btnCopySignal">
+              <span>📋 Copy Signal</span>
+            </button>
+          </div>
+
+          <!-- Strategy Tag -->
+          <div class="strategy-caption" id="strategyReason">
+            Markov Chain + Streak Hazard Consensus
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 5. PRO MODE: Extended Intelligence Grid (Visible in Pro Mode) -->
+    <section class="pro-analytics-grid" id="proAnalytics">
+      <div class="pro-card">
+        <div class="pro-card-header">
+          <h3>Market Regime & Volatility</h3>
+          <span class="pro-badge" id="proRegimeBadge">TRENDING</span>
+        </div>
+        <div class="pro-stat-row">
+          <span>Volatility Index</span>
+          <strong id="proVolatility" style="color:var(--neon-cyan)">0.48</strong>
+        </div>
+        <div class="pro-stat-row">
+          <span>Shannon Entropy</span>
+          <strong id="proEntropy" style="color:var(--neon-gold)">0.92</strong>
+        </div>
+        <div class="pro-stat-row">
+          <span>Ensemble Spread</span>
+          <strong id="proSpread" style="color:var(--neon-emerald)">High Certainty</strong>
+        </div>
+      </div>
+
+      <div class="pro-card">
+        <div class="pro-card-header">
+          <h3>Digit Probability Radar</h3>
+          <span class="pro-badge">TOP 5</span>
+        </div>
+        <div class="digit-radar-bars" id="digitRadarBars">
+          <!-- Dynamic Digit Progress Bars -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Draw History Feed -->
+    <section class="history-card">
+      <div class="history-header">
+        <div class="history-title-wrap">
+          <h2><span>◊</span> Recent Draw History</h2>
+        </div>
+        <div class="filter-pills">
+          <button class="filter-pill active" data-filter="ALL">All</button>
+          <button class="filter-pill" data-filter="WINS">Wins</button>
+          <button class="filter-pill" data-filter="LOSSES">Losses</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>AI Signal</th>
+              <th>Result</th>
+              <th>Outcome</th>
+              <th>Confidence</th>
+              <th>Strategy</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">
+                Synchronizing live history archives...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-msg" id="toastMsg">✓ Notification</div>
+
+  <!-- App Core Script -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>

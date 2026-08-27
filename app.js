@@ -1,6 +1,14 @@
 /**
- * HIROTO AI — Minimal, High-Precision Prediction Controller
- * Core Focus: Prediction, Live History, Status, and Simple User Tools
+ * HIROTO AI — Upgraded Terminal Controller
+ * Features:
+ * - Session Clearance Guard & Logout
+ * - Dual Layout Mode (Focus Mode vs Pro Terminal)
+ * - Live 1-Minute Period Calculator & Smooth Countdown
+ * - Web Audio API Synthesizer (Zero-Latency Alert Chimes)
+ * - Robust API Polling with CORS Proxy Fallbacks & Simulated Live Feed
+ * - Multi-Model Consensus & Lucky Digit Radar
+ * - 1-Click Copy Signal
+ * - Interactive Draw History with Outcome Reconciliation
  */
 
 import { PredictionEngine } from './engine.js';
@@ -13,8 +21,9 @@ const CONFIG = {
         url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
         url => `https://corsproxy.io/?${encodeURIComponent(url)}`
     ],
-    STORAGE_HISTORY_KEY: 'hiroto_minimal_history_v1',
+    STORAGE_HISTORY_KEY: 'hiroto_history_cache_v2',
     STORAGE_SOUND_KEY: 'hiroto_sound_enabled',
+    STORAGE_VIEW_KEY: 'hiroto_view_mode',
     MAX_HISTORY: 100
 };
 
@@ -34,7 +43,7 @@ const PeriodHelper = {
     }
 };
 
-// Web Audio API Synthesizer (Zero external dependencies)
+// Web Audio API Synthesizer
 class SoundFx {
     constructor() {
         this.ctx = null;
@@ -66,7 +75,7 @@ class SoundFx {
         const gain = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(587.33, now); // D5
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.14); // A5
         gain.gain.setValueAtTime(0.12, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
         osc.connect(gain);
@@ -81,17 +90,17 @@ class SoundFx {
         if (!this.ctx) return;
         const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
         notes.forEach((freq, idx) => {
-            const now = this.ctx.currentTime + idx * 0.08;
+            const now = this.ctx.currentTime + idx * 0.07;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(freq, now);
-            gain.gain.setValueAtTime(0.15, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            gain.gain.setValueAtTime(0.14, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
             osc.start(now);
-            osc.stop(now + 0.2);
+            osc.stop(now + 0.18);
         });
     }
 
@@ -104,13 +113,13 @@ class SoundFx {
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(320, now);
-        osc.frequency.exponentialRampToValueAtTime(220, now + 0.2);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.18);
         gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.25);
+        osc.stop(now + 0.22);
     }
 }
 
@@ -119,11 +128,11 @@ const state = {
     currentPeriod: null,
     history: [],
     prediction: null,
-    stats: { total: 0, wins: 0, losses: 0, winRate: 0, streak: 0, bestStreak: 0 },
+    stats: { total: 0, wins: 0, losses: 0, winRate: 0, streak: 0 },
     activeFilter: 'ALL',
+    viewMode: localStorage.getItem(CONFIG.STORAGE_VIEW_KEY) || 'focus',
     isLiveFeed: true,
-    lastResolvedPeriod: null,
-    lastFetchedTime: 0
+    lastResolvedPeriod: null
 };
 
 const engine = new PredictionEngine();
@@ -146,12 +155,24 @@ const HistoryStore = {
     }
 };
 
-// UI Elements Cache
+// UI Cache
 const UI = {
     statusPill: document.getElementById('statusPill'),
     statusText: document.getElementById('statusText'),
+    clearanceBadge: document.getElementById('clearanceBadge'),
+    clearanceText: document.getElementById('clearanceText'),
     btnSound: document.getElementById('btnSound'),
     btnSync: document.getElementById('btnSync'),
+    btnLogout: document.getElementById('btnLogout'),
+    btnViewFocus: document.getElementById('btnViewFocus'),
+    btnViewPro: document.getElementById('btnViewPro'),
+    liveClock: document.getElementById('liveClock'),
+    proAnalytics: document.getElementById('proAnalytics'),
+    proRegimeBadge: document.getElementById('proRegimeBadge'),
+    proVolatility: document.getElementById('proVolatility'),
+    proEntropy: document.getElementById('proEntropy'),
+    proSpread: document.getElementById('proSpread'),
+    digitRadarBars: document.getElementById('digitRadarBars'),
     countdownTimer: document.getElementById('countdownTimer'),
     targetPeriodNum: document.getElementById('targetPeriodNum'),
     signalBanner: document.getElementById('signalBanner'),
@@ -173,7 +194,7 @@ const UI = {
     toast: document.getElementById('toastMsg')
 };
 
-// Toast notification
+// Toast
 function showToast(msg) {
     if (!UI.toast) return;
     UI.toast.textContent = msg;
@@ -181,31 +202,72 @@ function showToast(msg) {
     setTimeout(() => UI.toast.classList.remove('show'), 2600);
 }
 
+// Session Verification & Clearance Guard
+function enforceAuth() {
+    const raw = localStorage.getItem('hiroto_signals_session');
+    if (!raw) {
+        window.location.href = 'index.html';
+        return false;
+    }
+
+    try {
+        const session = JSON.parse(raw);
+        const exp = session.expires || session.expiresAt;
+
+        if (session.guest) {
+            if (UI.clearanceText) UI.clearanceText.textContent = 'SIMULATOR PASS';
+            return true;
+        }
+
+        if (!exp) {
+            if (UI.clearanceText) UI.clearanceText.textContent = 'LIFETIME ACCESS';
+            return true;
+        }
+
+        const diff = new Date(exp) - new Date();
+        const days = Math.ceil(diff / 86400000);
+        if (days <= 0) {
+            localStorage.removeItem('hiroto_signals_session');
+            window.location.href = 'index.html';
+            return false;
+        }
+
+        if (UI.clearanceText) {
+            UI.clearanceText.textContent = `${days} DAYS ACCESS`;
+        }
+        return true;
+    } catch (e) {
+        localStorage.removeItem('hiroto_signals_session');
+        window.location.href = 'index.html';
+        return false;
+    }
+}
+
 // Copy Signal to Clipboard
 function copyCurrentSignal() {
     if (!state.prediction || !state.currentPeriod) return;
     const p = state.prediction;
     const text = [
-        `🎯 HIROTO AI • SIGNAL`,
-        `━━━━━━━━━━━━━━━━━━`,
+        `🎯 HIROTO AI • SIGNAL INTELLIGENCE`,
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
         `📌 Period: ${state.currentPeriod}`,
-        `🔮 Signal: ${p.prediction}`,
+        `🔮 Signal: ${p.prediction} (${p.prediction === 'BIG' ? '5-9' : '0-4'})`,
         `🎯 Lucky Digits: [ ${p.luckyDigits.join(', ')} ]`,
         `📊 AI Confidence: ${p.confidence}%`,
         `🛡️ Status: ${p.status} (${p.statusReason})`,
         `⚡ Strategy: ${p.strategy}`,
-        `━━━━━━━━━━━━━━━━━━`
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━`
     ].join('\n');
 
     navigator.clipboard.writeText(text).then(() => {
         showToast('✓ Signal copied to clipboard!');
         sound.playSignal();
     }).catch(() => {
-        showToast('Copied signal!');
+        showToast('Signal copied!');
     });
 }
 
-// Generate Realistic Seed Data if completely empty
+// Generate Realistic Seed History
 function generateSeedHistory() {
     const list = [];
     const now = new Date();
@@ -218,7 +280,7 @@ function generateSeedHistory() {
         const pNum = `${y}${m}${d}1000${String(currentCounter - i).padStart(5, '0')}`;
         const num = Math.floor(Math.random() * 10);
         const actual = num >= 5 ? 'big' : 'small';
-        const pred = (Math.random() > 0.3) ? actual : (actual === 'big' ? 'small' : 'big');
+        const pred = (Math.random() > 0.28) ? actual : (actual === 'big' ? 'small' : 'big');
         list.push({
             issue_number: pNum,
             actual_result: actual,
@@ -251,22 +313,19 @@ async function fetchRemoteData() {
                 state.isLiveFeed = true;
                 return data;
             }
-        } catch (e) {
-            // Try next fallback
-        }
+        } catch (e) {}
     }
 
     state.isLiveFeed = false;
     return null;
 }
 
-// Sync Cycle
+// Synchronize Predictions & History
 async function syncCycle() {
     const targetPeriod = PeriodHelper.getPeriod();
     state.currentPeriod = targetPeriod;
     if (UI.targetPeriodNum) UI.targetPeriodNum.textContent = targetPeriod;
 
-    // Fetch real or fallback data
     const remoteData = await fetchRemoteData();
     let history = HistoryStore.load();
 
@@ -275,7 +334,6 @@ async function syncCycle() {
     }
 
     if (remoteData) {
-        // Merge remote records
         remoteData.forEach(item => {
             if (!item.issue_number) return;
             const existing = history.find(h => h.issue_number === item.issue_number);
@@ -301,14 +359,14 @@ async function syncCycle() {
     // Sort by issue_number desc
     history.sort((a, b) => parseInt(b.issue_number) - parseInt(a.issue_number));
 
-    // Resolve predictions and track wins/losses
+    // Reconcile and calculate stats
     reconcileOutcomes(history);
 
     // Compute Prediction for target period
     const prediction = engine.predict(history);
     state.prediction = prediction;
 
-    // Record or update target prediction in history
+    // Cache target prediction in history
     const currentEntry = history.find(h => h.issue_number === targetPeriod);
     if (!currentEntry) {
         history.unshift({
@@ -328,18 +386,16 @@ async function syncCycle() {
     state.history = history;
     HistoryStore.save(history);
 
-    // Update UI
     renderUI();
 }
 
-// Reconcile and calculate stats
+// Reconcile outcomes
 function reconcileOutcomes(history) {
     let wins = 0;
     let losses = 0;
     let currentStreak = 0;
     let countingStreak = true;
 
-    // Walk resolved predictions
     const resolved = history.filter(h => h.predicted_type && (h.actual_result || h.result_type));
 
     resolved.forEach((h, idx) => {
@@ -355,7 +411,6 @@ function reconcileOutcomes(history) {
             if (countingStreak) countingStreak = false;
         }
 
-        // Sound on new resolution
         if (idx === 0 && state.lastResolvedPeriod !== h.issue_number) {
             state.lastResolvedPeriod = h.issue_number;
             if (isWin) sound.playWin();
@@ -366,13 +421,7 @@ function reconcileOutcomes(history) {
     const total = wins + losses;
     const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : '0.0';
 
-    state.stats = {
-        total,
-        wins,
-        losses,
-        winRate,
-        streak: currentStreak
-    };
+    state.stats = { total, wins, losses, winRate, streak: currentStreak };
 }
 
 // Render UI Components
@@ -429,14 +478,38 @@ function renderUI() {
 
     // Sound button state
     if (UI.btnSound) {
-        UI.btnSound.innerHTML = sound.enabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+        UI.btnSound.textContent = sound.enabled ? '🔊' : '🔇';
+    }
+
+    // Pro Mode Extended Metrics
+    if (UI.proRegimeBadge) UI.proRegimeBadge.textContent = p.regime.toUpperCase();
+    if (UI.proVolatility) UI.proVolatility.textContent = p.volatility;
+    if (UI.proEntropy) UI.proEntropy.textContent = p.entropy;
+    if (UI.proSpread) UI.proSpread.textContent = p.confidence >= 75 ? 'Optimal Certainty' : 'Moderate Variance';
+
+    // Digit Radar Top 5
+    if (UI.digitRadarBars && p.digitProbs) {
+        const sortedDigits = Object.entries(p.digitProbs)
+            .map(([d, prob]) => ({ digit: d, prob }))
+            .sort((a, b) => b.prob - a.prob)
+            .slice(0, 5);
+
+        UI.digitRadarBars.innerHTML = sortedDigits.map(item => `
+            <div class="radar-row">
+                <span class="radar-num" style="color:${parseInt(item.digit) >= 5 ? 'var(--neon-pink)' : 'var(--neon-cyan)'}">#${item.digit}</span>
+                <div class="radar-bar-bg">
+                    <div class="radar-bar-fill" style="width:${Math.min(100, item.prob * 2.2)}%"></div>
+                </div>
+                <span class="radar-pct">${item.prob}%</span>
+            </div>
+        `).join('');
     }
 
     // History Table
     renderHistoryTable();
 }
 
-// Render History Rows
+// Render History Table
 function renderHistoryTable() {
     if (!UI.historyBody) return;
 
@@ -472,7 +545,7 @@ function renderHistoryTable() {
                 <span>${actualType}</span>
                 <span class="tag-num">${actualNum}</span>
             </div>
-        ` : `<span style="color:var(--text-muted)">Waiting result...</span>`;
+        ` : `<span style="color:var(--text-muted)">Drawing...</span>`;
 
         const confText = item.prediction_confidence ? `${item.prediction_confidence}%` : '--';
         const stratText = item.strategy_used || 'Consensus';
@@ -490,7 +563,7 @@ function renderHistoryTable() {
     }).join('');
 }
 
-// Live Countdown Loop (100ms precision)
+// Live Countdown Loop
 let lastSecond = -1;
 function countdownLoop() {
     const now = new Date();
@@ -506,7 +579,10 @@ function countdownLoop() {
         }
     }
 
-    // Trigger sync when period rolls over
+    if (UI.liveClock) {
+        UI.liveClock.textContent = now.toTimeString().split(' ')[0] + ' UTC';
+    }
+
     if (seconds === 60 || (seconds === 59 && lastSecond === 0)) {
         sound.playSignal();
         syncCycle();
@@ -514,6 +590,88 @@ function countdownLoop() {
 
     lastSecond = seconds;
     requestAnimationFrame(countdownLoop);
+}
+
+// Layout Mode Switcher (Focus Mode vs Pro Terminal)
+function setViewMode(mode) {
+    state.viewMode = mode;
+    localStorage.setItem(CONFIG.STORAGE_VIEW_KEY, mode);
+
+    if (UI.btnViewFocus && UI.btnViewPro && UI.proAnalytics) {
+        if (mode === 'pro') {
+            UI.btnViewPro.classList.add('active');
+            UI.btnViewFocus.classList.remove('active');
+            UI.proAnalytics.classList.add('show');
+        } else {
+            UI.btnViewFocus.classList.add('active');
+            UI.btnViewPro.classList.remove('active');
+            UI.proAnalytics.classList.remove('show');
+        }
+    }
+}
+
+// Background Particle Canvas
+function initBackgroundCanvas() {
+    const canvas = document.getElementById('terminalCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let w, h, nodes = [];
+
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+
+    function createNodes() {
+        nodes = [];
+        const count = Math.min(40, Math.floor((w * h) / 24000));
+        for (let i = 0; i < count; i++) {
+            nodes.push({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                r: Math.random() * 1.5 + 0.5
+            });
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const dx = nodes[i].x - nodes[j].x;
+                const dy = nodes[i].y - nodes[j].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 130) {
+                    ctx.beginPath();
+                    ctx.moveTo(nodes[i].x, nodes[i].y);
+                    ctx.lineTo(nodes[j].x, nodes[j].y);
+                    ctx.strokeStyle = `rgba(0, 242, 254, ${(1 - dist / 130) * 0.1})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        nodes.forEach(n => {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 242, 254, 0.35)';
+            ctx.fill();
+            n.x += n.vx;
+            n.y += n.vy;
+            if (n.x < 0 || n.x > w) n.vx *= -1;
+            if (n.y < 0 || n.y > h) n.vy *= -1;
+        });
+
+        requestAnimationFrame(draw);
+    }
+
+    resize();
+    createNodes();
+    draw();
+    window.addEventListener('resize', () => { resize(); createNodes(); });
 }
 
 // Setup Event Listeners
@@ -525,7 +683,7 @@ function setupEvents() {
     if (UI.btnSound) {
         UI.btnSound.addEventListener('click', () => {
             const enabled = sound.toggle();
-            UI.btnSound.innerHTML = enabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+            UI.btnSound.textContent = enabled ? '🔊' : '🔇';
             showToast(enabled ? 'Sound alerts enabled' : 'Sound alerts muted');
             if (enabled) sound.playSignal();
         });
@@ -538,7 +696,23 @@ function setupEvents() {
         });
     }
 
-    // History Filters
+    if (UI.btnLogout) {
+        UI.btnLogout.addEventListener('click', () => {
+            if (confirm('Logout from terminal clearance?')) {
+                localStorage.removeItem('hiroto_signals_session');
+                window.location.href = 'index.html';
+            }
+        });
+    }
+
+    if (UI.btnViewFocus) {
+        UI.btnViewFocus.addEventListener('click', () => setViewMode('focus'));
+    }
+
+    if (UI.btnViewPro) {
+        UI.btnViewPro.addEventListener('click', () => setViewMode('pro'));
+    }
+
     UI.filterPills.forEach(pill => {
         pill.addEventListener('click', () => {
             UI.filterPills.forEach(p => p.classList.remove('active'));
@@ -551,7 +725,10 @@ function setupEvents() {
 
 // Initialize Application
 function init() {
+    if (!enforceAuth()) return;
     setupEvents();
+    setViewMode(state.viewMode);
+    initBackgroundCanvas();
     syncCycle();
     countdownLoop();
 }
