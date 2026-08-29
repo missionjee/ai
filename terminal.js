@@ -21,7 +21,7 @@ const CONFIG = {
     ],
     STORAGE_HISTORY_KEY: "hiroto_history_cache_v4",
     STORAGE_SOUND_KEY: "hiroto_sound_enabled",
-    MAX_HISTORY: 50
+    MAX_HISTORY: 100
 };
 
 // Period Calculations
@@ -140,6 +140,7 @@ const UI = {
     statusPill: document.getElementById("statusPill"),
     statusText: document.getElementById("statusText"),
     signalBanner: document.getElementById("signalBanner"),
+    signalTag: document.querySelector(".signal-tag"),
     signalText: document.getElementById("signalText"),
     signalRange: document.getElementById("signalRange"),
     confidencePct: document.getElementById("confidencePct"),
@@ -177,7 +178,8 @@ function copyCurrentSignal() {
     }
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
     const digits = p.luckyDigits ? p.luckyDigits.join(", ") : "-";
-    const minimalText = `🎯 ${period4} • ${p.prediction} • [${digits}]`;
+    const tag = p.isSniper ? " [🎯 SNIPER]" : "";
+    const minimalText = `🎯 ${period4} • ${p.prediction}${tag} • [${digits}]`;
 
     navigator.clipboard.writeText(minimalText).then(() => {
         showToast(`Copied: ${minimalText}`);
@@ -373,6 +375,7 @@ function renderUI() {
             UI.signalText.textContent = "LOCKED";
             UI.signalRange.textContent = "0 TOKENS AVAILABLE • RECHARGE KEY";
         }
+        if (UI.signalTag) UI.signalTag.textContent = "SIGNAL LOCKED";
         if (UI.confidencePct) UI.confidencePct.textContent = "0%";
         if (UI.confidenceBar) UI.confidenceBar.style.width = "0%";
         if (UI.luckyDigit1) UI.luckyDigit1.textContent = "X";
@@ -387,6 +390,16 @@ function renderUI() {
             UI.signalBanner.className = `signal-banner ${p.prediction}`;
             UI.signalText.textContent = p.prediction;
             UI.signalRange.textContent = p.prediction === "BIG" ? "5 · 6 · 7 · 8 · 9" : "0 · 1 · 2 · 3 · 4";
+        }
+
+        if (UI.signalTag) {
+            if (p.isSniper || p.confidence >= 72) {
+                UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">SNIPER CONFLUENCE (${p.confidence}%)</span>`;
+            } else if (p.status === 'HOLD') {
+                UI.signalTag.innerHTML = `⚠️ <span style="color:#f5b335;font-weight:700;">CAUTION • HIGH CHOP ZONE</span>`;
+            } else {
+                UI.signalTag.textContent = "RECOMMENDED SIGNAL";
+            }
         }
 
         if (UI.confidencePct && UI.confidenceBar) {
