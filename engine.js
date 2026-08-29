@@ -101,9 +101,9 @@ export class PredictionEngine {
                 if (item && item.issue_number && (item.actual_result || item.result_type)) {
                     const k = String(item.issue_number);
                     const res = (item.actual_result || item.result_type).toLowerCase();
-                    const num = item.actual_number !== undefined && item.actual_number !== null 
+                    const num = item.actual_number !== undefined && item.actual_number !== null && !isNaN(parseInt(item.actual_number, 10))
                         ? parseInt(item.actual_number, 10) 
-                        : (res === "big" ? 7 : 2);
+                        : null;
 
                     const existing = this.historyBuffer.get(k);
                     if (!existing || existing.actual_result !== res || existing.actual_number !== num) {
@@ -132,35 +132,44 @@ export class PredictionEngine {
             }
         });
 
-        // 3. Fallback when sample is virtually empty (< 4 periods)
-        if (combined.length < 4) {
+        const validHistory = combined.filter(h => (h.actual_result || h.result_type));
+
+        // 3. Fallback when sample is virtually empty (< 4 periods) — strictly dynamic and neutral
+        if (validHistory.length < 4) {
+            const hasRecent = validHistory.length > 0;
+            const recentType = hasRecent ? (validHistory[0].actual_result || validHistory[0].result_type || "").toLowerCase() : null;
+            // Never default blindly: if recent draw exists, switch dynamically; if no history at all, stay purely neutral
+            const fallbackPred = recentType ? (recentType === "big" ? "SMALL" : "BIG") : "HOLD";
+            
+            const uniformDigits = {};
+            for (let i = 0; i <= 9; i++) uniformDigits[i] = 10;
+
             return {
-                prediction: "BIG",
-                confidence: 60,
+                prediction: fallbackPred === "HOLD" ? "SYNCING" : fallbackPred,
+                confidence: 50,
                 status: "HOLD",
-                statusReason: "Syncing historical buffer (collecting draws)...",
-                strategy: "Empirical Baseline",
-                reason: "Awaiting sufficient round depth",
+                statusReason: `Collecting live rounds (${validHistory.length}/4 required)...`,
+                strategy: "Stream Initialization",
+                reason: "Awaiting minimum statistical round depth",
                 bigProb: 50,
                 smallProb: 50,
-                luckyDigits: [7, 8],
-                digitProbs: { 0: 5, 1: 5, 2: 5, 3: 5, 4: 5, 5: 15, 6: 15, 7: 25, 8: 20, 9: 10 },
-                regime: "balanced",
+                luckyDigits: fallbackPred === "BIG" ? [6, 7] : (fallbackPred === "SMALL" ? [2, 3] : []),
+                digitProbs: uniformDigits,
+                regime: "synchronizing",
                 volatility: "0.50",
                 entropy: "1.00",
                 isSniper: false,
-                pattern: "Normalizing",
-                parityPrediction: "ODD",
+                pattern: "Buffering",
+                parityPrediction: "EVEN",
                 kellyStake: { recommendedUnits: 0, fraction: 0, action: "PASS" },
                 modelPerformance: null
             };
         }
 
-        const validHistory = combined.filter(h => (h.actual_result || h.result_type));
         const seq = validHistory.map(h => (h.actual_result || h.result_type).toLowerCase());
         const numSeq = validHistory
-            .map(h => parseInt(h.actual_number, 10))
-            .filter(n => !isNaN(n) && n >= 0 && n <= 9);
+            .map(h => (h.actual_number !== null && h.actual_number !== undefined ? parseInt(h.actual_number, 10) : null))
+            .filter(n => n !== null && !isNaN(n) && n >= 0 && n <= 9);
 
         // 4. Run 6 Component Statistical Models
         // Model 1: Anti-Dragon Streak & Momentum (with Boundary Decay)
@@ -238,7 +247,22 @@ export class PredictionEngine {
         const scoreSum = bigScore + smallScore || 1;
         const bigRatio = bigScore / scoreSum;
         const smallRatio = smallScore / scoreSum;
-        const prediction = bigRatio >= smallRatio ? "BIG" : "SMALL";
+
+        let prediction;
+        if (bigRatio > smallRatio) {
+            prediction = "BIG";
+        } else if (smallRatio > bigRatio) {
+            prediction = "SMALL";
+        } else {
+            // Neutral contextual tie-breaker: no hardcoded BIG bias
+            if (regime === "trending") {
+                prediction = seq[0] === "big" ? "BIG" : "SMALL";
+            } else if (regime === "alternating") {
+                prediction = seq[0] === "big" ? "SMALL" : "BIG";
+            } else {
+                prediction = (parityModel && parityModel.pred) ? parityModel.pred : (seq[0] === "big" ? "SMALL" : "BIG");
+            }
+        }
 
         // 8. Sniper Mode Gating & Confidence Calibration
         const dominantRatio = Math.max(bigRatio, smallRatio);
@@ -483,9 +507,11 @@ export class PredictionEngine {
      */
     _analyzeMarkov(validHistory) {
         const rev = [...validHistory].reverse(); // chronological (oldest to newest)
-        if (rev.length < 4) return { pred: "BIG", conf: 52, weight: 1.0, reason: "Markov baseline" };
-
         const seq = rev.map(h => (h.actual_result || h.result_type).toLowerCase());
+        if (rev.length < 4) {
+            const lastOutcome = seq.length > 0 ? seq[seq.length - 1] : "big";
+            return { pred: lastOutcome === "big" ? "SMALL" : "BIG", conf: 50, weight: 0.6, reason: "Markov sampling baseline" };
+        }
         const issues = rev.map(h => h.issue_number);
 
         const isAdjacent = (idxNewer, idxOlder) => {
@@ -630,8 +656,9 @@ export class PredictionEngine {
      * Harmonized N-Gram Pattern Recognizer (Strict 2-2 Alternation, 3-1 Waves, 1-1 Oscillations)
      */
     _analyzePatterns(seq) {
-        if (seq.length < 5) {
-            return { pred: "BIG", conf: 50, weight: 0.8, reason: "Scanning patterns", patternName: "Neutral" };
+        if (seq.length < 4) {
+            const next = seq.length > 0 ? (seq[0] === "big" ? "SMALL" : "BIG") : "BIG";
+            return { pred: next, conf: 50, weight: 0.6, reason: "Scanning patterns", patternName: "Neutral" };
         }
 
         const s = seq.slice(0, 10).map(x => x === "big" ? "B" : "S").join("");
@@ -726,7 +753,14 @@ export class PredictionEngine {
      */
     _analyzeParityConfluence(numSeq, seq) {
         if (!numSeq || numSeq.length < 4) {
-            return { pred: "BIG", conf: 50, weight: 0.8, reason: "Parity baseline" };
+            const hasNum = numSeq && numSeq.length > 0;
+            const lastIsOdd = hasNum ? (numSeq[0] % 2 === 1) : (seq && seq.length > 0 ? seq[0] === "big" : true);
+            return {
+                pred: lastIsOdd ? "SMALL" : "BIG",
+                conf: 50,
+                weight: 0.6,
+                reason: "Parity sampling baseline"
+            };
         }
 
         const parities = numSeq.map(n => n % 2 === 1 ? "odd" : "even");
@@ -817,14 +851,17 @@ export class PredictionEngine {
         const scores = {};
         for (let i = 0; i <= 9; i++) scores[i] = 1.0;
 
-        const recent = numSeq.slice(0, 25);
-        const lastNum = recent[0] !== undefined ? recent[0] : 7;
+        const recent = numSeq && numSeq.length > 0 ? numSeq.slice(0, 25) : [];
+        const hasNumbers = recent.length > 0;
+        const lastNum = hasNumbers ? recent[0] : null;
 
-        // 1. Recency & Exponential Decay Weighting
-        recent.forEach((n, idx) => {
-            const recencyWeight = Math.exp(-idx * 0.12) * 4.0;
-            scores[n] = (scores[n] || 1.0) + recencyWeight;
-        });
+        // 1. Recency & Exponential Decay Weighting (only on empirical observations)
+        if (hasNumbers) {
+            recent.forEach((n, idx) => {
+                const recencyWeight = Math.exp(-idx * 0.12) * 4.0;
+                scores[n] = (scores[n] || 1.0) + recencyWeight;
+            });
+        }
 
         // 2. Class multiplier (Big: 5-9, Small: 0-4)
         for (let i = 0; i <= 9; i++) {
@@ -851,9 +888,11 @@ export class PredictionEngine {
             scores[0] *= 1.15;
         }
 
-        // 5. Numerical Transition Matrix (Adjacent Reversion)
-        const mirror = 9 - lastNum;
-        if (scores[mirror] !== undefined) scores[mirror] *= 1.3;
+        // 5. Numerical Transition Matrix (Adjacent Reversion on real last number)
+        if (lastNum !== null) {
+            const mirror = 9 - lastNum;
+            if (scores[mirror] !== undefined) scores[mirror] *= 1.3;
+        }
 
         const totalScore = Object.values(scores).reduce((a, b) => a + b, 0) || 1;
         const ranked = Object.entries(scores)

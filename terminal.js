@@ -234,7 +234,9 @@ async function syncCycle() {
             if (!item.issue_number) return;
             const issueKey = String(item.issue_number);
             const actualType = (item.actual_result || item.result_type || (item.actual_number >= 5 ? "big" : "small")).toLowerCase();
-            const actualNum = item.actual_number !== undefined && item.actual_number !== null ? parseInt(item.actual_number, 10) : (actualType === "big" ? 7 : 2);
+            const actualNum = item.actual_number !== undefined && item.actual_number !== null && !isNaN(parseInt(item.actual_number, 10)) 
+                ? parseInt(item.actual_number, 10) 
+                : null;
 
             const existing = historyMap.get(issueKey);
             if (existing) {
@@ -301,10 +303,10 @@ async function syncCycle() {
         if (currentTargetEntry.predicted_type) {
             state.prediction = {
                 prediction: currentTargetEntry.predicted_type,
-                confidence: currentTargetEntry.prediction_confidence || 75,
-                luckyDigits: currentTargetEntry.lucky_digits || [5, 7],
-                bigProb: currentTargetEntry.predicted_type === "BIG" ? 75 : 25,
-                smallProb: currentTargetEntry.predicted_type === "SMALL" ? 75 : 25
+                confidence: currentTargetEntry.prediction_confidence || 65,
+                luckyDigits: currentTargetEntry.lucky_digits || [],
+                bigProb: currentTargetEntry.predicted_type === "BIG" ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65)),
+                smallProb: currentTargetEntry.predicted_type === "SMALL" ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65))
             };
         }
     }
