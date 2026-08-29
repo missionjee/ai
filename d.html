@@ -16,6 +16,35 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
   
+  <!-- INSTANT SYNCHRONOUS SECURITY GUARD: Strict login required to access d.html -->
+  <script>
+    (function() {
+      try {
+        var sKey = "hiroto_active_device_session";
+        var raw = localStorage.getItem(sKey);
+        if (!raw) {
+          window.location.replace("/index.html");
+          return;
+        }
+        var s = JSON.parse(raw);
+        if (!s || !s.key || typeof s.tokens_balance !== "number" || s.tokens_balance <= 0 || s.status === "ended" || s.status === "deleted" || s.status === "revoked") {
+          localStorage.removeItem(sKey);
+          window.location.replace("/index.html");
+          return;
+        }
+        document.documentElement.classList.add("auth-verified");
+      } catch(e) {
+        window.location.replace("/index.html");
+      }
+    })();
+  </script>
+  <style>
+    /* Zero-Leak Security: Completely hide content unless auth verified */
+    html:not(.auth-verified) body {
+      display: none !important;
+    }
+  </style>
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>

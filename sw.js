@@ -1,27 +1,28 @@
 /**
  * HIROTO AI — Service Worker for PWA
- * Provides instant launch, offline resilience, and asset caching
+ * Network-First strategy ensures laptops and phones always load latest updates
  */
 
-const CACHE_NAME = "hiroto-pwa-v2";
+const CACHE_NAME = "hiroto-pwa-v4";
 const ASSETS_TO_CACHE = [
-  "./",
-  "./d.html",
-  "./index.html",
-  "./style.css",
-  "./terminal.js",
-  "./engine.js",
-  "./supabaseClient.js",
-  "./logo.jpg",
-  "./bg.jpg",
-  "./manifest.json"
+  "/",
+  "/d.html",
+  "/index.html",
+  "/style.css",
+  "/terminal.js",
+  "/engine.js",
+  "/supabaseClient.js",
+  "/logo.jpg",
+  "/bg.jpg",
+  "/manifest.json"
 ];
 
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -36,7 +37,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // Pass network-first for external API calls
+  // Always bypass cache for real-time external APIs
   if (event.request.url.includes("tirangaprediction.ai") || 
       event.request.url.includes("supabase.co") ||
       event.request.url.includes("allorigins") ||
@@ -44,16 +45,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-First: Always fetch freshest files from network, fallback to cache offline
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).then((response) => {
-        return caches.open(CACHE_NAME).then((cache) => {
-          if (event.request.method === "GET") {
-            cache.put(event.request, response.clone());
-          }
-          return response;
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200 && event.request.method === "GET") {
+          const resClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, resClone);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          return cached || caches.match("/d.html");
         });
-      });
-    }).catch(() => caches.match("./d.html"))
+      })
   );
 });

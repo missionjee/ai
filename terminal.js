@@ -571,8 +571,8 @@ function setupEvents() {
 // Session Guard
 function enforceAuth() {
     const session = supabaseClient.getSession();
-    if (!session || !session.key) {
-        window.location.href = "index.html";
+    if (!session || !session.key || typeof session.tokens_balance !== "number" || session.tokens_balance <= 0) {
+        window.location.replace("/index.html");
         return false;
     }
     return true;

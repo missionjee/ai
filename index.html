@@ -451,7 +451,7 @@
         if (result.success) {
           showStatus('✓ Access Granted! Entering Terminal...', 'success');
           setTimeout(() => {
-            window.location.href = 'd.html';
+            window.location.replace('/d.html');
           }, 600);
         } else {
           keyInput.classList.add('error');
@@ -474,7 +474,7 @@
 
     if (btnResume) {
       btnResume.addEventListener('click', () => {
-        window.location.href = 'd.html';
+        window.location.replace('/d.html');
       });
     }
 

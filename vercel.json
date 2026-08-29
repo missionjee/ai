@@ -7,6 +7,10 @@
       "destination": "/d.html"
     },
     {
+      "source": "/d.htm",
+      "destination": "/d.html"
+    },
+    {
       "source": "/app",
       "destination": "/d.html"
     },
@@ -43,6 +47,33 @@
         {
           "key": "Content-Type",
           "value": "application/manifest+json; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/style.css",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/terminal.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     }
