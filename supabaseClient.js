@@ -8,11 +8,32 @@
  * - Resilient Local Fallback Engine
  */
 
+const safeStorage = {
+    _memory: {},
+    getItem(key) {
+        if (typeof localStorage !== "undefined") {
+            try { return localStorage.getItem(key); } catch (e) { return null; }
+        }
+        return this._memory[key] || null;
+    },
+    setItem(key, val) {
+        if (typeof localStorage !== "undefined") {
+            try { localStorage.setItem(key, val); } catch (e) {}
+        }
+        this._memory[key] = String(val);
+    },
+    removeItem(key) {
+        if (typeof localStorage !== "undefined") {
+            try { localStorage.removeItem(key); } catch (e) {}
+        }
+        delete this._memory[key];
+    }
+};
+
 export const SUPABASE_CONFIG = {
     PROJECT_REF: "fvmbqikdomcjalladwmz",
     API_URL: "https://fvmbqikdomcjalladwmz.supabase.co",
-    // Real Supabase publishable key
-    ANON_KEY: localStorage.getItem("hiroto_supabase_anon_key") || "sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c",
+    ANON_KEY: safeStorage.getItem("hiroto_supabase_anon_key") || "sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c",
     DEFAULT_TOKENS: 100,
     STORAGE_SESSION_KEY: "hiroto_signals_session",
     STORAGE_DEVICE_KEY: "hiroto_device_id",
@@ -25,55 +46,43 @@ class SupabaseService {
         this.session = this.getSession();
     }
 
-    /**
-     * Get or create a unique persistent hardware/browser Device ID
-     */
     _getOrCreateDeviceId() {
-        let id = localStorage.getItem(SUPABASE_CONFIG.STORAGE_DEVICE_KEY);
+        let id = safeStorage.getItem(SUPABASE_CONFIG.STORAGE_DEVICE_KEY);
         if (!id) {
             if (typeof crypto !== "undefined" && crypto.randomUUID) {
                 id = `DEV-${crypto.randomUUID()}`;
             } else {
                 id = `DEV-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 10)}`;
             }
-            localStorage.setItem(SUPABASE_CONFIG.STORAGE_DEVICE_KEY, id);
+            safeStorage.setItem(SUPABASE_CONFIG.STORAGE_DEVICE_KEY, id);
         }
         return id;
     }
 
-    /**
-     * Retrieve active session
-     */
     getSession() {
         try {
-            const raw = localStorage.getItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
+            const raw = safeStorage.getItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
             return raw ? JSON.parse(raw) : null;
         } catch (e) {
             return null;
         }
     }
 
-    /**
-     * Get current token balance
-     */
     getTokenBalance() {
         const session = this.getSession();
         if (session && typeof session.tokens_balance === "number") {
             return session.tokens_balance;
         }
-        const cached = localStorage.getItem(SUPABASE_CONFIG.STORAGE_TOKENS_KEY);
+        const cached = safeStorage.getItem(SUPABASE_CONFIG.STORAGE_TOKENS_KEY);
         return cached !== null ? parseInt(cached, 10) : SUPABASE_CONFIG.DEFAULT_TOKENS;
     }
 
-    /**
-     * Update token balance locally
-     */
     _setTokenBalance(count) {
-        localStorage.setItem(SUPABASE_CONFIG.STORAGE_TOKENS_KEY, String(count));
+        safeStorage.setItem(SUPABASE_CONFIG.STORAGE_TOKENS_KEY, String(count));
         const session = this.getSession();
         if (session) {
             session.tokens_balance = count;
-            localStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(session));
+            safeStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(session));
         }
     }
 
@@ -83,7 +92,7 @@ class SupabaseService {
     async loginWithKey(licenseKey) {
         const cleanKey = licenseKey.trim().toUpperCase();
         const deviceId = this.deviceId;
-        const deviceName = navigator.userAgent.includes("Mobile") ? "Mobile Device" : "Desktop Workstation";
+        const deviceName = (typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.includes("Mobile")) ? "Mobile Device" : "Workstation";
 
         // Try Supabase RPC
         try {
@@ -112,7 +121,7 @@ class SupabaseService {
                         syncedWithCloud: true,
                         loginTime: new Date().toISOString()
                     };
-                    localStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(session));
+                    safeStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(session));
                     this._setTokenBalance(session.tokens_balance);
                     return { success: true, session };
                 } else if (data && data.code === "KEY_REVOKED") {
@@ -135,7 +144,7 @@ class SupabaseService {
             syncedWithCloud: false,
             loginTime: new Date().toISOString()
         };
-        localStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(fallbackSession));
+        safeStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(fallbackSession));
         return { success: true, session: fallbackSession };
     }
 
@@ -197,13 +206,13 @@ class SupabaseService {
 
         // Check if already deducted locally for this period
         const ledgerKey = `hiroto_deducted_${periodNumber}`;
-        if (localStorage.getItem(ledgerKey)) {
+        if (safeStorage.getItem(ledgerKey)) {
             return { success: true, remainingTokens: currentTokens, deducted: 0 };
         }
 
         // Deduct 1 token locally
         const newBalance = Math.max(0, currentTokens - 1);
-        localStorage.setItem(ledgerKey, "1");
+        safeStorage.setItem(ledgerKey, "1");
         this._setTokenBalance(newBalance);
 
         return {
@@ -253,7 +262,7 @@ class SupabaseService {
      * Force logout when multi-device conflict is detected
      */
     logoutDueToDeviceConflict() {
-        localStorage.removeItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
+        safeStorage.removeItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
         alert("⚠️ ACCESS TERMINATED: Your license key was used on another device. Multi-device access is not permitted.");
         window.location.href = "index.html?reason=multi_device";
     }
@@ -262,7 +271,7 @@ class SupabaseService {
      * Manual Logout
      */
     logout() {
-        localStorage.removeItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
+        safeStorage.removeItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
         window.location.href = "index.html";
     }
 }
