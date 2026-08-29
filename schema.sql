@@ -308,11 +308,14 @@ create index if not exists idx_global_signals_issue on public.global_signals (is
 -- Realtime Publication for instant sub-second WebSocket broadcast to all apps
 alter publication supabase_realtime add table public.global_signals;
 
--- Row Level Security
+-- Row Level Security (Restricted Access: Zero Direct Public Reads)
 alter table public.global_signals enable row level security;
-create policy "Allow public read access to global_signals" on public.global_signals for select using (true);
-create policy "Allow service/anon write access to global_signals" on public.global_signals for insert with check (true);
-create policy "Allow service/anon update access to global_signals" on public.global_signals for update using (true);
+drop policy if exists "Allow public read access to global_signals" on public.global_signals;
+create policy "Allow service write access to global_signals" on public.global_signals for insert with check (true);
+create policy "Allow service update access to global_signals" on public.global_signals for update using (true);
+
+-- Revoke direct anon select: Scrapers CANNOT read global_signals table directly via REST
+revoke select on public.global_signals from anon;
 
 -- Auto-Pruning Trigger: Keeps table strictly at latest 1,000 rounds (< 1 MB forever)
 create or replace function public.prune_global_signals()
@@ -336,3 +339,93 @@ create trigger trigger_prune_global_signals
 after insert on public.global_signals
 for each statement
 execute function public.prune_global_signals();
+
+-- ==============================================================================
+-- 9. ZERO-LEAK RPC: Get Authorized Prediction with Atomic Token Deduction
+-- ==============================================================================
+create or replace function public.get_authorized_prediction(
+    p_license_key text,
+    p_device_id text,
+    p_period text
+)
+returns json
+language plpgsql
+security definer
+as $$
+declare
+    v_user record;
+    v_signal record;
+    v_already_consumed boolean;
+    v_prediction_type text;
+begin
+    -- 1. Validate License Key
+    select * into v_user
+    from public.user_profiles
+    where license_key = upper(trim(p_license_key))
+      and status = 'active'
+    for update;
+
+    if not found then
+        return json_build_object('success', false, 'error', 'INVALID_LICENSE', 'message', 'Invalid or inactive license key');
+    end if;
+
+    -- 2. Verify Single-Device Lock
+    if v_user.active_device_id is not null and v_user.active_device_id <> p_device_id then
+        return json_build_object('success', false, 'error', 'DEVICE_MISMATCH', 'message', 'Key is active on another device');
+    end if;
+
+    -- 3. Check if target signal exists in global_signals
+    select * into v_signal
+    from public.global_signals
+    where issue_number = p_period;
+
+    -- 4. Check if already unlocked for this period by this user
+    select exists (
+        select 1 from public.token_ledger
+        where license_key = upper(trim(p_license_key))
+          and period_number = p_period
+    ) into v_already_consumed;
+
+    if not v_already_consumed then
+        -- Check token balance
+        if v_user.tokens_balance < 1 then
+            return json_build_object(
+                'success', false, 
+                'error', 'INSUFFICIENT_TOKENS', 
+                'tokens_balance', 0,
+                'message', 'Token balance empty'
+            );
+        end if;
+
+        -- Deduct 1 token atomically
+        update public.user_profiles
+        set tokens_balance = tokens_balance - 1,
+            last_active_at = now(),
+            updated_at = now()
+        where license_key = upper(trim(p_license_key));
+
+        -- Record in token ledger
+        v_prediction_type := case when v_signal.predicted_type is not null then v_signal.predicted_type else 'PENDING' end;
+        insert into public.token_ledger (license_key, period_number, prediction_type, tokens_deducted, device_id)
+        values (upper(trim(p_license_key)), p_period, v_prediction_type, 1, p_device_id);
+    end if;
+
+    -- 5. If signal not yet published by worker, return awaiting status
+    if v_signal.issue_number is null then
+        return json_build_object(
+            'success', true,
+            'status', 'SYNCING',
+            'tokens_balance', (select tokens_balance from public.user_profiles where license_key = upper(trim(p_license_key))),
+            'signal', null
+        );
+    end if;
+
+    -- 6. Return authorized signal and updated balance
+    return json_build_object(
+        'success', true,
+        'status', 'UNLOCKED',
+        'tokens_balance', (select tokens_balance from public.user_profiles where license_key = upper(trim(p_license_key))),
+        'signal', row_to_json(v_signal)
+    );
+end;
+$$;

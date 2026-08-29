@@ -302,37 +302,40 @@ async function syncCycle() {
     let currentTargetEntry = historyMap.get(String(targetPeriod));
 
     if (!currentTargetEntry) {
-        // 1. Fetch Central 24/7 Cloud Prediction (Guarantees 100% same results for all users)
-        const cloudSignal = await supabaseClient.getGlobalSignal(targetPeriod);
-        let pred;
-
-        if (cloudSignal && cloudSignal.predicted_type) {
-            pred = {
-                prediction: cloudSignal.predicted_type,
-                confidence: cloudSignal.confidence,
-                status: cloudSignal.status,
-                luckyDigits: cloudSignal.lucky_digits || [],
-                strategy: cloudSignal.strategy,
-                reason: cloudSignal.reason,
-                bigProb: cloudSignal.big_prob,
-                smallProb: cloudSignal.small_prob,
-                regime: cloudSignal.regime,
-                pattern: cloudSignal.pattern,
-                isSniper: cloudSignal.is_sniper,
-                kellyStake: { action: cloudSignal.stake_units || "1U" }
-            };
-        } else {
-            // Local fallback execution
-            const resolvedHistory = sortedHistory.filter(h => h.actual_result);
-            pred = engine.predict(resolvedHistory);
+        // Zero-Leak Secure Flow: Request authorized prediction with atomic token deduction & device lock
+        let pred = null;
+        if (state.tokensBalance > 0) {
+            const authResult = await supabaseClient.getAuthorizedPrediction(targetPeriod);
+            if (authResult && authResult.success && authResult.signal) {
+                const s = authResult.signal;
+                pred = {
+                    prediction: s.predicted_type,
+                    confidence: s.confidence,
+                    status: s.status,
+                    luckyDigits: s.lucky_digits || [],
+                    strategy: s.strategy,
+                    reason: s.reason,
+                    bigProb: s.big_prob,
+                    smallProb: s.small_prob,
+                    regime: s.regime,
+                    pattern: s.pattern,
+                    isSniper: s.is_sniper,
+                    kellyStake: { action: s.stake_units || "1U" }
+                };
+            }
         }
 
-        // Deduct 1 token if available to unlock prediction
-        if (state.tokensBalance > 0) {
+        // Local fallback execution if offline
+        if (!pred && state.tokensBalance > 0) {
+            const resolvedHistory = sortedHistory.filter(h => h.actual_result);
+            pred = engine.predict(resolvedHistory);
             await supabaseClient.consumeToken(targetPeriod, pred.prediction);
-            state.tokensBalance = supabaseClient.getTokenBalance();
-            state.prediction = pred;
+        }
 
+        state.tokensBalance = supabaseClient.getTokenBalance();
+
+        if (pred && state.tokensBalance >= 0) {
+            state.prediction = pred;
             currentTargetEntry = {
                 issue_number: String(targetPeriod),
                 predicted_type: pred.prediction,

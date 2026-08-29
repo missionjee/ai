@@ -722,34 +722,25 @@ async function executeSyncCycle() {
 }
 
 // ==============================================================================
-// 3. EXPORT HANDLERS (Cron Scheduled & Fast HTTP Endpoint)
+// 3. EXPORT HANDLERS (Cron Scheduled & Cloaked Endpoint)
 // ==============================================================================
 export default {
+    // 24/7 Private Internal Cron Trigger (* * * * *)
     async scheduled(event, env, ctx) {
         ctx.waitUntil(executeSyncCycle());
     },
 
+    // Cloaked HTTP Interface: Blocks all unauthorized internet traffic
     async fetch(request, env, ctx) {
-        const url = new URL(request.url);
-
-        if (url.pathname === "/sync" || url.pathname === "/force-sync") {
-            const result = await executeSyncCycle();
-            return new Response(JSON.stringify(result, null, 2), {
-                headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-            });
-        }
-
-        const result = await executeSyncCycle();
         return new Response(JSON.stringify({
-            status: "ONLINE",
-            platform: "Cloudflare Workers 24/7",
-            engine: "v4.0 Enterprise",
-            data: result
+            error: "ACCESS_DENIED",
+            code: 403,
+            message: "Direct public access to this engine is prohibited. Signals are strictly served via authorized institutional terminal sessions."
         }, null, 2), {
+            status: 403,
             headers: {
                 "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-cache, no-store, must-revalidate"
+                "X-Content-Type-Options": "nosniff"
             }
         });
     }

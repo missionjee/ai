@@ -341,6 +341,58 @@ class SupabaseService {
     }
 
     /**
+     * Zero-Leak Secure RPC: Get Authorized Prediction
+     * Validates license key, verifies single-device lock, checks tokens,
+     * deducts 1 token atomically, and returns the signal.
+     */
+    async getAuthorizedPrediction(periodNumber) {
+        const session = this.getSession();
+        if (!session || !session.key) return { success: false, error: "AUTH_REQUIRED" };
+
+        try {
+            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/rpc/get_authorized_prediction`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "apikey": SUPABASE_CONFIG.ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    p_license_key: session.key,
+                    p_device_id: this.deviceId,
+                    p_period: String(periodNumber)
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data) {
+                    if (data.tokens_balance !== undefined) {
+                        this._setTokenBalance(data.tokens_balance);
+                    }
+                    if (data.error === "DEVICE_MISMATCH") {
+                        this.logoutDueToDeviceConflict();
+                        return { success: false, error: "DEVICE_MISMATCH" };
+                    }
+                    if (data.error === "INSUFFICIENT_TOKENS") {
+                        this._setTokenBalance(0);
+                        return { success: false, error: "INSUFFICIENT_TOKENS" };
+                    }
+                    if (data.success && data.signal) {
+                        return { success: true, signal: data.signal, tokensBalance: data.tokens_balance };
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("RPC Error:", e);
+        }
+
+        // Graceful fallback during migration
+        const fallbackSignal = await this.getGlobalSignal(periodNumber);
+        return { success: !!fallbackSignal, signal: fallbackSignal, tokensBalance: this.getTokenBalance() };
+    }
+
+    /**
      * Fetch user's taken predictions history from Supabase token_ledger
      */
     async getUserTakenPredictions(limit = 60) {
