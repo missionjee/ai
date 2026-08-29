@@ -20,14 +20,15 @@
   <script>
     (function() {
       try {
-        var sKey = "hiroto_active_device_session";
+        var sKey = "hiroto_signals_session";
         var raw = localStorage.getItem(sKey);
         if (!raw) {
           window.location.replace("/index.html");
           return;
         }
         var s = JSON.parse(raw);
-        if (!s || !s.key || typeof s.tokens_balance !== "number" || s.tokens_balance <= 0 || s.status === "ended" || s.status === "deleted" || s.status === "revoked") {
+        var tokens = s && s.tokens_balance !== undefined ? parseInt(s.tokens_balance, 10) : 0;
+        if (!s || !s.key || isNaN(tokens) || tokens <= 0 || s.status === "ended" || s.status === "deleted" || s.status === "revoked") {
           localStorage.removeItem(sKey);
           window.location.replace("/index.html");
           return;
