@@ -1,6 +1,7 @@
 name = "hiroto-engine-worker"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+account_id = "9f1d5146599a2fd1b60c9ea1f8dc70fa"
 
 [triggers]
 crons = ["* * * * *"]
