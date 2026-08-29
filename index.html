@@ -4,23 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>HIROTO AI — Access Gateway</title>
-  <meta name="description" content="Secure license key gateway for institutional signal intelligence platform.">
+  <meta name="description" content="Secure institutional signal intelligence platform.">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/jpeg" href="logo.jpg">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
   
   <style>
     :root {
-      --bg-deep: #0a0d13;
-      --bg-card: rgba(16, 21, 30, 0.85);
-      --border-subtle: rgba(255, 255, 255, 0.09);
-      --gold-accent: #e5a93c;
-      --gold-glow: rgba(229, 169, 60, 0.25);
+      --bg-amoled: #000000;
+      --bg-card: rgba(8, 9, 12, 0.94);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --gold-accent: #f5b335;
+      --gold-glow: rgba(245, 179, 53, 0.25);
       --emerald-win: #00e676;
-      --crimson-big: #ff3b5c;
-      --ice-small: #38bdf8;
-      --text-primary: #f8fafc;
+      --crimson-big: #ff3366;
+      --ice-small: #00e5ff;
+      --text-primary: #ffffff;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
       --font-main: 'Inter', -apple-system, sans-serif;
@@ -28,16 +33,16 @@
       --font-display: 'Space Grotesk', sans-serif;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
       min-height: 100vh;
-      background-color: var(--bg-deep);
+      background-color: var(--bg-amoled);
       background-image: 
-        linear-gradient(180deg, rgba(10, 13, 19, 0.88) 0%, rgba(8, 10, 15, 0.95) 100%),
+        radial-gradient(ellipse at 50% 10%, rgba(14, 20, 30, 0.6) 0%, #000000 85%),
         url('bg.jpg');
       background-size: cover;
-      background-position: center;
+      background-position: center top;
       background-attachment: fixed;
       color: var(--text-primary);
       font-family: var(--font-main);
@@ -49,30 +54,13 @@
       position: relative;
     }
 
-    /* Ambient Aurora Mesh Background */
-    .aurora-bg {
+    /* Ambient Glow */
+    .ambient-glow {
       position: fixed;
       inset: 0;
       pointer-events: none;
+      background: radial-gradient(circle at 50% 30%, rgba(0, 229, 255, 0.04) 0%, transparent 60%);
       z-index: 0;
-      background:
-        radial-gradient(ellipse 65% 55% at 15% 20%, rgba(0, 242, 254, 0.12) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 85% 80%, rgba(255, 42, 109, 0.1) 0%, transparent 60%),
-        radial-gradient(ellipse 50% 60% at 50% 50%, rgba(121, 40, 202, 0.08) 0%, transparent 70%);
-      animation: auroraFloat 16s ease-in-out infinite alternate;
-    }
-
-    @keyframes auroraFloat {
-      0% { filter: hue-rotate(0deg); opacity: 0.85; transform: scale(1); }
-      100% { filter: hue-rotate(25deg); opacity: 1; transform: scale(1.04); }
-    }
-
-    /* Interactive Background Canvas */
-    #bgCanvas {
-      position: fixed;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
     }
 
     /* Login Gateway Container */
@@ -80,13 +68,7 @@
       position: relative;
       z-index: 10;
       width: 100%;
-      max-width: 440px;
-      animation: enterCard 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @keyframes enterCard {
-      from { opacity: 0; transform: translateY(20px) scale(0.97); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
+      max-width: 420px;
     }
 
     .login-card {
@@ -95,8 +77,8 @@
       -webkit-backdrop-filter: blur(24px);
       border: 1px solid var(--border-subtle);
       border-radius: 24px;
-      padding: 36px 28px;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      padding: 34px 26px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.08);
       position: relative;
       overflow: hidden;
     }
@@ -107,59 +89,77 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--gold-accent), var(--emerald-win));
+      height: 2px;
+      background: linear-gradient(90deg, var(--ice-small), var(--gold-accent), var(--emerald-win));
     }
 
     /* Brand Section */
     .login-brand {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
-    .brand-glyph {
-      width: 60px;
-      height: 60px;
-      margin: 0 auto 16px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, var(--gold-accent), rgba(255,255,255,0.05));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      box-shadow: 0 0 30px rgba(0, 242, 254, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+    .brand-logo-wrap {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 14px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(245, 179, 53, 0.5);
+      background: #000;
+      box-shadow: 0 0 20px var(--gold-glow);
+    }
+
+    .brand-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .login-brand h1 {
       font-family: var(--font-display);
       font-size: 22px;
-      font-weight: 900;
+      font-weight: 800;
       letter-spacing: 1.5px;
       color: #ffffff;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .login-brand p {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-secondary);
       font-weight: 600;
       letter-spacing: 0.5px;
     }
 
+    /* Device Security Badge */
+    .device-guard-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 0 auto 20px;
+      background: rgba(0, 230, 118, 0.08);
+      border: 1px solid rgba(0, 230, 118, 0.2);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--emerald-win);
+      width: fit-content;
+    }
+
     /* Form Elements */
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .form-label {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--text-secondary);
@@ -169,24 +169,20 @@
     .key-counter {
       font-family: var(--font-mono);
       font-size: 11px;
-      color: var(--neon-cyan);
-    }
-
-    .input-wrap {
-      position: relative;
+      color: var(--gold-accent);
     }
 
     .key-input {
       width: 100%;
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.6);
       border: 1px solid var(--border-subtle);
       border-radius: 14px;
       padding: 14px 16px;
       font-family: var(--font-mono);
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 800;
       color: #ffffff;
-      letter-spacing: 2.5px;
+      letter-spacing: 2px;
       text-align: center;
       text-transform: uppercase;
       outline: none;
@@ -195,37 +191,29 @@
 
     .key-input::placeholder {
       letter-spacing: 1px;
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-muted);
       text-transform: none;
     }
 
     .key-input:focus {
       border-color: var(--gold-accent);
-      box-shadow: 0 0 20px var(--gold-glow);
-      background: rgba(0, 0, 0, 0.55);
+      box-shadow: 0 0 16px var(--gold-glow);
+      background: rgba(0, 0, 0, 0.8);
     }
 
     .key-input.error {
-      border-color: var(--neon-pink);
-      box-shadow: 0 0 20px rgba(255, 42, 109, 0.3);
-      animation: shake 0.4s ease;
-    }
-
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20%, 60% { transform: translateX(-6px); }
-      40%, 80% { transform: translateX(6px); }
+      border-color: var(--crimson-big);
+      box-shadow: 0 0 16px rgba(255, 51, 102, 0.3);
     }
 
     /* Submit Button */
     .btn-submit {
       width: 100%;
-      background: linear-gradient(135deg, var(--gold-accent), #d4af37);
-      background-size: 200% auto;
-      color: #040814;
+      background: linear-gradient(135deg, var(--gold-accent), #d49a24);
+      color: #000000;
       border: none;
-      padding: 15px;
+      padding: 14px;
       border-radius: 14px;
       font-family: var(--font-display);
       font-size: 14px;
@@ -236,431 +224,203 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
-      box-shadow: 0 6px 25px var(--gold-glow);
-      transition: all 0.3s ease;
-      margin-top: 8px;
+      box-shadow: 0 6px 20px var(--gold-glow);
+      transition: all 0.25s ease;
+      margin-top: 6px;
     }
 
     .btn-submit:hover:not(:disabled) {
-      background-position: right center;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(0, 242, 254, 0.5);
+      filter: brightness(1.1);
+      transform: translateY(-1px);
     }
 
     .btn-submit:disabled {
       opacity: 0.6;
       cursor: not-allowed;
-      transform: none;
     }
 
-    /* Guest Access Option */
-    .guest-row {
-      display: flex;
-      justify-content: center;
-      margin-top: 18px;
-    }
-
-    .btn-guest {
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      font-family: var(--font-main);
-      font-size: 13px;
+    /* Status Message */
+    .status-msg {
+      margin-top: 14px;
+      font-size: 12px;
+      text-align: center;
+      min-height: 18px;
       font-weight: 600;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      display: inline-flex;
+      display: none;
+    }
+
+    .status-msg.error {
+      color: var(--crimson-big);
+      display: block;
+    }
+
+    .status-msg.success {
+      color: var(--emerald-win);
+      display: block;
+    }
+
+    .status-msg.info {
+      color: var(--gold-accent);
+      display: block;
+    }
+
+    /* Feature Badges */
+    .features-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .feature-item {
+      display: flex;
       align-items: center;
       gap: 6px;
-      transition: color 0.2s;
-    }
-
-    .btn-guest:hover {
-      color: var(--neon-cyan);
-      text-decoration: underline;
-    }
-
-    /* Feedback Banner */
-    .status-banner {
-      display: none;
-      padding: 12px 14px;
-      border-radius: 10px;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 18px;
-      text-align: center;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .status-banner.error {
-      display: block;
-      background: rgba(255, 42, 109, 0.15);
-      color: var(--neon-pink);
-      border: 1px solid rgba(255, 42, 109, 0.35);
-    }
-
-    .status-banner.success {
-      display: block;
-      background: rgba(0, 245, 160, 0.15);
-      color: var(--neon-emerald);
-      border: 1px solid rgba(0, 245, 160, 0.35);
-    }
-
-    .status-banner.info {
-      display: block;
-      background: rgba(0, 242, 254, 0.15);
-      color: var(--neon-cyan);
-      border: 1px solid rgba(0, 242, 254, 0.35);
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Active Session Info */
-    .session-card {
-      display: none;
-      background: rgba(0, 245, 160, 0.08);
-      border: 1px solid rgba(0, 245, 160, 0.25);
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .session-card.show {
-      display: block;
-    }
-
-    .session-title {
       font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--neon-emerald);
-      margin-bottom: 4px;
+      color: var(--text-secondary);
+      font-weight: 600;
     }
 
-    .session-days {
-      font-family: var(--font-display);
-      font-size: 18px;
-      font-weight: 800;
-      color: #fff;
+    .feature-icon {
+      color: var(--gold-accent);
+    }
+
+    /* Quick Resume Button */
+    .resume-box {
+      margin-top: 14px;
+      display: none;
+      text-align: center;
     }
 
     .btn-resume {
-      margin-top: 10px;
-      background: var(--neon-emerald);
-      color: #040814;
-      border: none;
-      padding: 8px 18px;
-      border-radius: 8px;
-      font-family: var(--font-main);
-      font-size: 13px;
-      font-weight: 800;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-resume:hover {
-      box-shadow: 0 0 15px var(--neon-emerald);
-    }
-
-    /* Footer Meta */
-    .login-footer {
-      margin-top: 24px;
-      text-align: center;
-      font-size: 11px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      letter-spacing: 0.5px;
-    }
-
-    @media (max-width: 480px) {
-      .login-card {
-        padding: 28px 20px;
-      }
-      .key-input {
-        font-size: 16px;
-        letter-spacing: 2px;
-        padding: 12px 14px;
-      }
+      width: 100%;
     }
   </style>
 </head>
 <body>
-
-  <div class="aurora-bg"></div>
-  <canvas id="bgCanvas"></canvas>
+  <div class="ambient-glow"></div>
 
   <div class="login-container">
     <div class="login-card">
-      
-      <!-- Brand -->
       <div class="login-brand">
-        <div class="brand-glyph">⚝</div>
-        <h1>HIROTO AI</h1>
-        <p>Institutional Signal Intelligence Gateway</p>
-      </div>
-
-      <!-- Active Session Notice (if already logged in) -->
-      <div class="session-card" id="sessionCard">
-        <div class="session-title">● Active Clearance Found</div>
-        <div class="session-days" id="sessionDays">-- DAYS REMAINING</div>
-        <button class="btn-resume" id="btnResume">Launch Terminal →</button>
-      </div>
-
-      <!-- Feedback Status -->
-      <div class="status-banner" id="statusBanner"></div>
-
-      <!-- Input Form -->
-      <form id="loginForm" onsubmit="return false;">
-        <div class="form-group">
-          <div class="form-label">
-            <span>License Key</span>
-            <span class="key-counter" id="keyCounter">0 / 12</span>
-          </div>
-          <div class="input-wrap">
-            <input 
-              type="text" 
-              class="key-input" 
-              id="keyInput" 
-              placeholder="XXXX-XXXX-XXXX" 
-              autocomplete="off" 
-              autocapitalize="characters" 
-              spellcheck="false"
-              maxlength="14"
-            >
-          </div>
+        <div class="brand-logo-wrap">
+          <img src="logo.jpg" alt="HIROTO AI" class="brand-logo-img">
         </div>
+        <h1>HIROTO AI</h1>
+        <p>INSTITUTIONAL SIGNAL GATEWAY</p>
+      </div>
 
-        <button type="submit" class="btn-submit" id="btnSubmit">
-          <span id="btnText">VERIFY ACCESS KEY</span>
+      <div class="device-guard-badge">
+        <span>🔒</span> Single-Device Security Active
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">
+          <span>License Access Key</span>
+          <span class="key-counter" id="keyCounter">0 / 14</span>
+        </div>
+        <div class="input-wrap">
+          <input 
+            type="text" 
+            id="keyInput" 
+            class="key-input" 
+            placeholder="XXXX-XXXX-XXXX" 
+            maxlength="14" 
+            autocomplete="off"
+            spellcheck="false"
+          >
+        </div>
+      </div>
+
+      <button id="btnSubmit" class="btn-submit">
+        <span id="btnText">AUTHENTICATE KEY</span>
+      </button>
+
+      <div class="status-msg" id="statusMsg"></div>
+
+      <div class="resume-box" id="resumeBox">
+        <button class="btn-resume" id="btnResume">
+          Resume Session (<span id="resumeKey"></span>) →
         </button>
-      </form>
-
-      <!-- Guest Access / Demo Mode -->
-      <div class="guest-row">
-        <button class="btn-guest" id="btnGuest">Explore in Simulator Mode →</button>
       </div>
 
-      <div class="login-footer">
-        HIROTO AI PLATFORM • ENCRYPTED ENDPOINT
+      <div class="features-list">
+        <div class="feature-item">
+          <span class="feature-icon">⚡</span> 1 Token = 1 Round
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">🔒</span> Anti-Multi Device
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">🎯</span> Real-time Sync
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">📱</span> PWA Standalone
+        </div>
       </div>
-
     </div>
   </div>
 
-  <!-- Background Particle Animation -->
-  <script>
-    (function() {
-      const canvas = document.getElementById('bgCanvas');
-      const ctx = canvas.getContext('2d');
-      let w, h, particles = [];
-
-      function resize() {
-        w = canvas.width = window.innerWidth;
-        h = canvas.height = window.innerHeight;
-      }
-
-      function initParticles() {
-        particles = [];
-        const count = Math.min(45, Math.floor((w * h) / 22000));
-        for (let i = 0; i < count; i++) {
-          particles.push({
-            x: Math.random() * w,
-            y: Math.random() * h,
-            vx: (Math.random() - 0.5) * 0.35,
-            vy: (Math.random() - 0.5) * 0.35,
-            r: Math.random() * 1.5 + 0.5
-          });
-        }
-      }
-
-      function draw() {
-        ctx.clearRect(0, 0, w, h);
-        for (let i = 0; i < particles.length; i++) {
-          for (let j = i + 1; j < particles.length; j++) {
-            const dx = particles[i].x - particles[j].x;
-            const dy = particles[i].y - particles[j].y;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            if (d < 120) {
-              ctx.beginPath();
-              ctx.moveTo(particles[i].x, particles[i].y);
-              ctx.lineTo(particles[j].x, particles[j].y);
-              ctx.strokeStyle = `rgba(0, 242, 254, ${(1 - d / 120) * 0.12})`;
-              ctx.lineWidth = 0.6;
-              ctx.stroke();
-            }
-          }
-        }
-
-        particles.forEach(p => {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 242, 254, 0.4)';
-          ctx.fill();
-          p.x += p.vx;
-          p.y += p.vy;
-          if (p.x < 0 || p.x > w) p.vx *= -1;
-          if (p.y < 0 || p.y > h) p.vy *= -1;
-        });
-
-        requestAnimationFrame(draw);
-      }
-
-      resize();
-      initParticles();
-      draw();
-      window.addEventListener('resize', () => { resize(); initParticles(); });
-    })();
-  </script>
-
-  <!-- Firebase Validation & Auth Handling -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCBouQx_5CL0aZdK_HrHx3fuHvHQwhj4LQ",
-      authDomain: "enigma-app-25066.firebaseapp.com",
-      projectId: "enigma-app-25066"
-    };
-
-    let db = null;
-    try {
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-    } catch (e) {
-      console.warn("Firebase initialization warning:", e);
-    }
+    import { supabaseClient } from "./supabaseClient.js";
 
     const keyInput = document.getElementById('keyInput');
     const keyCounter = document.getElementById('keyCounter');
     const btnSubmit = document.getElementById('btnSubmit');
     const btnText = document.getElementById('btnText');
-    const statusBanner = document.getElementById('statusBanner');
-    const sessionCard = document.getElementById('sessionCard');
-    const sessionDays = document.getElementById('sessionDays');
+    const statusMsg = document.getElementById('statusMsg');
+    const resumeBox = document.getElementById('resumeBox');
     const btnResume = document.getElementById('btnResume');
-    const btnGuest = document.getElementById('btnGuest');
-
-    function showStatus(msg, type = 'info') {
-      statusBanner.textContent = msg;
-      statusBanner.className = `status-banner ${type}`;
-    }
-
-    // Check for existing active session
-    function checkActiveSession() {
-      const raw = localStorage.getItem('hiroto_signals_session');
-      if (!raw) return;
-      try {
-        const session = JSON.parse(raw);
-        const exp = session.expires || session.expiresAt;
-        if (!exp) {
-          // Lifetime
-          sessionDays.textContent = 'LIFETIME CLEARANCE';
-          sessionCard.classList.add('show');
-          return;
-        }
-        const diff = new Date(exp) - new Date();
-        const days = Math.ceil(diff / 86400000);
-        if (days > 0) {
-          sessionDays.textContent = `${days} DAYS CLEARANCE`;
-          sessionCard.classList.add('show');
-        } else {
-          localStorage.removeItem('hiroto_signals_session');
-        }
-      } catch (e) {
-        localStorage.removeItem('hiroto_signals_session');
-      }
-    }
+    const resumeKey = document.getElementById('resumeKey');
 
     // Auto-Format XXXX-XXXX-XXXX
     keyInput.addEventListener('input', (e) => {
-      let raw = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
-      let formatted = '';
-      for (let i = 0; i < raw.length; i++) {
-        if (i > 0 && i % 4 === 0) formatted += '-';
-        formatted += raw[i];
+      let raw = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      let parts = [];
+      for (let i = 0; i < raw.length && i < 12; i += 4) {
+        parts.push(raw.substring(i, i + 4));
       }
-      e.target.value = formatted;
-      keyCounter.textContent = `${raw.length} / 12`;
+      e.target.value = parts.join('-');
+      keyCounter.textContent = `${e.target.value.length} / 14`;
       keyInput.classList.remove('error');
-      statusBanner.className = 'status-banner';
+      statusMsg.style.display = 'none';
     });
 
-    // Hiroto Cryptographic Signature Verification
-    const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const SALT = 'HIROTO_AI_V5_MASTER_2026';
-    const EPOCH = new Date('2026-01-01T00:00:00Z');
-
-    function simpleHash(str) {
-      let h1 = 0xdeadbeef, h2 = 0x41c64e6d;
-      for (let i = 0; i < str.length; i++) {
-        const ch = str.charCodeAt(i);
-        h1 = Math.imul(h1 ^ ch, 2654435761);
-        h2 = Math.imul(h2 ^ ch, 1597334677);
-      }
-      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-      return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+    function showStatus(text, type = 'info') {
+      statusMsg.textContent = text;
+      statusMsg.className = `status-msg ${type}`;
     }
 
-    function computeChecksum(prefix) {
-      const val = simpleHash(prefix + SALT);
-      let n = Math.abs(val);
-      let cs = '';
-      for (let i = 0; i < 4; i++) {
-        cs += CHARSET[n % CHARSET.length];
-        n = Math.floor(n / CHARSET.length);
-      }
-      return cs;
+    // Check query params for multi-device logout
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('reason') === 'multi_device') {
+      showStatus('Logged out: Account accessed from another device.', 'error');
     }
 
-    function verifyCryptographicKey(keyStr) {
-      if (!keyStr || typeof keyStr !== 'string') return { valid: false };
-      const clean = keyStr.trim().toUpperCase();
-      const parts = clean.split('-');
-      if (parts.length !== 3 || parts[0].length !== 4 || parts[1].length !== 4 || parts[2].length !== 4) {
-        return { valid: false };
+    // Check Active Session
+    function checkActiveSession() {
+      const session = supabaseClient.getSession();
+      if (session && session.key) {
+        resumeKey.textContent = session.key;
+        resumeBox.style.display = 'block';
       }
-
-      const prefix = parts[0] + '-' + parts[1];
-      if (parts[2] !== computeChecksum(prefix)) {
-        return { valid: false };
-      }
-
-      const seg2 = parts[1];
-      if (seg2 === 'LZZZ') {
-        return { valid: true, lifetime: true, expires: null };
-      }
-
-      if (seg2[0] !== 'D') return { valid: false };
-
-      const i1 = CHARSET.indexOf(seg2[1]);
-      const i2 = CHARSET.indexOf(seg2[2]);
-      const i3 = CHARSET.indexOf(seg2[3]);
-      if (i1 < 0 || i2 < 0 || i3 < 0) return { valid: false };
-
-      const dayDiff = (i1 << 10) | (i2 << 5) | i3;
-      const expDate = new Date(EPOCH.getTime() + dayDiff * 86400000 + 86399000);
-      const now = new Date();
-
-      if (expDate < now) {
-        return { valid: false, expired: true, expires: expDate.toISOString() };
-      }
-
-      return { valid: true, lifetime: false, expires: expDate.toISOString() };
     }
 
-    // Verification Logic
+    // Key Authentication via Supabase
     async function verifyKey() {
       const val = keyInput.value.trim().toUpperCase();
-      
-      // 1. Format Validation (Must be XXXX-XXXX-XXXX: 12 chars + 2 hyphens = 14)
       const KEY_PATTERN = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
       if (!KEY_PATTERN.test(val)) {
         keyInput.classList.add('error');
         showStatus('Please enter a valid 12-digit key (XXXX-XXXX-XXXX)', 'error');
@@ -669,98 +429,27 @@
 
       btnSubmit.disabled = true;
       btnText.textContent = 'AUTHENTICATING...';
-      showStatus('Verifying clearance token...', 'info');
+      showStatus('Binding device and verifying tokens in Supabase...', 'info');
 
       try {
-        let keyRecord = null;
+        const result = await supabaseClient.loginWithKey(val);
 
-        // 2. Check remote Firestore (with 2000ms fast timeout)
-        if (db) {
-          try {
-            const fetchPromise = getDocs(collection(db, 'keys'));
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
-            const snap = await Promise.race([fetchPromise, timeoutPromise]);
-            const list = snap.docs.map(d => d.data());
-            keyRecord = list.find(k => k.key === val);
-          } catch (e) {
-            console.warn('Firestore lookup skipped or timed out:', e);
-          }
-        }
-
-        // 3. Check Cryptographic Signature (Decodes embedded expiry)
-        if (!keyRecord) {
-          const cryptoCheck = verifyCryptographicKey(val);
-          if (cryptoCheck.valid) {
-            keyRecord = {
-              key: val,
-              expires: cryptoCheck.expires,
-              expiresAt: cryptoCheck.expires,
-              status: 'active',
-              validity: cryptoCheck.lifetime ? 0 : 7,
-              created: new Date().toISOString()
-            };
-          } else if (cryptoCheck.expired) {
-            keyInput.classList.add('error');
-            const expStr = new Date(cryptoCheck.expires).toLocaleDateString();
-            showStatus(`This access key expired on ${expStr}`, 'error');
-            btnSubmit.disabled = false;
-            btnText.textContent = 'VERIFY ACCESS KEY';
-            return;
-          }
-        }
-
-        // 4. Check Local Cache
-        if (!keyRecord) {
-          const localBackup = JSON.parse(localStorage.getItem('hiroto_local_keys') || '[]');
-          keyRecord = localBackup.find(k => k.key === val);
-        }
-
-        // 5. Universal Standard Clearance (Accepts all validly generated 4-4-4 keys)
-        if (!keyRecord) {
-          const d = new Date();
-          d.setDate(d.getDate() + 30); // 30-day clearance
-          keyRecord = {
-            key: val,
-            expires: d.toISOString(),
-            expiresAt: d.toISOString(),
-            status: 'active',
-            validity: 30,
-            created: new Date().toISOString()
-          };
-        }
-
-        // Check if explicitly revoked
-        if (keyRecord.status === 'revoked') {
+        if (result.success) {
+          showStatus('✓ Access Granted! Entering Terminal...', 'success');
+          setTimeout(() => {
+            window.location.href = 'd.html';
+          }, 600);
+        } else {
           keyInput.classList.add('error');
-          showStatus('This access key has been revoked.', 'error');
+          showStatus(result.message || 'Authentication failed. Please check your key.', 'error');
           btnSubmit.disabled = false;
-          btnText.textContent = 'VERIFY ACCESS KEY';
-          return;
+          btnText.textContent = 'AUTHENTICATE KEY';
         }
-
-        // Check if expired
-        const exp = keyRecord.expires || keyRecord.expiresAt;
-        if (exp && new Date(exp) < new Date()) {
-          keyInput.classList.add('error');
-          showStatus('This access key has expired.', 'error');
-          btnSubmit.disabled = false;
-          btnText.textContent = 'VERIFY ACCESS KEY';
-          return;
-        }
-
-        // Approved!
-        localStorage.setItem('hiroto_signals_session', JSON.stringify(keyRecord));
-        showStatus('✓ Clearance Granted! Launching Terminal...', 'success');
-
-        setTimeout(() => {
-          window.location.href = 'd.html';
-        }, 800);
-
       } catch (err) {
         console.error(err);
-        showStatus('Authentication failed. Please retry.', 'error');
+        showStatus('Network error connecting to database.', 'error');
         btnSubmit.disabled = false;
-        btnText.textContent = 'VERIFY ACCESS KEY';
+        btnText.textContent = 'AUTHENTICATE KEY';
       }
     }
 
@@ -771,19 +460,6 @@
 
     if (btnResume) {
       btnResume.addEventListener('click', () => {
-        window.location.href = 'd.html';
-      });
-    }
-
-    if (btnGuest) {
-      btnGuest.addEventListener('click', () => {
-        // Set guest session
-        localStorage.setItem('hiroto_signals_session', JSON.stringify({
-          key: 'SIMULATOR-MODE',
-          status: 'active',
-          guest: true,
-          created: new Date().toISOString()
-        }));
         window.location.href = 'd.html';
       });
     }

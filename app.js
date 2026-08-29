@@ -1,14 +1,16 @@
 /**
- * HIROTO AI — Upgraded Institutional Terminal Controller
- * Key Highlights:
- * - Dynamic Sequence Synchronization (Eliminates Pending Outcome Bug)
- * - Zero-Scroll Responsive History with 4-Digit Periods
- * - Ultra-Minimal 1-Line Signal Copying
- * - Celebratory Win Particle Burst Animation & Fanfare
- * - Web Audio API Synthesizer
+ * HIROTO AI — Institutional Terminal Controller (AMOLED Edition)
+ * Core Architecture:
+ * - Deterministic Period Synchronization (Zero Up/Down Table Drift)
+ * - Precision Settlement Polling (XX:01, XX:02, XX:04s)
+ * - Single-Device Enforcement & Supabase Session Validation
+ * - 1-Token-Per-Prediction Accounting
+ * - PWA Service Worker & Install Handler
+ * - Zero-Lag Pure DOM Updates (No heavy animation loops)
  */
 
 import { PredictionEngine } from "./engine.js";
+import { supabaseClient, SUPABASE_CONFIG } from "./supabaseClient.js";
 
 // Configuration
 const CONFIG = {
@@ -17,9 +19,9 @@ const CONFIG = {
         url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
         url => `https://corsproxy.io/?${encodeURIComponent(url)}`
     ],
-    STORAGE_HISTORY_KEY: "hiroto_history_cache_v3",
+    STORAGE_HISTORY_KEY: "hiroto_history_cache_v4",
     STORAGE_SOUND_KEY: "hiroto_sound_enabled",
-    MAX_HISTORY: 60
+    MAX_HISTORY: 50
 };
 
 // Period Calculations
@@ -38,7 +40,7 @@ const PeriodHelper = {
         try {
             return String(BigInt(issueNumber) + 1n);
         } catch (e) {
-            const num = parseInt(issueNumber.slice(-5)) + 1;
+            const num = parseInt(issueNumber.slice(-5), 10) + 1;
             return issueNumber.slice(0, -5) + String(num).padStart(5, "0");
         }
     },
@@ -52,7 +54,7 @@ const PeriodHelper = {
     }
 };
 
-// Web Audio API Synthesizer
+// Subtle Web Audio Synthesizer (No garish fanfare)
 class SoundFx {
     constructor() {
         this.ctx = null;
@@ -75,7 +77,7 @@ class SoundFx {
         return this.enabled;
     }
 
-    playSignal() {
+    playTick() {
         if (!this.enabled) return;
         this._init();
         if (!this.ctx) return;
@@ -83,151 +85,17 @@ class SoundFx {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = "sine";
-        osc.frequency.setValueAtTime(587.33, now);
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.14);
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.frequency.setValueAtTime(800, now);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.25);
-    }
-
-    playWin() {
-        if (!this.enabled) return;
-        this._init();
-        if (!this.ctx) return;
-        const notes = [523.25, 659.25, 783.99, 1046.50];
-        notes.forEach((freq, idx) => {
-            const now = this.ctx.currentTime + idx * 0.08;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = "triangle";
-            osc.frequency.setValueAtTime(freq, now);
-            gain.gain.setValueAtTime(0.15, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start(now);
-            osc.stop(now + 0.2);
-        });
-    }
-
-    playLoss() {
-        if (!this.enabled) return;
-        this._init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(320, now);
-        osc.frequency.exponentialRampToValueAtTime(220, now + 0.18);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.22);
+        osc.stop(now + 0.08);
     }
 }
 
-// Particle Win Celebration
-class CelebrationEffects {
-    constructor() {
-        this.canvas = document.getElementById("celebrationCanvas");
-        this.ctx = this.canvas ? this.canvas.getContext("2d") : null;
-        this.particles = [];
-        this.animating = false;
-        if (this.canvas) this.resize();
-        window.addEventListener("resize", () => this.resize());
-    }
-
-    resize() {
-        if (!this.canvas) return;
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    burst() {
-        if (!this.ctx) return;
-        this.resize();
-        const colors = ["#00e676", "#e5a93c", "#ffffff", "#38bdf8"];
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight * 0.35;
-
-        for (let i = 0; i < 90; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 9 + 3;
-            this.particles.push({
-                x: centerX,
-                y: centerY,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed - 2,
-                color: colors[Math.floor(Math.random() * colors.length)],
-                radius: Math.random() * 3 + 2,
-                alpha: 1,
-                decay: Math.random() * 0.02 + 0.015
-            });
-        }
-
-        if (!this.animating) {
-            this.animating = true;
-            this.loop();
-        }
-    }
-
-    loop() {
-        if (!this.ctx) return;
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += 0.18;
-            p.alpha -= p.decay;
-
-            if (p.alpha <= 0) {
-                this.particles.splice(i, 1);
-                continue;
-            }
-
-            this.ctx.save();
-            this.ctx.globalAlpha = p.alpha;
-            this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            this.ctx.fillStyle = p.color;
-            this.ctx.shadowColor = p.color;
-            this.ctx.shadowBlur = 8;
-            this.ctx.fill();
-            this.ctx.restore();
-        }
-
-        if (this.particles.length > 0) {
-            requestAnimationFrame(() => this.loop());
-        } else {
-            this.animating = false;
-        }
-    }
-}
-
-// State
-const state = {
-    targetPeriod: null,
-    history: [],
-    prediction: null,
-    stats: { total: 0, wins: 0, losses: 0, winRate: 0, streak: 0 },
-    activeFilter: "ALL",
-    isLiveFeed: true,
-    lastSettledPeriod: null
-};
-
-const engine = new PredictionEngine();
-const sound = new SoundFx();
-const celebration = new CelebrationEffects();
-
-// History Storage
+// Local History Storage
 const HistoryStore = {
     load() {
         try {
@@ -237,23 +105,40 @@ const HistoryStore = {
             return [];
         }
     },
-    save(list) {
+    save(history) {
         try {
-            localStorage.setItem(CONFIG.STORAGE_HISTORY_KEY, JSON.stringify(list.slice(0, CONFIG.MAX_HISTORY)));
+            localStorage.setItem(CONFIG.STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, CONFIG.MAX_HISTORY)));
         } catch (e) {}
     }
 };
 
-// UI Cache
+// Application State
+const engine = new PredictionEngine();
+const sound = new SoundFx();
+
+const state = {
+    targetPeriod: null,
+    prediction: null,
+    history: [],
+    stats: { streak: 0 },
+    tokensBalance: 100,
+    isLiveFeed: false,
+    isResolving: false,
+    activeFilter: "ALL",
+    lastSettledPeriod: null,
+    deferredPwaPrompt: null
+};
+
+// DOM References
 const UI = {
+    userTokenCount: document.getElementById("userTokenCount"),
+    metricTokens: document.getElementById("metricTokens"),
+    metricStreak: document.getElementById("metricStreak"),
+    metricConsensus: document.getElementById("metricConsensus"),
+    targetPeriodNum: document.getElementById("targetPeriodNum"),
+    countdownTimer: document.getElementById("countdownTimer"),
     statusPill: document.getElementById("statusPill"),
     statusText: document.getElementById("statusText"),
-    btnSound: document.getElementById("btnSound"),
-    btnSync: document.getElementById("btnSync"),
-    btnLogout: document.getElementById("btnLogout"),
-    countdownTimer: document.getElementById("countdownTimer"),
-    targetPeriodNum: document.getElementById("targetPeriodNum"),
-    predictionHero: document.getElementById("predictionHero"),
     signalBanner: document.getElementById("signalBanner"),
     signalText: document.getElementById("signalText"),
     signalRange: document.getElementById("signalRange"),
@@ -262,39 +147,46 @@ const UI = {
     luckyDigit1: document.getElementById("luckyDigit1"),
     luckyDigit2: document.getElementById("luckyDigit2"),
     btnCopySignal: document.getElementById("btnCopySignal"),
-    metricWinRate: document.getElementById("metricWinRate"),
-    metricStreak: document.getElementById("metricStreak"),
-    metricTotal: document.getElementById("metricTotal"),
-    metricConsensus: document.getElementById("metricConsensus"),
-    historyBody: document.getElementById("historyBody"),
+    btnSound: document.getElementById("btnSound"),
+    btnSync: document.getElementById("btnSync"),
+    btnLogout: document.getElementById("btnLogout"),
+    btnInstallPwa: document.getElementById("btnInstallPwa"),
     filterPills: document.querySelectorAll(".filter-pill"),
-    toast: document.getElementById("toastMsg")
+    historyBody: document.getElementById("historyBody"),
+    toastMsg: document.getElementById("toastMsg")
 };
 
-function showToast(msg) {
-    if (!UI.toast) return;
-    UI.toast.textContent = msg;
-    UI.toast.classList.add("show");
-    setTimeout(() => UI.toast.classList.remove("show"), 2200);
+// Notification Toast
+let toastTimer = null;
+function showToast(text) {
+    if (!UI.toastMsg) return;
+    UI.toastMsg.textContent = text;
+    UI.toastMsg.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        UI.toastMsg.classList.remove("show");
+    }, 2500);
 }
 
-// Minimal 1-Line Copy Signal
+// Copy Current Signal
 function copyCurrentSignal() {
-    if (!state.prediction || !state.targetPeriod) return;
     const p = state.prediction;
+    if (!p || !state.targetPeriod) {
+        showToast("No active signal to copy");
+        return;
+    }
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
-    const digits = p.luckyDigits.join(", ");
+    const digits = p.luckyDigits ? p.luckyDigits.join(", ") : "-";
     const minimalText = `🎯 ${period4} • ${p.prediction} • [${digits}]`;
 
     navigator.clipboard.writeText(minimalText).then(() => {
         showToast(`Copied: ${minimalText}`);
-        sound.playSignal();
     }).catch(() => {
         showToast("Signal copied!");
     });
 }
 
-// Fetch Remote Data
+// Fetch Remote Data with multi-proxy fallback
 async function fetchRemoteData() {
     const endpoints = [
         CONFIG.API_LATEST,
@@ -305,7 +197,7 @@ async function fetchRemoteData() {
     for (const url of endpoints) {
         try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 4000);
+            const timeout = setTimeout(() => controller.abort(), 3500);
             const res = await fetch(url, { signal: controller.signal });
             clearTimeout(timeout);
             if (!res.ok) continue;
@@ -321,161 +213,149 @@ async function fetchRemoteData() {
     return null;
 }
 
-// Generate Realistic Seed if empty
-function generateInitialHistory() {
-    const list = [];
-    let seedIssue = PeriodHelper.generateFallbackPeriod();
-    
-    for (let i = 20; i >= 1; i--) {
-        const num = Math.floor(Math.random() * 10);
-        const actual = num >= 5 ? "big" : "small";
-        const isWin = Math.random() > 0.28;
-        const pred = isWin ? actual : (actual === "big" ? "small" : "big");
-        
-        list.push({
-            issue_number: String(BigInt(seedIssue) - BigInt(i)),
-            actual_result: actual,
-            actual_number: num,
-            predicted_type: pred.toUpperCase(),
-            prediction_confidence: Math.floor(68 + Math.random() * 24)
-        });
-    }
-    return list;
-}
-
-// Primary Synchronize Function
+// Core Synchronization Engine (Fixed Table Up/Down Drift & Accurate Predictions)
 async function syncCycle() {
     let history = HistoryStore.load();
-    if (history.length === 0) {
-        history = generateInitialHistory();
-    }
-
     const remoteData = await fetchRemoteData();
+
+    // Key-value Map strictly keyed by issue_number to prevent misalignments
+    const historyMap = new Map();
+    history.forEach(item => {
+        if (item && item.issue_number) {
+            historyMap.set(String(item.issue_number), item);
+        }
+    });
 
     if (remoteData && remoteData.length > 0) {
         remoteData.forEach(item => {
             if (!item.issue_number) return;
+            const issueKey = String(item.issue_number);
             const actualType = (item.actual_result || item.result_type || (item.actual_number >= 5 ? "big" : "small")).toLowerCase();
-            const actualNum = item.actual_number !== undefined ? parseInt(item.actual_number) : (actualType === "big" ? 7 : 2);
+            const actualNum = item.actual_number !== undefined && item.actual_number !== null ? parseInt(item.actual_number, 10) : (actualType === "big" ? 7 : 2);
 
-            const existing = history.find(h => h.issue_number === item.issue_number);
+            const existing = historyMap.get(issueKey);
             if (existing) {
                 existing.actual_result = actualType;
                 existing.actual_number = actualNum;
             } else {
-                history.unshift({
-                    issue_number: item.issue_number,
+                historyMap.set(issueKey, {
+                    issue_number: issueKey,
                     actual_result: actualType,
                     actual_number: actualNum,
                     predicted_type: null,
-                    prediction_confidence: null
+                    prediction_confidence: null,
+                    lucky_digits: null
                 });
             }
         });
-    } else {
-        const pendingEntries = history.filter(h => h.predicted_type && !h.actual_result);
-        pendingEntries.forEach(p => {
-            const num = Math.floor(Math.random() * 10);
-            p.actual_result = num >= 5 ? "big" : "small";
-            p.actual_number = num;
-        });
     }
 
-    history.sort((a, b) => {
+    // Convert map to strictly sorted array (Descending by numerical period)
+    const sortedHistory = Array.from(historyMap.values()).sort((a, b) => {
         try {
-            return BigInt(b.issue_number) > BigInt(a.issue_number) ? 1 : -1;
+            const bInt = BigInt(a.issue_number);
+            const aInt = BigInt(b.issue_number);
+            return aInt > bInt ? 1 : (aInt < bInt ? -1 : 0);
         } catch (e) {
             return b.issue_number.localeCompare(a.issue_number);
         }
     });
 
-    const latestResolved = history.find(h => h.actual_result);
+    // Determine latest resolved period and next target period
+    const latestResolved = sortedHistory.find(h => h.actual_result !== null && h.actual_result !== undefined);
     const targetPeriod = latestResolved ? PeriodHelper.getNextPeriod(latestResolved.issue_number) : PeriodHelper.generateFallbackPeriod();
     state.targetPeriod = targetPeriod;
 
-    const prediction = engine.predict(history.filter(h => h.actual_result));
-    state.prediction = prediction;
+    // Check token balance from Supabase / local
+    state.tokensBalance = supabaseClient.getTokenBalance();
 
-    let currentEntry = history.find(h => h.issue_number === targetPeriod);
-    if (!currentEntry) {
-        currentEntry = {
-            issue_number: targetPeriod,
-            predicted_type: prediction.prediction,
-            prediction_confidence: prediction.confidence,
+    // Check if target period already exists in history
+    let currentTargetEntry = historyMap.get(String(targetPeriod));
+
+    if (!currentTargetEntry) {
+        // Generate AI prediction for upcoming period
+        const resolvedHistory = sortedHistory.filter(h => h.actual_result);
+        const pred = engine.predict(resolvedHistory);
+        state.prediction = pred;
+
+        // Deduct 1 token if available
+        if (state.tokensBalance > 0) {
+            await supabaseClient.consumeToken(targetPeriod, pred.prediction);
+            state.tokensBalance = supabaseClient.getTokenBalance();
+        }
+
+        currentTargetEntry = {
+            issue_number: String(targetPeriod),
+            predicted_type: pred.prediction,
+            prediction_confidence: pred.confidence,
+            lucky_digits: pred.luckyDigits,
             actual_result: null,
             actual_number: null
         };
-        history.unshift(currentEntry);
-    } else if (!currentEntry.predicted_type) {
-        currentEntry.predicted_type = prediction.prediction;
-        currentEntry.prediction_confidence = prediction.confidence;
+        historyMap.set(String(targetPeriod), currentTargetEntry);
+    } else {
+        // If entry already exists, restore its prediction
+        if (currentTargetEntry.predicted_type) {
+            state.prediction = {
+                prediction: currentTargetEntry.predicted_type,
+                confidence: currentTargetEntry.prediction_confidence || 75,
+                luckyDigits: currentTargetEntry.lucky_digits || [5, 7],
+                bigProb: currentTargetEntry.predicted_type === "BIG" ? 75 : 25,
+                smallProb: currentTargetEntry.predicted_type === "SMALL" ? 75 : 25
+            };
+        }
     }
 
-    reconcileOutcomes(history);
-
-    state.history = history;
-    HistoryStore.save(history);
-
-    renderUI();
-}
-
-// Reconcile outcomes & trigger Win Celebrations
-function reconcileOutcomes(history) {
-    let wins = 0;
-    let losses = 0;
-    let currentStreak = 0;
-    let countingStreak = true;
-
-    const resolved = history.filter(h => h.predicted_type && h.actual_result);
-
-    resolved.forEach((h, idx) => {
-        const actual = h.actual_result.toUpperCase();
-        const pred = h.predicted_type.toUpperCase();
-        const isWin = actual === pred;
-
-        if (isWin) {
-            wins++;
-            if (countingStreak) currentStreak++;
-        } else {
-            losses++;
-            if (countingStreak) countingStreak = false;
-        }
-
-        if (idx === 0 && state.lastSettledPeriod !== h.issue_number) {
-            state.lastSettledPeriod = h.issue_number;
-            const p4 = PeriodHelper.formatLast4(h.issue_number);
-            
-            if (isWin) {
-                sound.playWin();
-                celebration.burst();
-                if (UI.predictionHero) {
-                    UI.predictionHero.classList.add("win-flash");
-                    setTimeout(() => UI.predictionHero.classList.remove("win-flash"), 1200);
-                }
-                showToast(`🎉 WIN! ${p4} Hit ${pred}!`);
-            } else {
-                sound.playLoss();
-                showToast(`Outcome: ${p4} was ${actual}`);
-            }
+    // Re-sort history after inserting target period
+    state.history = Array.from(historyMap.values()).sort((a, b) => {
+        try {
+            const bInt = BigInt(a.issue_number);
+            const aInt = BigInt(b.issue_number);
+            return aInt > bInt ? 1 : (aInt < bInt ? -1 : 0);
+        } catch (e) {
+            return b.issue_number.localeCompare(a.issue_number);
         }
     });
 
-    const total = wins + losses;
-    const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : "0.0";
-    state.stats = { total, wins, losses, winRate, streak: currentStreak };
+    calculateStreak(state.history);
+    HistoryStore.save(state.history);
+    renderUI();
 }
 
-// Render UI Components
+// Calculate Current Streak
+function calculateStreak(history) {
+    let streak = 0;
+    const resolved = history.filter(h => h.predicted_type && h.actual_result);
+
+    for (const h of resolved) {
+        const actual = String(h.actual_result).toUpperCase();
+        const pred = String(h.predicted_type).toUpperCase();
+        if (actual === pred) {
+            streak++;
+        } else {
+            break;
+        }
+    }
+    state.stats.streak = streak;
+}
+
+// Render Clean AMOLED UI
 function renderUI() {
-    const p = state.prediction;
-    if (!p) return;
+    // 1. Tokens and Header
+    if (UI.userTokenCount) UI.userTokenCount.textContent = state.tokensBalance;
+    if (UI.metricTokens) UI.metricTokens.textContent = `${state.tokensBalance}`;
+    if (UI.metricStreak) UI.metricStreak.textContent = `${state.stats.streak} 🔥`;
 
     if (UI.targetPeriodNum) {
         UI.targetPeriodNum.textContent = PeriodHelper.formatLast4(state.targetPeriod);
     }
 
+    // 2. Status Pill
     if (UI.statusPill && UI.statusText) {
-        if (state.isLiveFeed) {
+        if (state.isResolving) {
+            UI.statusPill.className = "status-pill resolving";
+            UI.statusText.textContent = "SYNCING";
+        } else if (state.isLiveFeed) {
             UI.statusPill.className = "status-pill";
             UI.statusText.textContent = "LIVE";
         } else {
@@ -484,35 +364,54 @@ function renderUI() {
         }
     }
 
-    if (UI.signalBanner && UI.signalText && UI.signalRange) {
-        UI.signalBanner.className = `signal-banner ${p.prediction}`;
-        UI.signalText.textContent = p.prediction;
-        UI.signalRange.textContent = p.prediction === "BIG" ? "5 · 6 · 7 · 8 · 9" : "0 · 1 · 2 · 3 · 4";
+    // 3. Prediction Banner (Check for Token Depletion)
+    const p = state.prediction;
+    if (state.tokensBalance <= 0) {
+        // Locked State
+        if (UI.signalBanner && UI.signalText && UI.signalRange) {
+            UI.signalBanner.className = "signal-banner LOCKED";
+            UI.signalText.textContent = "LOCKED";
+            UI.signalRange.textContent = "0 TOKENS AVAILABLE • RECHARGE KEY";
+        }
+        if (UI.confidencePct) UI.confidencePct.textContent = "0%";
+        if (UI.confidenceBar) UI.confidenceBar.style.width = "0%";
+        if (UI.luckyDigit1) UI.luckyDigit1.textContent = "X";
+        if (UI.luckyDigit2) UI.luckyDigit2.textContent = "X";
+        if (UI.metricConsensus) UI.metricConsensus.textContent = "0%";
+        renderHistoryTable();
+        return;
     }
 
-    if (UI.confidencePct && UI.confidenceBar) {
-        UI.confidencePct.textContent = `${p.confidence}%`;
-        UI.confidenceBar.style.width = `${p.confidence}%`;
-    }
+    if (p) {
+        if (UI.signalBanner && UI.signalText && UI.signalRange) {
+            UI.signalBanner.className = `signal-banner ${p.prediction}`;
+            UI.signalText.textContent = p.prediction;
+            UI.signalRange.textContent = p.prediction === "BIG" ? "5 · 6 · 7 · 8 · 9" : "0 · 1 · 2 · 3 · 4";
+        }
 
-    if (UI.luckyDigit1 && UI.luckyDigit2) {
-        UI.luckyDigit1.textContent = p.luckyDigits[0] !== undefined ? p.luckyDigits[0] : "-";
-        UI.luckyDigit2.textContent = p.luckyDigits[1] !== undefined ? p.luckyDigits[1] : "-";
-    }
+        if (UI.confidencePct && UI.confidenceBar) {
+            UI.confidencePct.textContent = `${p.confidence}%`;
+            UI.confidenceBar.style.width = `${p.confidence}%`;
+        }
 
-    if (UI.metricWinRate) UI.metricWinRate.textContent = `${state.stats.winRate}%`;
-    if (UI.metricStreak) UI.metricStreak.textContent = `${state.stats.streak} 🔥`;
-    if (UI.metricTotal) UI.metricTotal.textContent = `${state.stats.total}`;
-    if (UI.metricConsensus) UI.metricConsensus.textContent = `${Math.max(p.bigProb, p.smallProb)}%`;
+        if (UI.luckyDigit1 && UI.luckyDigit2 && p.luckyDigits) {
+            UI.luckyDigit1.textContent = p.luckyDigits[0] !== undefined ? p.luckyDigits[0] : "-";
+            UI.luckyDigit2.textContent = p.luckyDigits[1] !== undefined ? p.luckyDigits[1] : "-";
+        }
+
+        if (UI.metricConsensus) {
+            UI.metricConsensus.textContent = `${Math.max(p.bigProb || 50, p.smallProb || 50)}%`;
+        }
+    }
 
     renderHistoryTable();
 }
 
-// Render Zero-Scroll Draw History Table (4 Columns Only)
+// Render Zero-Scroll Draw History Table (Strictly matched periods)
 function renderHistoryTable() {
     if (!UI.historyBody) return;
 
-    let items = state.history.slice(0, 25);
+    let items = state.history.slice(0, 30);
     if (state.activeFilter === "WINS") {
         items = items.filter(h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() === h.actual_result.toUpperCase());
     } else if (state.activeFilter === "LOSSES") {
@@ -520,7 +419,7 @@ function renderHistoryTable() {
     }
 
     if (items.length === 0) {
-        UI.historyBody.innerHTML = `<tr><td colspan="4" class="empty-cell">No records found for current filter</td></tr>`;
+        UI.historyBody.innerHTML = `<tr><td colspan="4" class="empty-cell">No records found</td></tr>`;
         return;
     }
 
@@ -539,7 +438,9 @@ function renderHistoryTable() {
             }
         }
 
-        const signalHtml = predType ? `<span class="hist-signal ${predType}">${predType}</span>` : `<span style="color:var(--text-muted)">--</span>`;
+        const signalHtml = predType 
+            ? `<span class="hist-signal ${predType}">${predType}</span>` 
+            : `<span style="color:var(--text-muted)">--</span>`;
 
         const resultHtml = actualType ? `
             <div class="hist-result">
@@ -550,7 +451,7 @@ function renderHistoryTable() {
 
         return `
             <tr>
-                <td class="col-period hist-period">${period4}</td>
+                <td class="col-period">${period4}</td>
                 <td class="col-signal">${signalHtml}</td>
                 <td class="col-result">${resultHtml}</td>
                 <td class="col-outcome">${outcomeHtml}</td>
@@ -559,29 +460,72 @@ function renderHistoryTable() {
     }).join("");
 }
 
-// Live Countdown Loop
+// Precision Countdown & Declaration Polling Loop (Zero Glitch Timing)
 let lastSecond = -1;
-function countdownLoop() {
-    const now = new Date();
-    const seconds = PeriodHelper.getSecondsLeft(now);
+function startTimerLoop() {
+    setInterval(async () => {
+        const now = new Date();
+        const seconds = PeriodHelper.getSecondsLeft(now);
 
-    if (UI.countdownTimer) {
-        const formatted = `00:${String(seconds).padStart(2, "0")}`;
-        UI.countdownTimer.textContent = formatted;
-        if (seconds <= 10) {
-            UI.countdownTimer.classList.add("urgent");
-        } else {
-            UI.countdownTimer.classList.remove("urgent");
+        if (UI.countdownTimer) {
+            UI.countdownTimer.textContent = `00:${String(seconds).padStart(2, "0")}`;
+            if (seconds <= 10) {
+                UI.countdownTimer.classList.add("urgent");
+            } else {
+                UI.countdownTimer.classList.remove("urgent");
+            }
         }
+
+        // Declaration Polling: The exact moment result is declared
+        // 1-minute rounds finish at :00, servers settle between :01 and :05
+        if (seconds === 60 || seconds === 59 && lastSecond === 0) {
+            state.isResolving = true;
+            renderUI();
+            await syncCycle();
+        } else if (seconds === 58 || seconds === 56 || seconds === 54) {
+            // Check if server resolved during seconds :02, :04, :06
+            if (state.isResolving) {
+                await syncCycle();
+                state.isResolving = false;
+                renderUI();
+            }
+        }
+
+        // Periodic Single-Device Session Heartbeat (Every 30 seconds)
+        if (seconds === 30) {
+            supabaseClient.verifyDeviceSession();
+        }
+
+        lastSecond = seconds;
+    }, 1000);
+}
+
+// PWA Installation Setup
+function setupPwa() {
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
 
-    if (seconds === 60 || (seconds === 59 && lastSecond === 0)) {
-        sound.playSignal();
-        syncCycle();
-    }
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        state.deferredPwaPrompt = e;
+        if (UI.btnInstallPwa) {
+            UI.btnInstallPwa.style.display = "inline-flex";
+        }
+    });
 
-    lastSecond = seconds;
-    requestAnimationFrame(countdownLoop);
+    if (UI.btnInstallPwa) {
+        UI.btnInstallPwa.addEventListener("click", async () => {
+            if (!state.deferredPwaPrompt) return;
+            state.deferredPwaPrompt.prompt();
+            const { outcome } = await state.deferredPwaPrompt.userChoice;
+            if (outcome === "accepted") {
+                UI.btnInstallPwa.style.display = "none";
+                showToast("PWA Installed successfully!");
+            }
+            state.deferredPwaPrompt = null;
+        });
+    }
 }
 
 // Setup Event Listeners
@@ -595,22 +539,21 @@ function setupEvents() {
             const enabled = sound.toggle();
             UI.btnSound.textContent = enabled ? "🔊" : "🔇";
             showToast(enabled ? "Sound alerts enabled" : "Sound alerts muted");
-            if (enabled) sound.playSignal();
+            if (enabled) sound.playTick();
         });
     }
 
     if (UI.btnSync) {
-        UI.btnSync.addEventListener("click", () => {
-            showToast("Syncing signals...");
-            syncCycle();
+        UI.btnSync.addEventListener("click", async () => {
+            showToast("Syncing latest results...");
+            await syncCycle();
         });
     }
 
     if (UI.btnLogout) {
         UI.btnLogout.addEventListener("click", () => {
             if (confirm("Logout from terminal?")) {
-                localStorage.removeItem("hiroto_signals_session");
-                window.location.href = "index.html";
+                supabaseClient.logout();
             }
         });
     }
@@ -627,8 +570,8 @@ function setupEvents() {
 
 // Session Guard
 function enforceAuth() {
-    const raw = localStorage.getItem("hiroto_signals_session");
-    if (!raw) {
+    const session = supabaseClient.getSession();
+    if (!session || !session.key) {
         window.location.href = "index.html";
         return false;
     }
@@ -636,11 +579,12 @@ function enforceAuth() {
 }
 
 // Initialize Application
-function init() {
+async function init() {
     if (!enforceAuth()) return;
+    setupPwa();
     setupEvents();
-    syncCycle();
-    countdownLoop();
+    await syncCycle();
+    startTimerLoop();
 }
 
 if (document.readyState === "loading") {

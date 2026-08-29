@@ -1,0 +1,17 @@
+{
+  "name": "hiroto-ai-terminal",
+  "version": "2.0.0",
+  "description": "Institutional AMOLED Signal Intelligence Terminal with Supabase Authentication & Token System",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "supabase:init": "supabase init",
+    "supabase:link": "supabase link --project-ref fvmbqikdomcjalladwmz",
+    "supabase:push": "supabase db push"
+  },
+  "keywords": ["fintech", "signal-terminal", "supabase", "pwa", "amoled"],
+  "author": "missionjee",
+  "license": "MIT"
+}

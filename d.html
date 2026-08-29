@@ -5,24 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>HIROTO — Predictive Signal Terminal</title>
   <meta name="description" content="Institutional predictive signal intelligence terminal.">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/jpeg" href="logo.jpg">
 
   <!-- Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Win Celebration Canvas Overlay -->
-  <canvas id="celebrationCanvas" class="celebration-canvas"></canvas>
 
   <div class="app-shell">
     
-    <!-- 1. Minimal Header -->
+    <!-- 1. AMOLED Header -->
     <header class="top-header">
       <div class="brand-area">
-        <div class="brand-badge">⚝</div>
+        <div class="brand-logo-wrap">
+          <img src="logo.jpg" alt="HIROTO AI" class="brand-logo-img">
+        </div>
         <div class="brand-info">
           <h1>HIROTO</h1>
           <span class="brand-sub">AI TERMINAL</span>
@@ -30,6 +35,17 @@
       </div>
 
       <div class="header-controls">
+        <!-- Token Balance Badge -->
+        <div class="token-badge" id="headerTokenBadge" title="Available Tokens">
+          <span class="token-icon">⚡</span>
+          <span id="userTokenCount">--</span>
+        </div>
+
+        <!-- PWA Install Button (Shown on PWA supported browsers) -->
+        <button class="btn-pwa" id="btnInstallPwa" style="display:none;" title="Install PWA App">
+          <span>📲 Install</span>
+        </button>
+
         <div class="status-pill" id="statusPill">
           <span class="pulse-dot"></span>
           <span id="statusText">LIVE</span>
@@ -41,19 +57,15 @@
       </div>
     </header>
 
-    <!-- 2. Performance Summary -->
+    <!-- 2. Performance Summary (Win Rate & Total Rounds Removed as requested) -->
     <section class="metrics-row">
       <div class="metric-box">
-        <span class="metric-label">Win Rate</span>
-        <span class="metric-value emerald" id="metricWinRate">--%</span>
+        <span class="metric-label">Tokens Left</span>
+        <span class="metric-value gold" id="metricTokens">--</span>
       </div>
       <div class="metric-box">
         <span class="metric-label">Win Streak</span>
-        <span class="metric-value gold" id="metricStreak">0 🔥</span>
-      </div>
-      <div class="metric-box">
-        <span class="metric-label">Total Rounds</span>
-        <span class="metric-value" id="metricTotal">0</span>
+        <span class="metric-value emerald" id="metricStreak">0 🔥</span>
       </div>
       <div class="metric-box">
         <span class="metric-label">AI Consensus</span>
@@ -88,7 +100,7 @@
           <!-- Confidence Bar -->
           <div class="confidence-wrap">
             <div class="confidence-header">
-              <span>Confidence</span>
+              <span>Model Confidence</span>
               <strong id="confidencePct">--%</strong>
             </div>
             <div class="confidence-track">
@@ -107,14 +119,14 @@
             </div>
 
             <button class="btn-copy-signal" id="btnCopySignal">
-              <span>📋 Copy</span>
+              <span>📋 Copy Signal</span>
             </button>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- 4. DRAW HISTORY (FITS WITHOUT HORIZONTAL SCROLL) -->
+    <!-- 4. DRAW HISTORY (Zero-scroll, strictly synchronized) -->
     <section class="history-card">
       <div class="history-header">
         <h2 class="history-title">Draw History</h2>
@@ -139,7 +151,7 @@
           <tbody id="historyBody">
             <tr>
               <td colspan="4" class="empty-cell">
-                Synchronizing draw archives...
+                Synchronizing live feed...
               </td>
             </tr>
           </tbody>
