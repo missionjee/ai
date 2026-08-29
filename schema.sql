@@ -280,3 +280,59 @@ create policy "Allow insert access to token_ledger" on public.token_ledger for i
 grant usage on schema public to anon, authenticated;
 grant all on all tables in schema public to anon, authenticated;
 grant all on all routines in schema public to anon, authenticated;
+
+-- ==============================================================================
+-- 8. CENTRAL 24/7 GLOBAL SIGNALS (Single Source of Truth for all connected users)
+-- ==============================================================================
+create table if not exists public.global_signals (
+    issue_number text primary key,
+    predicted_type text not null,          -- 'BIG' or 'SMALL'
+    confidence integer not null,           -- 50 to 95
+    status text not null,                  -- 'SNIPER', 'CLEARED', 'HOLD'
+    lucky_digits integer[] default '{}',   -- e.g. [7, 8]
+    stake_units text default '1U',         -- 'PASS', '1U', '2U', '3U'
+    strategy text,                         -- Leading model name
+    reason text,                           -- Signal justification
+    big_prob integer default 50,
+    small_prob integer default 50,
+    regime text default 'balanced',
+    pattern text default 'Standard',
+    is_sniper boolean default false,
+    actual_result text,                    -- 'big' or 'small' (updated upon settlement)
+    actual_number integer,                 -- 0 to 9
+    created_at timestamptz default now()
+);
+
+create index if not exists idx_global_signals_issue on public.global_signals (issue_number desc);
+
+-- Realtime Publication for instant sub-second WebSocket broadcast to all apps
+alter publication supabase_realtime add table public.global_signals;
+
+-- Row Level Security
+alter table public.global_signals enable row level security;
+create policy "Allow public read access to global_signals" on public.global_signals for select using (true);
+create policy "Allow service/anon write access to global_signals" on public.global_signals for insert with check (true);
+create policy "Allow service/anon update access to global_signals" on public.global_signals for update using (true);
+
+-- Auto-Pruning Trigger: Keeps table strictly at latest 1,000 rounds (< 1 MB forever)
+create or replace function public.prune_global_signals()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+    delete from public.global_signals
+    where issue_number not in (
+        select issue_number from public.global_signals
+        order by issue_number desc
+        limit 1000
+    );
+    return new;
+end;
+$$;
+
+drop trigger if exists trigger_prune_global_signals on public.global_signals;
+create trigger trigger_prune_global_signals
+after insert on public.global_signals
+for each statement
+execute function public.prune_global_signals();

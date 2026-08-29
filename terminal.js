@@ -278,9 +278,31 @@ async function syncCycle() {
     let currentTargetEntry = historyMap.get(String(targetPeriod));
 
     if (!currentTargetEntry) {
-        // Generate AI prediction for upcoming period
-        const resolvedHistory = sortedHistory.filter(h => h.actual_result);
-        const pred = engine.predict(resolvedHistory);
+        // 1. Fetch Central 24/7 Cloud Prediction (Guarantees 100% same results for all users)
+        const cloudSignal = await supabaseClient.getGlobalSignal(targetPeriod);
+        let pred;
+
+        if (cloudSignal && cloudSignal.predicted_type) {
+            pred = {
+                prediction: cloudSignal.predicted_type,
+                confidence: cloudSignal.confidence,
+                status: cloudSignal.status,
+                luckyDigits: cloudSignal.lucky_digits || [],
+                strategy: cloudSignal.strategy,
+                reason: cloudSignal.reason,
+                bigProb: cloudSignal.big_prob,
+                smallProb: cloudSignal.small_prob,
+                regime: cloudSignal.regime,
+                pattern: cloudSignal.pattern,
+                isSniper: cloudSignal.is_sniper,
+                kellyStake: { action: cloudSignal.stake_units || "1U" }
+            };
+        } else {
+            // Local fallback execution
+            const resolvedHistory = sortedHistory.filter(h => h.actual_result);
+            pred = engine.predict(resolvedHistory);
+        }
+
         state.prediction = pred;
 
         // Deduct 1 token if available

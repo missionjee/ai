@@ -319,6 +319,28 @@ class SupabaseService {
     }
 
     /**
+     * Fetch Central 24/7 Global Signal from Cloud (Single Source of Truth)
+     */
+    async getGlobalSignal(periodNumber) {
+        if (!periodNumber) return null;
+        try {
+            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?issue_number=eq.${encodeURIComponent(periodNumber)}&select=*`, {
+                headers: {
+                    "apikey": SUPABASE_CONFIG.ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`
+                }
+            });
+            if (res.ok) {
+                const rows = await res.json();
+                if (Array.isArray(rows) && rows.length > 0) {
+                    return rows[0];
+                }
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    /**
      * Force logout when multi-device conflict is detected
      */
     logoutDueToDeviceConflict() {
