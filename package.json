@@ -11,7 +11,18 @@
     "supabase:link": "supabase link --project-ref fvmbqikdomcjalladwmz",
     "supabase:push": "supabase db push"
   },
-  "keywords": ["fintech", "signal-terminal", "supabase", "pwa", "amoled"],
+  "keywords": [
+    "fintech",
+    "signal-terminal",
+    "supabase",
+    "pwa",
+    "amoled"
+  ],
   "author": "missionjee",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/server": "^1.4.1",
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2"
+  }
 }

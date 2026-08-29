@@ -1,8 +1,11 @@
 /**
- * HIROTO AI — High-Performance Local HTTP Server
- * Built with native Node.js http module (Zero dependency required)
+ * HIROTO AI — Institutional Terminal Backend Server
+ * - Serves Static Assets & PWA
+ * - Injects Supabase Environment Variables securely
+ * - Supports @supabase/server & @supabase/supabase-js
  */
 
+import "dotenv/config";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,8 +28,23 @@ const MIME_TYPES = {
   ".webmanifest": "application/manifest+json"
 };
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   let reqPath = req.url.split("?")[0];
+
+  // API Route: Public Supabase Configuration for Frontend Client
+  if (reqPath === "/api/supabase-config" && req.method === "GET") {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*"
+    });
+    res.end(JSON.stringify({
+      supabaseUrl: process.env.SUPABASE_URL || "https://fvmbqikdomcjalladwmz.supabase.co",
+      publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || "sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c"
+    }));
+    return;
+  }
+
+  // Static File Serving
   if (reqPath === "/") reqPath = "/index.html";
 
   const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, "");
@@ -52,7 +70,11 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n🚀 HIROTO AI Terminal running at: http://localhost:${PORT}`);
-  console.log(`📱 AMOLED PWA Ready`);
-  console.log(`⚡ Supabase Integration: fvmbqikdomcjalladwmz\n`);
+  console.log(`\n======================================================`);
+  console.log(`🚀 HIROTO AI Terminal running at: http://localhost:${PORT}`);
+  console.log(`📱 AMOLED PWA Standalone Mode Enabled`);
+  console.log(`⚡ Supabase URL: ${process.env.SUPABASE_URL || "https://fvmbqikdomcjalladwmz.supabase.co"}`);
+  console.log(`🔑 Publishable Key Active: ${(process.env.SUPABASE_PUBLISHABLE_KEY || "").slice(0, 16)}...`);
+  console.log(`🗄️ PostgreSQL Database: ${process.env.DATABASE_HOST || "db.fvmbqikdomcjalladwmz.supabase.co"}:${process.env.DATABASE_PORT || 5432}`);
+  console.log(`======================================================\n`);
 });

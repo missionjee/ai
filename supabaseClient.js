@@ -11,8 +11,8 @@
 export const SUPABASE_CONFIG = {
     PROJECT_REF: "fvmbqikdomcjalladwmz",
     API_URL: "https://fvmbqikdomcjalladwmz.supabase.co",
-    // Standard public anon key placeholder (configurable via localStorage)
-    ANON_KEY: localStorage.getItem("hiroto_supabase_anon_key") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.empty_fallback_key",
+    // Real Supabase publishable key
+    ANON_KEY: localStorage.getItem("hiroto_supabase_anon_key") || "sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c",
     DEFAULT_TOKENS: 100,
     STORAGE_SESSION_KEY: "hiroto_signals_session",
     STORAGE_DEVICE_KEY: "hiroto_device_id",
