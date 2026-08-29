@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "echo 'Static build ready'",
-    "start": "node server.js",
-    "dev": "node server.js",
+    "start": "node local-server.js",
+    "dev": "node local-server.js",
     "supabase:init": "supabase init",
     "supabase:link": "supabase link --project-ref fvmbqikdomcjalladwmz",
     "supabase:push": "supabase db push"
