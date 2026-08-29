@@ -179,7 +179,8 @@ function copyCurrentSignal() {
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
     const digits = p.luckyDigits ? p.luckyDigits.join(", ") : "-";
     const tag = p.isSniper ? " [🎯 SNIPER]" : "";
-    const minimalText = `🎯 ${period4} • ${p.prediction}${tag} • [${digits}]`;
+    const stake = p.kellyStake && p.kellyStake.action && p.kellyStake.action !== "PASS" ? ` • ${p.kellyStake.action}` : (p.status === "HOLD" ? " • [PASS]" : "");
+    const minimalText = `🎯 ${period4} • ${p.prediction}${tag}${stake} • [${digits}]`;
 
     navigator.clipboard.writeText(minimalText).then(() => {
         showToast(`Copied: ${minimalText}`);
@@ -255,11 +256,11 @@ async function syncCycle() {
     // Convert map to strictly sorted array (Descending by numerical period)
     const sortedHistory = Array.from(historyMap.values()).sort((a, b) => {
         try {
-            const bInt = BigInt(a.issue_number);
-            const aInt = BigInt(b.issue_number);
-            return aInt > bInt ? 1 : (aInt < bInt ? -1 : 0);
+            const aInt = BigInt(a.issue_number);
+            const bInt = BigInt(b.issue_number);
+            return aInt > bInt ? -1 : (aInt < bInt ? 1 : 0);
         } catch (e) {
-            return b.issue_number.localeCompare(a.issue_number);
+            return String(b.issue_number).localeCompare(String(a.issue_number));
         }
     });
 
@@ -311,11 +312,11 @@ async function syncCycle() {
     // Re-sort history after inserting target period
     state.history = Array.from(historyMap.values()).sort((a, b) => {
         try {
-            const bInt = BigInt(a.issue_number);
-            const aInt = BigInt(b.issue_number);
-            return aInt > bInt ? 1 : (aInt < bInt ? -1 : 0);
+            const aInt = BigInt(a.issue_number);
+            const bInt = BigInt(b.issue_number);
+            return aInt > bInt ? -1 : (aInt < bInt ? 1 : 0);
         } catch (e) {
-            return b.issue_number.localeCompare(a.issue_number);
+            return String(b.issue_number).localeCompare(String(a.issue_number));
         }
     });
 
@@ -393,12 +394,14 @@ function renderUI() {
         }
 
         if (UI.signalTag) {
-            if (p.isSniper || p.confidence >= 72) {
-                UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">SNIPER CONFLUENCE (${p.confidence}%)</span>`;
+            if (p.isSniper) {
+                const stakeInfo = p.kellyStake && p.kellyStake.action ? ` • [${p.kellyStake.action}]` : "";
+                UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">SNIPER CONFLUENCE (${p.confidence}%)${stakeInfo}</span>`;
             } else if (p.status === 'HOLD') {
-                UI.signalTag.innerHTML = `⚠️ <span style="color:#f5b335;font-weight:700;">CAUTION • HIGH CHOP ZONE</span>`;
+                UI.signalTag.innerHTML = `⚠️ <span style="color:#f5b335;font-weight:700;">CAUTION • HIGH CHOP ZONE [PASS]</span>`;
             } else {
-                UI.signalTag.textContent = "RECOMMENDED SIGNAL";
+                const stakeInfo = p.kellyStake && p.kellyStake.action && p.kellyStake.action !== "PASS" ? ` [${p.kellyStake.action}]` : "";
+                UI.signalTag.textContent = `RECOMMENDED SIGNAL${stakeInfo}`;
             }
         }
 
