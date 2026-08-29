@@ -229,6 +229,30 @@ async function syncCycle() {
         }
     });
 
+    // Synchronize user's taken predictions from Supabase token ledger
+    try {
+        const ledger = await supabaseClient.getUserTakenPredictions(50);
+        if (Array.isArray(ledger)) {
+            ledger.forEach(entry => {
+                if (!entry.period_number) return;
+                const k = String(entry.period_number);
+                const existing = historyMap.get(k);
+                if (existing) {
+                    if (!existing.predicted_type) existing.predicted_type = entry.prediction_type;
+                } else {
+                    historyMap.set(k, {
+                        issue_number: k,
+                        predicted_type: entry.prediction_type,
+                        prediction_confidence: 70,
+                        lucky_digits: [],
+                        actual_result: null,
+                        actual_number: null
+                    });
+                }
+            });
+        }
+    } catch (e) {}
+
     if (remoteData && remoteData.length > 0) {
         remoteData.forEach(item => {
             if (!item.issue_number) return;
@@ -303,23 +327,24 @@ async function syncCycle() {
             pred = engine.predict(resolvedHistory);
         }
 
-        state.prediction = pred;
-
-        // Deduct 1 token if available
+        // Deduct 1 token if available to unlock prediction
         if (state.tokensBalance > 0) {
             await supabaseClient.consumeToken(targetPeriod, pred.prediction);
             state.tokensBalance = supabaseClient.getTokenBalance();
-        }
+            state.prediction = pred;
 
-        currentTargetEntry = {
-            issue_number: String(targetPeriod),
-            predicted_type: pred.prediction,
-            prediction_confidence: pred.confidence,
-            lucky_digits: pred.luckyDigits,
-            actual_result: null,
-            actual_number: null
-        };
-        historyMap.set(String(targetPeriod), currentTargetEntry);
+            currentTargetEntry = {
+                issue_number: String(targetPeriod),
+                predicted_type: pred.prediction,
+                prediction_confidence: pred.confidence,
+                lucky_digits: pred.luckyDigits,
+                actual_result: null,
+                actual_number: null
+            };
+            historyMap.set(String(targetPeriod), currentTargetEntry);
+        } else {
+            state.prediction = null;
+        }
     } else {
         // If entry already exists, restore its prediction
         if (currentTargetEntry.predicted_type) {
@@ -447,11 +472,14 @@ function renderUI() {
     renderHistoryTable();
 }
 
-// Render Zero-Scroll Draw History Table (Strictly matched periods)
+// Render Zero-Scroll Draw History Table (Strictly user's taken predictions)
 function renderHistoryTable() {
     if (!UI.historyBody) return;
 
-    let items = state.history.slice(0, 30);
+    // Filter strictly to predictions the user has actually unlocked / taken
+    const userTaken = state.history.filter(h => h.predicted_type !== null && h.predicted_type !== undefined);
+
+    let items = userTaken.slice(0, 30);
     if (state.activeFilter === "WINS") {
         items = items.filter(h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() === h.actual_result.toUpperCase());
     } else if (state.activeFilter === "LOSSES") {
@@ -459,7 +487,10 @@ function renderHistoryTable() {
     }
 
     if (items.length === 0) {
-        UI.historyBody.innerHTML = `<tr><td colspan="4" class="empty-cell">No records found</td></tr>`;
+        const msg = state.activeFilter === "ALL" 
+            ? "No taken predictions yet. Your unlocked signals will appear here."
+            : `No ${state.activeFilter.toLowerCase()} recorded in your taken history.`;
+        UI.historyBody.innerHTML = `<tr><td colspan="4" class="empty-cell">${msg}</td></tr>`;
         return;
     }
 

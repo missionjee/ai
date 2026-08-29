@@ -341,6 +341,27 @@ class SupabaseService {
     }
 
     /**
+     * Fetch user's taken predictions history from Supabase token_ledger
+     */
+    async getUserTakenPredictions(limit = 60) {
+        const session = this.getSession();
+        if (!session || !session.key) return [];
+        try {
+            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/token_ledger?license_key=eq.${encodeURIComponent(session.key)}&select=period_number,prediction_type,created_at&order=id.desc&limit=${limit}`, {
+                headers: {
+                    "apikey": SUPABASE_CONFIG.ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`
+                }
+            });
+            if (res.ok) {
+                const rows = await res.json();
+                if (Array.isArray(rows)) return rows;
+            }
+        } catch (e) {}
+        return [];
+    }
+
+    /**
      * Force logout when multi-device conflict is detected
      */
     logoutDueToDeviceConflict() {
