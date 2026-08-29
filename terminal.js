@@ -58,7 +58,7 @@ const PeriodHelper = {
 class SoundFx {
     constructor() {
         this.ctx = null;
-        this.enabled = localStorage.getItem(CONFIG.STORAGE_SOUND_KEY) !== "false";
+        this.enabled = true; // Enabled by default
     }
 
     _init() {

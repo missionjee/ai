@@ -248,6 +248,7 @@ alter table public.token_ledger enable row level security;
 create policy "Allow read access to user_profiles" on public.user_profiles for select using (true);
 create policy "Allow insert access to user_profiles" on public.user_profiles for insert with check (true);
 create policy "Allow update access to user_profiles" on public.user_profiles for update using (true);
+create policy "Allow delete access to user_profiles" on public.user_profiles for delete using (true);
 
 create policy "Allow read access to token_ledger" on public.token_ledger for select using (true);
 create policy "Allow insert access to token_ledger" on public.token_ledger for insert with check (true);

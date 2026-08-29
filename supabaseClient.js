@@ -122,12 +122,12 @@ class SupabaseService {
 
             const user = rows[0];
 
-            // 1. Check if revoked
-            if (user.status === "revoked") {
+            // 1. Check if revoked or deleted
+            if (user.status === "revoked" || user.status === "deleted") {
                 return {
                     success: false,
                     code: "KEY_REVOKED",
-                    message: "Access Denied: This license key has been revoked by administration."
+                    message: "Access Denied: This license key has been deleted or revoked by administration."
                 };
             }
 

@@ -22,46 +22,31 @@
 
   <div class="app-shell">
     
-    <!-- 1. AMOLED Header -->
+    <!-- 1. AMOLED Header with Enlarged Logo & Unified Horizontal Layout -->
     <header class="top-header">
       <div class="brand-area">
         <div class="brand-logo-wrap">
           <img src="logo.jpg" alt="HIROTO AI" class="brand-logo-img">
         </div>
         <div class="brand-info">
-          <h1>HIROTO</h1>
+          <h1 class="brand-title">HIROTO</h1>
           <span class="brand-sub">AI TERMINAL</span>
         </div>
       </div>
 
       <div class="header-controls">
-        <!-- Token Balance Badge -->
-        <div class="token-badge" id="headerTokenBadge" title="Available Tokens">
-          <span class="token-icon">⚡</span>
-          <span id="userTokenCount">--</span>
-        </div>
-
-        <!-- PWA Install Button (Shown on PWA supported browsers) -->
-        <button class="btn-pwa" id="btnInstallPwa" style="display:none;" title="Install PWA App">
-          <span>📲 Install</span>
-        </button>
-
         <div class="status-pill" id="statusPill">
           <span class="pulse-dot"></span>
           <span id="statusText">LIVE</span>
         </div>
-
-        <button class="btn-icon" id="btnSound" title="Toggle Sound" aria-label="Toggle Sound">🔊</button>
-        <button class="btn-icon" id="btnSync" title="Sync Latest" aria-label="Sync">↻</button>
-        <button class="btn-icon danger" id="btnLogout" title="Logout" aria-label="Logout">⎋</button>
       </div>
     </header>
 
-    <!-- 2. Performance Summary (Win Rate & Total Rounds Removed as requested) -->
+    <!-- 2. Performance Summary with Lightning Emoji in Tokens Left Box -->
     <section class="metrics-row">
       <div class="metric-box">
         <span class="metric-label">Tokens Left</span>
-        <span class="metric-value gold" id="metricTokens">--</span>
+        <span class="metric-value gold"><span class="token-emoji">⚡</span> <span id="metricTokens">--</span></span>
       </div>
       <div class="metric-box">
         <span class="metric-label">Win Streak</span>
