@@ -9,7 +9,7 @@ const ASSETS_TO_CACHE = [
   "./d.html",
   "./index.html",
   "./style.css",
-  "./app.js",
+  "./terminal.js",
   "./engine.js",
   "./supabaseClient.js",
   "./logo.jpg",

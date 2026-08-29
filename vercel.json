@@ -1,8 +1,26 @@
 {
-  "version": 2,
-  "name": "hiroto-ai",
+  "buildCommand": null,
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app",
+      "destination": "/d.html"
+    },
+    {
+      "source": "/terminal",
+      "destination": "/d.html"
+    }
+  ],
   "headers": [
     {
       "source": "/sw.js",
@@ -29,20 +47,6 @@
           "value": "application/manifest+json; charset=utf-8"
         }
       ]
-    }
-  ],
-  "routes": [
-    {
-      "src": "/app",
-      "dest": "/d.html"
-    },
-    {
-      "src": "/terminal",
-      "dest": "/d.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
     }
   ]
 }
