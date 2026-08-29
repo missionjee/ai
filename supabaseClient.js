@@ -152,7 +152,17 @@ class SupabaseService {
                 };
             }
 
-            // 3. Single Device Enforcement: Lock session to this hardware device ID
+            // 3. Strict Single Device Enforcement:
+            // Check if key is already locked to a different device
+            if (user.active_device_id && user.active_device_id !== deviceId) {
+                return {
+                    success: false,
+                    code: "DEVICE_LOCKED",
+                    message: "🔒 ACCESS DENIED: This license key is already locked to another device. Only 1 device is permitted per key. Reset device lock in Key Master to transfer."
+                };
+            }
+
+            // 4. Bind key to this device (if unbound) and update activity
             await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`, {
                 method: "PATCH",
                 headers: {
@@ -266,37 +276,44 @@ class SupabaseService {
     }
 
     /**
-     * Heartbeat: Verify this device is the solely authorized active session
+     * Real-time Device Lock & Token Verification
      */
     async verifyDeviceSession() {
         const session = this.getSession();
         if (!session || !session.key) return { valid: false };
 
         try {
-            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/rpc/verify_single_device`, {
-                method: "POST",
+            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(session.key)}&select=active_device_id,tokens_balance,status`, {
+                method: "GET",
                 headers: {
-                    "Content-Type": "application/json",
                     "apikey": SUPABASE_CONFIG.ANON_KEY,
                     "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`
-                },
-                body: JSON.stringify({
-                    p_license_key: session.key,
-                    p_device_id: this.deviceId
-                })
+                }
             });
 
             if (res.ok) {
-                const data = await res.json();
-                if (data && !data.valid && data.reason === "DEVICE_MISMATCH") {
-                    this.logoutDueToDeviceConflict();
-                    return { valid: false, reason: "DEVICE_MISMATCH" };
-                }
-                if (data && typeof data.tokens_balance === "number") {
-                    this._setTokenBalance(data.tokens_balance);
+                const rows = await res.json();
+                if (Array.isArray(rows) && rows.length > 0) {
+                    const row = rows[0];
+                    // 1. Strict Device Lock Check: Another device cannot use this key
+                    if (row.active_device_id && row.active_device_id !== this.deviceId) {
+                        this.logoutDueToDeviceConflict();
+                        return { valid: false, reason: "DEVICE_MISMATCH" };
+                    }
+                    // 2. Token Check: Depleted or deleted
+                    if (row.status === "ended" || row.status === "revoked" || row.status === "deleted" || row.tokens_balance <= 0) {
+                        this.logout();
+                        return { valid: false, reason: "ENDED" };
+                    }
+                    if (typeof row.tokens_balance === "number") {
+                        this._setTokenBalance(row.tokens_balance);
+                    }
+                    return { valid: true };
                 }
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error("Device verification error:", e);
+        }
 
         return { valid: true };
     }
@@ -306,8 +323,8 @@ class SupabaseService {
      */
     logoutDueToDeviceConflict() {
         safeStorage.removeItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
-        alert("⚠️ ACCESS TERMINATED: Your license key was used on another device. Multi-device access is not permitted.");
-        window.location.href = "index.html?reason=multi_device";
+        alert("⚠️ ACCESS TERMINATED: This license key is locked to another device. Multi-device access is prohibited.");
+        window.location.replace("/index.html?reason=multi_device");
     }
 
     /**
@@ -315,7 +332,7 @@ class SupabaseService {
      */
     logout() {
         safeStorage.removeItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY);
-        window.location.href = "index.html";
+        window.location.replace("/index.html");
     }
 }
 

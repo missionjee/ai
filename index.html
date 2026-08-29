@@ -328,6 +328,30 @@
     .btn-resume:hover {
       background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
     }
+
+    .btn-pwa-install {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid #38bdf8;
+      border-top: 1px solid #7dd3fc;
+      border-bottom: 2px solid #0369a1;
+      color: #38bdf8;
+      padding: 11px 18px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);
+      transition: all 0.2s;
+    }
+
+    .btn-pwa-install:hover {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
@@ -389,11 +413,43 @@
           <span class="feature-icon">📱</span> PWA Standalone
         </div>
       </div>
+
+      <button class="btn-pwa-install" id="btnInstallPwaIndex" style="display:none; width: 100%; margin-top: 16px;">
+        <span>📲 Install Hiroto AI App (PWA)</span>
+      </button>
     </div>
   </div>
 
   <script type="module">
     import { supabaseClient } from "./supabaseClient.js";
+
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+
+    // PWA Install Prompt
+    let deferredPrompt = null;
+    const btnInstallPwa = document.getElementById('btnInstallPwaIndex');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (btnInstallPwa) btnInstallPwa.style.display = 'inline-flex';
+    });
+
+    if (btnInstallPwa) {
+      btnInstallPwa.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          btnInstallPwa.style.display = 'none';
+        }
+        deferredPrompt = null;
+      });
+    }
 
     const keyInput = document.getElementById('keyInput');
     const keyCounter = document.getElementById('keyCounter');

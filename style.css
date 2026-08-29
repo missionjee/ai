@@ -816,3 +816,45 @@ body::before {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
 }
+
+/* System Footer & PWA Installation */
+.system-footer {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 20px;
+}
+
+.btn-pwa-install {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid #38bdf8;
+  border-top: 1px solid #7dd3fc;
+  border-bottom: 2px solid #0369a1;
+  color: #38bdf8;
+  padding: 12px 22px;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);
+  transition: all 0.2s;
+}
+
+.btn-pwa-install:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.footer-info {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}

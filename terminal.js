@@ -491,8 +491,8 @@ function startTimerLoop() {
             }
         }
 
-        // Periodic Single-Device Session Heartbeat (Every 30 seconds)
-        if (seconds === 30) {
+        // Periodic Single-Device Session Heartbeat (Every 10 seconds)
+        if (seconds % 10 === 0) {
             supabaseClient.verifyDeviceSession();
         }
 
@@ -503,7 +503,7 @@ function startTimerLoop() {
 // PWA Installation Setup
 function setupPwa() {
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
     window.addEventListener("beforeinstallprompt", (e) => {
@@ -583,6 +583,8 @@ async function init() {
     if (!enforceAuth()) return;
     setupPwa();
     setupEvents();
+    const check = await supabaseClient.verifyDeviceSession();
+    if (check && check.valid === false) return;
     await syncCycle();
     startTimerLoop();
 }
