@@ -88,64 +88,107 @@ class SupabaseService {
 
     /**
      * Authenticate License Key against Supabase & Enforce Single Device Lock
+     * STRICT AUTHENTICATION: Only authorized keys stored in Supabase with tokens > 0 can enter.
      */
     async loginWithKey(licenseKey) {
-        const cleanKey = licenseKey.trim().toUpperCase();
+        const cleanKey = licenseKey ? licenseKey.trim().toUpperCase() : "";
+        if (!cleanKey) {
+            return { success: false, message: "Please enter a license key." };
+        }
         const deviceId = this.deviceId;
         const deviceName = (typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.includes("Mobile")) ? "Mobile Device" : "Workstation";
 
-        // Try Supabase RPC
         try {
-            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/rpc/auth_license_device`, {
-                method: "POST",
+            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`, {
+                method: "GET",
                 headers: {
-                    "Content-Type": "application/json",
                     "apikey": SUPABASE_CONFIG.ANON_KEY,
                     "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`
+                }
+            });
+
+            if (!res.ok) {
+                return { success: false, message: `Authentication server responded with error ${res.status}.` };
+            }
+
+            const rows = await res.json();
+            if (!Array.isArray(rows) || rows.length === 0) {
+                return {
+                    success: false,
+                    code: "KEY_NOT_FOUND",
+                    message: "Invalid license key. Key does not exist in database."
+                };
+            }
+
+            const user = rows[0];
+
+            // 1. Check if revoked
+            if (user.status === "revoked") {
+                return {
+                    success: false,
+                    code: "KEY_REVOKED",
+                    message: "Access Denied: This license key has been revoked by administration."
+                };
+            }
+
+            // 2. Token-Only Validity: A key strictly ends when tokens reach 0
+            const tokenBalance = parseInt(user.tokens_balance, 10);
+            if (isNaN(tokenBalance) || tokenBalance <= 0 || user.status === "ended") {
+                // Update status in Supabase to ended
+                fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`, {
+                    method: "PATCH",
+                    headers: {
+                        "apikey": SUPABASE_CONFIG.ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ status: "ended", tokens_balance: 0 })
+                }).catch(() => {});
+
+                return {
+                    success: false,
+                    code: "KEY_ENDED",
+                    message: "This key has ended: 0 tokens remaining. Please recharge or generate a new key."
+                };
+            }
+
+            // 3. Single Device Enforcement: Lock session to this hardware device ID
+            await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`, {
+                method: "PATCH",
+                headers: {
+                    "apikey": SUPABASE_CONFIG.ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`,
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    p_license_key: cleanKey,
-                    p_device_id: deviceId,
-                    p_device_name: deviceName
+                    active_device_id: deviceId,
+                    device_name: deviceName,
+                    status: "active",
+                    last_login_at: new Date().toISOString(),
+                    last_active_at: new Date().toISOString()
                 })
             });
 
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.success) {
-                    const session = {
-                        key: data.license_key,
-                        tokens_balance: data.tokens_balance ?? SUPABASE_CONFIG.DEFAULT_TOKENS,
-                        deviceId: deviceId,
-                        status: "active",
-                        syncedWithCloud: true,
-                        loginTime: new Date().toISOString()
-                    };
-                    safeStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(session));
-                    this._setTokenBalance(session.tokens_balance);
-                    return { success: true, session };
-                } else if (data && data.code === "KEY_REVOKED") {
-                    return { success: false, message: "License key revoked by administrator." };
-                } else if (data && data.code === "KEY_EXPIRED") {
-                    return { success: false, message: "License key has expired." };
-                }
-            }
-        } catch (err) {
-            console.warn("[Supabase] Direct RPC unreachable, using local cryptographic verification:", err);
-        }
+            const session = {
+                key: cleanKey,
+                tokens_balance: tokenBalance,
+                deviceId: deviceId,
+                status: "active",
+                syncedWithCloud: true,
+                loginTime: new Date().toISOString()
+            };
 
-        // Resilient Fallback: Verify cryptographic signature & local registry
-        const localTokens = this.getTokenBalance();
-        const fallbackSession = {
-            key: cleanKey,
-            tokens_balance: localTokens,
-            deviceId: deviceId,
-            status: "active",
-            syncedWithCloud: false,
-            loginTime: new Date().toISOString()
-        };
-        safeStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(fallbackSession));
-        return { success: true, session: fallbackSession };
+            safeStorage.setItem(SUPABASE_CONFIG.STORAGE_SESSION_KEY, JSON.stringify(session));
+            this._setTokenBalance(tokenBalance);
+            return { success: true, session };
+
+        } catch (err) {
+            console.error("[Supabase Auth] Network connection error:", err);
+            return {
+                success: false,
+                message: "Authentication server unreachable. Please check your network connection."
+            };
+        }
     }
 
     /**

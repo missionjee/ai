@@ -6,3 +6,4 @@ local-server.js
 schema.sql
 supabase
 scratch
+keygen.html
