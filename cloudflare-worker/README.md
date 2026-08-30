@@ -1,8 +1,8 @@
 # 24/7 Cloudflare Worker Prediction Engine Setup
 
-This worker runs your v4.0 Prediction Engine 24/7 on Cloudflare's edge network, polling the 1M lottery API every minute, running statistical models, and publishing the official prediction to Supabase (`global_signals`).
+This worker runs your **v5.2 Institutional Number-First Quantitative Engine** 24/7 on Cloudflare's edge network, polling the 1M lottery API every minute via a Tri-Proxy resilience layer, calculating continuous latent trajectories and 10-class probability distributions, and publishing the official prediction to Supabase (`global_signals`).
 
-All client users will receive the **exact same signal and history**, regardless of device, browser, or time zone.
+All client users receive the **exact same signal, lucky numbers, and history**, regardless of device, browser, or time zone.
 
 ---
 
@@ -36,25 +36,23 @@ npx wrangler deploy
 
 ---
 
-## Verification
+## Verification & Diagnostic Endpoints
 
-Once deployed, you can verify it in your browser:
-* Visit your Worker's URL (e.g. `https://hiroto-engine-worker.<your-subdomain>.workers.dev/`):
-  It will return the live prediction JSON:
+Once deployed, you can verify your worker in the browser:
+* **Health Check Endpoint (`/health`):**
+  `https://hiroto-engine-worker.<your-subdomain>.workers.dev/health`
   ```json
   {
-    "status": "ONLINE",
+    "status": "HEALTHY",
     "platform": "Cloudflare Workers 24/7",
-    "engine": "v5.0 Deep Pattern & Online ML Engine",
-    "data": {
-      "success": true,
-      "period": "20260830100010202",
-      "prediction": "BIG",
-      "confidence": 84,
-      "status": "SNIPER",
-      "pattern": "6-Gram [BBBBBS]",
-      "strategy": "Result Pattern Mining",
-      "luckyDigits": [5, 8]
-    }
+    "engine": "v5.2 Institutional Number-First Quantitative Engine",
+    "historical_rounds_buffered": 548,
+    "upstream_lottery_api": "https://tirangaprediction.ai/api_fixed.php?action=latest_results&source=1M",
+    "buffer_target": "2,000-Round FIFO Ring Buffer",
+    "timestamp": "2026-08-30T04:20:00.000Z"
   }
   ```
+
+* **Instant Signal Endpoint (`/signal`):**
+  `https://hiroto-engine-worker.<your-subdomain>.workers.dev/signal`
+  Returns the active Number-First prediction, continuous latent trajectory, entropy metrics, and derived Big/Small without stake units.

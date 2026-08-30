@@ -1,13 +1,14 @@
 # HIROTO AI — Institutional Signal Terminal
 ## Complete System Architecture, Security, API, and Engineering Report
 
-**Generated:** August 29, 2026  
+**Generated:** August 30, 2026  
 **System Status:** 100% Operational • Production Grade • 24/7 Autonomous Cloud Execution  
 **Corpus Repository:** `/home/diveshsah2/ai` (Branch: `main`)  
 **Live Production Deployments:**
 * **Frontend Web App (Vercel):** Connected via Git continuous integration to `origin/main`
-* **Edge Engine (Cloudflare Workers):** `https://hiroto-engine-worker.diveshsah2.workers.dev` (Cron: `* * * * *`, Cloaked 403)
-* **Central Database (Supabase PostgreSQL):** `https://fvmbqikdomcjalladwmz.supabase.co`
+* **Edge Engine (Cloudflare Workers):** `https://hiroto-engine-worker.diveshsah2.workers.dev` (Cron: `* * * * *`, v5.2 Enterprise)
+* **Central Database (Supabase PostgreSQL):** `https://fvmbqikdomcjalladwmz.supabase.co` (2,000-Round FIFO Buffer)
+* **Python Quantitative Suite:** `ai/ml_engine/` (CatBoost, LightGBM, Deep Attention & Entropy Suite)
 
 ---
 
@@ -15,18 +16,20 @@
 
 ```
                   ┌───────────────────────────────────────────────────────────┐
-                  │                 Upstream Lottery API                      │
+                  │          Upstream Lottery Gateway & Tri-Proxy Layer       │
                   │   https://tirangaprediction.ai/api_fixed.php (1M Game)     │
+                  │   + AllOrigins Proxy + CorsProxy (3.5s Failover Timeout)  │
                   └─────────────────────────────┬─────────────────────────────┘
                                                 │
-                                  1 Request/Min │ (At XX:01s)
+                                  1 Request/Min │ (At XX:01s with Jitter Retry)
                                                 ▼
                   ┌───────────────────────────────────────────────────────────┐
                   │       24/7 Cloudflare Worker Engine (Edge Compute)         │
                   │   - Triggers autonomously on 1-min cron (* * * * *)       │
-                  │   - Settles finished round (actual_result, actual_num)    │
-                  │   - Executes v4.0 Multi-Model Quantitative Engine         │
-                  │   - Public HTTP Interface CLOAKED (403 Forbidden)         │
+                  │   - Deterministic Midnight Rollover (1440 -> 0001)        │
+                  │   - Executes v5.2 Number-First Quantitative ML Engine     │
+                  │   - Continuous Latent Trajectory + 10-Class Softmax Tensor│
+                  │   - Diagnostic Health Check (/health) & Signals (/signal) │
                   └─────────────────────────────┬─────────────────────────────┘
                                                 │
                                  Secure REST    │ (Upsert prediction & results)
@@ -34,7 +37,8 @@
                   ┌───────────────────────────────────────────────────────────┐
                   │          Supabase PostgreSQL Database Engine              │
                   │   - public.global_signals (Single Source of Truth)        │
-                  │   - Auto-Pruning Trigger (Caps storage < 1MB forever)     │
+                  │   - Non-Blocking 2K FIFO Pruning Trigger (< 1MB forever)  │
+                  │   - Advisory Locking (pg_try_advisory_xact_lock: 0 Locks) │
                   │   - public.user_profiles (Single-device lock & balances)  │
                   │   - public.token_ledger (1-token-per-period audit trail)  │
                   │   - RPC: get_authorized_prediction (Atomic Token Gating)  │
@@ -47,9 +51,9 @@
                   ┌─────────────────────────────┴─────────────────────────────┐
                   │              Institutional AMOLED Terminal UI             │
                   │   - Access Gateway (index.html) -> Token Terminal (d.html)│
-                  │   - Strictly renders User's Taken Prediction History      │
-                  │   - Real-time countdown (00:60 to 00:00) with sound FX    │
-                  │   - Deep Pattern Mining & Machine Learning Confluence     │
+                  │   - Mobile Wakeup Watchdog (visibilitychange re-sync)     │
+                  │   - Single-Touch AudioContext Unlock (iOS & Android)      │
+                  │   - Number-First Probability Tensor & Lucky Numbers       │
                   │   - PWA Service Worker for native mobile install          │
                   └───────────────────────────────────────────────────────────┘
 ```
@@ -62,15 +66,15 @@
 * **Execution Paradigm:** Runs continuously on Cloudflare's serverless edge without human intervention.
 * **Cron Schedule:** `* * * * *` (Fires every 60 seconds on the minute mark).
 * **Sync Protocol:**
-  1. **History Hydration:** If local memory buffer $< 300$ records (e.g. cold restart), pulls the latest 1,000 rounds from Supabase `global_signals` to hydrate all data from yesterday and today.
-  2. **Draw Acquisition:** Polls the upstream lottery API at XX:01s for the settled draw.
+  1. **History Hydration:** If local memory buffer $< 400$ records (e.g. cold restart), pulls the latest 2,000 rounds from Supabase `global_signals` to hydrate all data from yesterday and today.
+  2. **Draw Acquisition:** Polls the upstream lottery API at XX:01s via the Tri-Proxy resilience layer with 3.5s timeout.
   3. **Settlement Resolution:** Sends a `PATCH` request to Supabase `global_signals` for settled periods, populating `actual_result` and `actual_number`.
-  4. **Quantitative Inference:** Runs `engine.predict(history)` (v5.0 Deep Pattern Recognition & Online ML) to compute the prediction, confidence, lucky numbers, and regime for the upcoming period.
+  4. **Quantitative Inference:** Runs `engine.predict(history)` (v5.2 Institutional Number-First Quantitative Engine) to compute continuous latent trajectory ($\hat{y}$), 10-class probability distribution, derived Big/Small, confidence, lucky numbers, Shannon/Permutation entropy, and regime.
   5. **Global Broadcast:** Upserts the new prediction into `global_signals`.
 
 ### 2.2. The Database Layer (`schema.sql`)
 * **Engine:** PostgreSQL 15 on Supabase.
-* **Storage Footprint:** Strictly bounded to $\le 1\text{ MB}$ via an `AFTER INSERT FOR EACH STATEMENT` trigger that deletes rows beyond the newest 1,000.
+* **Storage Footprint:** Strictly bounded to $\le 1\text{ MB}$ via a non-blocking `AFTER INSERT FOR EACH STATEMENT` trigger that maintains a **2,000-round FIFO sliding window** using indexed offset range deletion (`DELETE WHERE issue_number < cutoff`) and PostgreSQL advisory lock protection.
 * **Single Source of Truth:** All connected users around the world receive the exact same official prediction from `public.global_signals`.
 
 ### 2.3. The Client Application (`terminal.js`, `d.html`, `index.html`)
