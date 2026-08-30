@@ -275,6 +275,7 @@ create policy "Allow delete access to user_profiles" on public.user_profiles for
 
 create policy "Allow read access to token_ledger" on public.token_ledger for select using (true);
 create policy "Allow insert access to token_ledger" on public.token_ledger for insert with check (true);
+create policy "Allow delete access to token_ledger" on public.token_ledger for delete using (true);
 
 -- Grant schema access
 grant usage on schema public to anon, authenticated;
@@ -445,3 +446,87 @@ begin
     );
 end;
 $$;
+
+-- ==============================================================================
+-- 9. AUTOMATED CASCADE DELETION & STORAGE LIFECYCLE MANAGEMENT
+-- ==============================================================================
+
+-- A. Hard Delete Cascade Trigger (Fires when license is deleted)
+create or replace function public.on_license_key_hard_deleted()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+    delete from public.token_ledger where license_key = old.license_key;
+    return old;
+end;
+$$;
+
+drop trigger if exists trg_cleanup_token_ledger on public.user_profiles;
+create trigger trg_cleanup_token_ledger
+after delete on public.user_profiles
+for each row
+execute function public.on_license_key_hard_deleted();
+
+-- B. Soft Delete Status Change Trigger (Fires when status is updated to 'deleted')
+create or replace function public.on_license_key_status_changed()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+    if new.status = 'deleted' then
+        delete from public.token_ledger where license_key = new.license_key;
+        delete from public.user_profiles where license_key = new.license_key;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_purge_on_status_deleted on public.user_profiles;
+create trigger trg_purge_on_status_deleted
+after update of status on public.user_profiles
+for each row
+when (new.status = 'deleted')
+execute function public.on_license_key_status_changed();
+
+-- C. Atomic Administrative Purge RPC
+create or replace function public.delete_license_cascade(p_license_key text)
+returns json
+language plpgsql
+security definer
+as $$
+declare
+    v_key text;
+    v_purged_ledger integer;
+begin
+    v_key := upper(trim(p_license_key));
+
+    delete from public.token_ledger where license_key = v_key;
+    get diagnostics v_purged_ledger = row_count;
+
+    delete from public.user_profiles where license_key = v_key;
+
+    return json_build_object(
+        'success', true,
+        'license_key', v_key,
+        'ledger_rows_purged', v_purged_ledger,
+        'message', 'License key and all associated historical data permanently scrubbed.'
+    );
+end;
+$$;
+
+grant execute on function public.delete_license_cascade(text) to anon, authenticated, service_role;
+
+-- D. Foreign Key Constraint with ON DELETE CASCADE
+alter table public.token_ledger
+    drop constraint if exists fk_token_ledger_license;
+
+alter table public.token_ledger
+    add constraint fk_token_ledger_license
+    foreign key (license_key)
+    references public.user_profiles (license_key)
+    on delete cascade
+    on update cascade;
+
