@@ -11,3 +11,6 @@ node_modules/
 .DS_Store
 .vercel
 .env*
+catboost_info/
+__pycache__/
+*.pyc

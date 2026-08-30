@@ -36,7 +36,28 @@ const PeriodHelper = {
         return `${y}${m}${d}1000${counter}`;
     },
     getNextPeriod(issueNumber) {
-        if (!issueNumber) return this.generateFallbackPeriod();
+        if (!issueNumber) return "";
+        const s = String(issueNumber).trim();
+        if (s.length >= 17) {
+            const datePart = s.slice(0, 8);
+            const gameCode = s.slice(8, 13);
+            const periodIdx = parseInt(s.slice(13), 10);
+            if (periodIdx >= 1440) {
+                try {
+                    const year = parseInt(datePart.slice(0, 4), 10);
+                    const month = parseInt(datePart.slice(4, 6), 10) - 1;
+                    const day = parseInt(datePart.slice(6, 8), 10);
+                    const d = new Date(Date.UTC(year, month, day));
+                    d.setUTCDate(d.getUTCDate() + 1);
+                    const nextYear = d.getUTCFullYear();
+                    const nextMonth = String(d.getUTCMonth() + 1).padStart(2, "0");
+                    const nextDay = String(d.getUTCDate()).padStart(2, "0");
+                    return `${nextYear}${nextMonth}${nextDay}${gameCode}0001`;
+                } catch (e) {}
+            }
+            const nextIdx = periodIdx + 1;
+            return `${datePart}${gameCode}${String(nextIdx).padStart(4, "0")}`;
+        }
         try {
             return String(BigInt(issueNumber) + 1n);
         } catch (e) {
@@ -178,9 +199,8 @@ function copyCurrentSignal() {
     }
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
     const digits = p.luckyDigits ? p.luckyDigits.join(", ") : "-";
-    const tag = p.isSniper ? " [🎯 SNIPER]" : "";
-    const stake = p.kellyStake && p.kellyStake.action && p.kellyStake.action !== "PASS" ? ` • ${p.kellyStake.action}` : (p.status === "HOLD" ? " • [PASS]" : "");
-    const minimalText = `🎯 ${period4} • ${p.prediction}${tag}${stake} • [${digits}]`;
+    const tag = p.isSniper ? " [🎯 SNIPER]" : (p.status === "HOLD" ? " [HOLD]" : "");
+    const minimalText = `🎯 ${period4} • ${p.prediction}${tag} • [${digits}]`;
 
     navigator.clipboard.writeText(minimalText).then(() => {
         showToast(`Copied: ${minimalText}`);
@@ -319,8 +339,7 @@ async function syncCycle() {
                     smallProb: s.small_prob,
                     regime: s.regime,
                     pattern: s.pattern,
-                    isSniper: s.is_sniper,
-                    kellyStake: { action: s.stake_units || "1U" }
+                    isSniper: s.is_sniper
                 };
             }
         }
@@ -447,13 +466,11 @@ function renderUI() {
 
         if (UI.signalTag) {
             if (p.isSniper) {
-                const stakeInfo = p.kellyStake && p.kellyStake.action ? ` • [${p.kellyStake.action}]` : "";
-                UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">SNIPER CONFLUENCE (${p.confidence}%)${stakeInfo}</span>`;
+                UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">SNIPER CONFLUENCE (${p.confidence}%)</span>`;
             } else if (p.status === 'HOLD') {
                 UI.signalTag.innerHTML = `⚠️ <span style="color:#f5b335;font-weight:700;">CAUTION • HIGH CHOP ZONE [PASS]</span>`;
             } else {
-                const stakeInfo = p.kellyStake && p.kellyStake.action && p.kellyStake.action !== "PASS" ? ` [${p.kellyStake.action}]` : "";
-                UI.signalTag.textContent = `RECOMMENDED SIGNAL${stakeInfo}`;
+                UI.signalTag.textContent = `RECOMMENDED SIGNAL`;
             }
         }
 
@@ -640,6 +657,25 @@ function setupEvents() {
             renderHistoryTable();
         });
     });
+
+    // VisibilityChange / Mobile Wakeup Watchdog
+    document.addEventListener("visibilitychange", async () => {
+        if (document.visibilityState === "visible") {
+            // Immediate re-sync when user unlocks mobile screen or re-enters browser tab
+            await syncCycle();
+        }
+    });
+
+    // Mobile AudioContext Unlock on First Touch
+    const unlockAudio = () => {
+        if (sound && sound.ctx && sound.ctx.state === "suspended") {
+            sound.ctx.resume();
+        }
+        document.removeEventListener("touchstart", unlockAudio);
+        document.removeEventListener("click", unlockAudio);
+    };
+    document.addEventListener("touchstart", unlockAudio, { passive: true });
+    document.addEventListener("click", unlockAudio, { passive: true });
 }
 
 // Session Guard

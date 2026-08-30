@@ -317,19 +317,35 @@ create policy "Allow service update access to global_signals" on public.global_s
 -- Revoke direct anon select: Scrapers CANNOT read global_signals table directly via REST
 revoke select on public.global_signals from anon;
 
--- Auto-Pruning Trigger: Keeps table strictly at latest 1,000 rounds (< 1 MB forever)
+-- Auto-Pruning Trigger: Keeps table strictly at latest 2,000 rounds (FIFO Ring Buffer < 1 MB forever)
+-- High-Performance Non-Blocking Pruning with Advisory Lock Protection
 create or replace function public.prune_global_signals()
 returns trigger
 language plpgsql
 security definer
 as $$
+declare
+    v_cutoff_issue text;
+    v_count integer;
 begin
-    delete from public.global_signals
-    where issue_number not in (
-        select issue_number from public.global_signals
+    -- Non-blocking advisory lock: prevents concurrent prune collisions and statement timeouts
+    if not pg_try_advisory_xact_lock(749201) then
+        return new;
+    end if;
+
+    select count(*) into v_count from public.global_signals;
+    if v_count > 2000 then
+        -- Indexed offset lookup of 2000th issue_number
+        select issue_number into v_cutoff_issue
+        from public.global_signals
         order by issue_number desc
-        limit 1000
-    );
+        offset 2000 limit 1;
+
+        if v_cutoff_issue is not null then
+            delete from public.global_signals
+            where issue_number < v_cutoff_issue;
+        end if;
+    end if;
     return new;
 end;
 $$;

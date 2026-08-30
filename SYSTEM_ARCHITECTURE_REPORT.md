@@ -49,7 +49,7 @@
                   │   - Access Gateway (index.html) -> Token Terminal (d.html)│
                   │   - Strictly renders User's Taken Prediction History      │
                   │   - Real-time countdown (00:60 to 00:00) with sound FX    │
-                  │   - Dynamic Kelly Stake Sizing (PASS, 1U, 2U, 3U)         │
+                  │   - Deep Pattern Mining & Machine Learning Confluence     │
                   │   - PWA Service Worker for native mobile install          │
                   └───────────────────────────────────────────────────────────┘
 ```
@@ -62,10 +62,10 @@
 * **Execution Paradigm:** Runs continuously on Cloudflare's serverless edge without human intervention.
 * **Cron Schedule:** `* * * * *` (Fires every 60 seconds on the minute mark).
 * **Sync Protocol:**
-  1. **History Hydration:** If local memory buffer $< 10$ records (e.g. cold restart), pulls the latest 100 rounds from Supabase `global_signals`.
+  1. **History Hydration:** If local memory buffer $< 300$ records (e.g. cold restart), pulls the latest 1,000 rounds from Supabase `global_signals` to hydrate all data from yesterday and today.
   2. **Draw Acquisition:** Polls the upstream lottery API at XX:01s for the settled draw.
-  3. **Settlement Resolution:** Sends a `PATCH` request to Supabase `global_signals` for the previous period, populating `actual_result` and `actual_number`.
-  4. **Quantitative Inference:** Runs `engine.predict(history)` to compute the prediction, confidence, stake, lucky numbers, and regime for the upcoming period.
+  3. **Settlement Resolution:** Sends a `PATCH` request to Supabase `global_signals` for settled periods, populating `actual_result` and `actual_number`.
+  4. **Quantitative Inference:** Runs `engine.predict(history)` (v5.0 Deep Pattern Recognition & Online ML) to compute the prediction, confidence, lucky numbers, and regime for the upcoming period.
   5. **Global Broadcast:** Upserts the new prediction into `global_signals`.
 
 ### 2.2. The Database Layer (`schema.sql`)
@@ -91,7 +91,7 @@
 | `confidence` | `integer` | Normalized confidence score (55% to 95%) |
 | `status` | `text` | `'SNIPER'`, `'CLEARED'`, or `'HOLD'` |
 | `lucky_digits` | `integer[]` | Top 2 high-affinity lucky numbers (e.g. `{7, 8}`) |
-| `stake_units` | `text` | Quarter-Kelly unit stake: `'PASS'`, `'1U'`, `'2U'`, `'3U'` |
+| `stake_units` | `text` | Legacy column (Omitted in v5.0 engine) |
 | `strategy` | `text` | Name of primary winning statistical model |
 | `reason` | `text` | Quantitative rationale for signal |
 | `big_prob` | `integer` | Normalized probability mass for BIG (0–100) |

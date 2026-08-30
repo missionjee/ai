@@ -45,14 +45,16 @@ Once deployed, you can verify it in your browser:
   {
     "status": "ONLINE",
     "platform": "Cloudflare Workers 24/7",
-    "engine": "v4.0 Enterprise",
+    "engine": "v5.0 Deep Pattern & Online ML Engine",
     "data": {
       "success": true,
-      "period": "20260829100010540",
+      "period": "20260830100010202",
       "prediction": "BIG",
-      "confidence": 85,
+      "confidence": 84,
       "status": "SNIPER",
-      "stake": "3U"
+      "pattern": "6-Gram [BBBBBS]",
+      "strategy": "Result Pattern Mining",
+      "luckyDigits": [5, 8]
     }
   }
   ```
