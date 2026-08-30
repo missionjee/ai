@@ -342,17 +342,17 @@ class PredictionEngine {
         // Structural Pattern Fallback / Augment
         const s = seq.slice(0, 10).map(x => x === "big" ? "B" : "S").join("");
         if (!bestGram) {
-            if (s.startsWith("BBSS") || s.startsWith("SSBB")) {
-                const target = s.startsWith("BBSS") ? "SMALL" : "BIG";
-                return { pred: target, conf: 70, weight: 1.2, reason: "Pattern: 2-2 Double-Alternation cycle", patternName: "2-2 Alternation" };
+            if (s.startsWith("BBSSBB") || s.startsWith("SSBBSS")) {
+                const target = s.startsWith("BBSSBB") ? "SMALL" : "BIG";
+                return { pred: target, conf: 70, weight: 1.2, reason: "Pattern: 2-2 Double-Alternation confirmed cycle (6-round)", patternName: "2-2 Alternation" };
             }
-            if (s.startsWith("BSBS") || s.startsWith("SBSB")) {
+            if (s.startsWith("BSBSBS") || s.startsWith("SBSBSB")) {
                 const target = s[0] === "B" ? "SMALL" : "BIG";
-                return { pred: target, conf: 68, weight: 1.15, reason: "Pattern: 1-1 Alternating oscillation rhythm", patternName: "1-1 Alternation" };
+                return { pred: target, conf: 68, weight: 1.15, reason: "Pattern: 1-1 Alternating confirmed oscillation (6-round)", patternName: "1-1 Alternation" };
             }
-            if (s.startsWith("SBBB") || s.startsWith("BSSS")) {
-                const target = s.startsWith("SBBB") ? "BIG" : "SMALL";
-                return { pred: target, conf: 67, weight: 1.1, reason: "Pattern: 3-1 Wave pullback continuation", patternName: "3-1 Wave" };
+            if (s.startsWith("SBBBB") || s.startsWith("BSSSS")) {
+                const target = s.startsWith("SBBBB") ? "BIG" : "SMALL";
+                return { pred: target, conf: 67, weight: 1.1, reason: "Pattern: 4-1 Wave pullback continuation", patternName: "4-1 Wave" };
             }
         }
 
@@ -764,7 +764,7 @@ class PredictionEngine {
 
         let sinSum = 0, cosSum = 0;
         recent.forEach((n, idx) => {
-            const weight = Math.exp(-idx * 0.22);
+            const weight = Math.exp(-idx * 0.35);
             const rad = (n * 2.0 * Math.PI) / 10.0;
             sinSum += Math.sin(rad) * weight;
             cosSum += Math.cos(rad) * weight;
@@ -773,12 +773,13 @@ class PredictionEngine {
         if (angle < 0) angle += 2.0 * Math.PI;
         const angleDigit = (angle / (2.0 * Math.PI)) * 10.0;
 
-        let ema = recent[0];
-        const alpha = 0.42;
-        for (let i = 1; i < recent.length; i++) {
+        // Correct forward-moving EMA: start at oldest draw and iterate forward to the newest draw
+        let ema = recent[recent.length - 1];
+        const alpha = 0.50;
+        for (let i = recent.length - 2; i >= 0; i--) {
             ema = alpha * recent[i] + (1 - alpha) * ema;
         }
-        const continuousVal = parseFloat((0.60 * ema + 0.40 * angleDigit).toFixed(2));
+        const continuousVal = parseFloat((0.65 * ema + 0.35 * angleDigit).toFixed(2));
         return { continuousVal, velocity: d1, accel };
     }
 
