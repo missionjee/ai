@@ -465,10 +465,11 @@ function renderUI() {
         }
 
         if (UI.signalTag) {
-            if (p.isSniper) {
+            if (p.status === 'HOLD') {
+                const reason = p.statusReason ? p.statusReason.toUpperCase() : "CAUTION • HIGH CHOP ZONE [PASS]";
+                UI.signalTag.innerHTML = `⚠️ <span style="color:#f5b335;font-weight:700;">${reason}</span>`;
+            } else if (p.isSniper) {
                 UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">SNIPER CONFLUENCE (${p.confidence}%)</span>`;
-            } else if (p.status === 'HOLD') {
-                UI.signalTag.innerHTML = `⚠️ <span style="color:#f5b335;font-weight:700;">CAUTION • HIGH CHOP ZONE [PASS]</span>`;
             } else {
                 UI.signalTag.textContent = `RECOMMENDED SIGNAL`;
             }

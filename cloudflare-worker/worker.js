@@ -70,7 +70,8 @@ class PredictionEngine {
                     this.historyBuffer.set(k, {
                         issue_number: k,
                         actual_result: res,
-                        actual_number: num
+                        actual_number: num,
+                        predicted_type: item.predicted_type || item.predictedType || null
                     });
                 }
             });
@@ -217,8 +218,23 @@ class PredictionEngine {
             confidence -= 5;
         }
 
+        // Track real consecutive prediction losses from settled history
+        let consecutiveMisses = 0;
+        for (let i = 0; i < Math.min(6, validHistory.length); i++) {
+            const h = validHistory[i];
+            const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null;
+            const a = (h.actual_result || h.result_type) ? String(h.actual_result || h.result_type).toUpperCase() : null;
+            if (p && a && (p === "BIG" || p === "SMALL") && (a === "BIG" || a === "SMALL")) {
+                if (p !== a) {
+                    consecutiveMisses++;
+                } else {
+                    break;
+                }
+            }
+        }
+
         confidence = Math.min(this.maxConfidence, Math.max(this.minConfidence, confidence));
-        const isSniper = (confidence >= 70 && agreementRate >= 0.65 && (regime !== "mixed" || shannonEntropy < 0.88));
+        const isSniper = (confidence >= 72 && agreementRate >= 0.70 && (regime !== "mixed" || shannonEntropy < 0.86));
 
         let status = "CLEARED";
         let statusReason = "Multi-model gradient confluence verified";
@@ -226,9 +242,19 @@ class PredictionEngine {
         if (isSniper) {
             status = "SNIPER";
             statusReason = `🎯 Sniper Confluence: ${(agreementRate * 100).toFixed(0)}% model consensus in ${regime} regime`;
-        } else if (confidence < 62 || (regime === "mixed" && shannonEntropy > 0.93)) {
+        } else if (confidence < 63 || (regime === "mixed" && shannonEntropy > 0.90)) {
             status = "HOLD";
             statusReason = "Elevated informational entropy (chop zone). Low statistical edge.";
+        }
+
+        // Anti-Drawdown Shield: If 2 or more consecutive misses occurred, strictly protect bankroll
+        if (consecutiveMisses >= 2) {
+            const isEliteReentry = (isSniper && confidence >= 76 && agreementRate >= 0.85 && shannonEntropy < 0.82);
+            if (!isEliteReentry) {
+                status = "HOLD";
+                statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses detected. Absorbing market regime shift.`;
+                confidence = Math.min(confidence, 60);
+            }
         }
 
         // Primary model by weighted confidence
@@ -270,41 +296,46 @@ class PredictionEngine {
         const recentTokens = revHistory.slice(-6).map(d => (d.actual_result || d.result_type).toLowerCase() === "big" ? "B" : "S");
         let bestGram = null;
         let bestPred = null;
-        let bestConf = 55;
-        let bestWeight = 1.0;
+        let bestConf = 52;
+        let bestWeight = 0.8;
         let bestReason = "Pattern scan";
         let patternName = "Standard";
 
-        // Multi-order n-gram search across historical draws (Order 6 down to 2)
+        // Multi-order sequence mining with exponential recency decay & Bayesian shrinkage
         for (let order = Math.min(6, recentTokens.length); order >= 2; order--) {
             const needle = recentTokens.slice(-order).join("");
-            let bCount = 0;
-            let sCount = 0;
+            let bWeight = 0;
+            let sWeight = 0;
+            let matchCount = 0;
 
             for (let i = 0; i <= revHistory.length - order - 1; i++) {
                 const sub = revHistory.slice(i, i + order).map(d => (d.actual_result || d.result_type).toLowerCase() === "big" ? "B" : "S").join("");
                 if (sub === needle) {
+                    matchCount++;
+                    const age = revHistory.length - 1 - (i + order);
+                    const decay = Math.exp(-age / 240); // 3x higher weight to matches in recent rounds
                     const next = (revHistory[i + order].actual_result || revHistory[i + order].result_type).toLowerCase();
-                    if (next === "big") bCount++;
-                    else sCount++;
+                    if (next === "big") bWeight += decay;
+                    else sWeight += decay;
                 }
             }
 
-            const totalMatches = bCount + sCount;
-            const minReq = order >= 5 ? 3 : (order >= 4 ? 5 : 8);
-            if (totalMatches >= minReq) {
-                const pB = (bCount + 1) / (totalMatches + 2); // Laplace smoothed
-                const bias = Math.abs(pB - 0.5);
-                if (bias >= 0.12 || order >= 4) {
-                    bestGram = needle;
-                    bestPred = pB >= 0.5 ? "BIG" : "SMALL";
-                    bestConf = Math.min(90, Math.round(52 + bias * 80));
-                    bestWeight = 1.2 + (order * 0.12) + (bias * 1.5);
-                    const winPct = Math.round((pB >= 0.5 ? pB : (1 - pB)) * 100);
-                    patternName = `${order}-Gram [${needle}]`;
-                    bestReason = `Result Pattern [${needle}]: ${totalMatches} historical matches (${winPct}% ${bestPred})`;
-                    break;
-                }
+            const totalW = bWeight + sWeight;
+            // Bayesian Shrinkage Prior (alpha=6, beta=6) to prevent small-sample noise overconfidence
+            const prior = 6.0;
+            const pB = (bWeight + prior * 0.5) / (totalW + prior);
+            const bias = Math.abs(pB - 0.5);
+            const minReq = order >= 5 ? 4 : (order >= 4 ? 6 : (order >= 3 ? 8 : 12));
+
+            if (matchCount >= minReq && (bias >= 0.10 || (order >= 4 && bias >= 0.08))) {
+                bestGram = needle;
+                bestPred = pB >= 0.5 ? "BIG" : "SMALL";
+                bestConf = Math.min(88, Math.round(52 + bias * 90));
+                bestWeight = 1.3 + (order * 0.12) + (bias * 2.2);
+                const winPct = Math.round((pB >= 0.5 ? pB : (1 - pB)) * 100);
+                patternName = `${order}-Gram [${needle}]`;
+                bestReason = `Recency-Weighted Pattern [${needle}]: ${matchCount} matches (${winPct}% ${bestPred})`;
+                break;
             }
         }
 
@@ -313,15 +344,15 @@ class PredictionEngine {
         if (!bestGram) {
             if (s.startsWith("BBSS") || s.startsWith("SSBB")) {
                 const target = s.startsWith("BBSS") ? "SMALL" : "BIG";
-                return { pred: target, conf: 76, weight: 1.5, reason: "Pattern: 2-2 Double-Alternation cycle completed", patternName: "2-2 Alternation" };
+                return { pred: target, conf: 70, weight: 1.2, reason: "Pattern: 2-2 Double-Alternation cycle", patternName: "2-2 Alternation" };
             }
             if (s.startsWith("BSBS") || s.startsWith("SBSB")) {
                 const target = s[0] === "B" ? "SMALL" : "BIG";
-                return { pred: target, conf: 75, weight: 1.4, reason: "Pattern: 1-1 Alternating oscillation rhythm", patternName: "1-1 Alternation" };
+                return { pred: target, conf: 68, weight: 1.15, reason: "Pattern: 1-1 Alternating oscillation rhythm", patternName: "1-1 Alternation" };
             }
             if (s.startsWith("SBBB") || s.startsWith("BSSS")) {
                 const target = s.startsWith("SBBB") ? "BIG" : "SMALL";
-                return { pred: target, conf: 72, weight: 1.3, reason: "Pattern: 3-1 Wave pullback continuation", patternName: "3-1 Wave" };
+                return { pred: target, conf: 67, weight: 1.1, reason: "Pattern: 3-1 Wave pullback continuation", patternName: "3-1 Wave" };
             }
         }
 
@@ -437,8 +468,8 @@ class PredictionEngine {
 
         const currentSeq = revHistory.slice(-kLen);
         const currentVec = currentSeq.map(d => ({
-            b: d.actual_result === "big" ? 1 : -1,
-            n: d.actual_number !== null ? (d.actual_number - 4.5) / 4.5 : 0
+            b: (d.actual_result || d.result_type).toLowerCase() === "big" ? 1 : -1,
+            n: d.actual_number !== null && d.actual_number !== undefined ? (d.actual_number - 4.5) / 4.5 : 0
         }));
 
         const candidates = [];
@@ -447,12 +478,14 @@ class PredictionEngine {
             let dist = 0;
             for (let j = 0; j < kLen; j++) {
                 const w = (j + 1) / kLen;
-                const histB = histSeq[j].actual_result === "big" ? 1 : -1;
-                const histN = histSeq[j].actual_number !== null ? (histSeq[j].actual_number - 4.5) / 4.5 : 0;
-                dist += w * (Math.pow(currentVec[j].b - histB, 2) + 0.5 * Math.pow(currentVec[j].n - histN, 2));
+                const histB = (histSeq[j].actual_result || histSeq[j].result_type).toLowerCase() === "big" ? 1 : -1;
+                const histN = histSeq[j].actual_number !== null && histSeq[j].actual_number !== undefined ? (histSeq[j].actual_number - 4.5) / 4.5 : 0;
+                dist += w * (Math.pow(currentVec[j].b - histB, 2) + 0.6 * Math.pow(currentVec[j].n - histN, 2));
             }
-            const nextResult = revHistory[i + kLen].actual_result === "big" ? 1 : 0;
-            candidates.push({ dist, nextResult });
+            const age = revHistory.length - 1 - (i + kLen);
+            const timeWeight = Math.exp(-age / 320); // Prioritize recent trajectories
+            const nextResult = (revHistory[i + kLen].actual_result || revHistory[i + kLen].result_type).toLowerCase() === "big" ? 1 : 0;
+            candidates.push({ dist, timeWeight, nextResult });
         }
 
         candidates.sort((a, b) => a.dist - b.dist);
@@ -461,7 +494,7 @@ class PredictionEngine {
         let totalW = 0;
 
         topK.forEach(c => {
-            const weight = 1 / (0.1 + c.dist);
+            const weight = (1 / (0.1 + c.dist)) * c.timeWeight;
             bigWeight += c.nextResult * weight;
             totalW += weight;
         });
@@ -473,8 +506,8 @@ class PredictionEngine {
         return {
             pred,
             conf,
-            weight: 1.3,
-            reason: `k-NN Trajectory Matching: ${topK.length} closest historical patterns (${(pBig * 100).toFixed(0)}% BIG outcome)`
+            weight: 1.35,
+            reason: `k-NN Trajectory Matching: ${topK.length} closest recency-weighted patterns (${(pBig * 100).toFixed(0)}% BIG outcome)`
         };
     }
 
@@ -484,42 +517,48 @@ class PredictionEngine {
     _analyzeEmpiricalStreak(validHistory, numSeq) {
         const seq = validHistory.map(h => (h.actual_result || h.result_type).toLowerCase());
         const last = seq[0];
-        let count = 1;
+        let currentStreakLen = 1;
         for (let i = 1; i < seq.length; i++) {
-            if (seq[i] === last) count++; else break;
+            if (seq[i] === last) currentStreakLen++; else break;
         }
 
+        // Chronological streaks evaluation
+        const rev = [...validHistory].reverse();
+        const revSeq = rev.map(h => (h.actual_result || h.result_type).toLowerCase());
+        
         let sCont = 0;
         let sRev = 0;
-        for (let i = validHistory.length - 1; i > 0; i--) {
-            let curLen = 1;
-            const r = (validHistory[i].actual_result || validHistory[i].result_type).toLowerCase();
-            for (let j = i + 1; j < validHistory.length; j++) {
-                const olderR = (validHistory[j].actual_result || validHistory[j].result_type).toLowerCase();
-                if (olderR === r) curLen++; else break;
-            }
-            if (curLen === count) {
-                const nextNewerR = (validHistory[i - 1].actual_result || validHistory[i - 1].result_type).toLowerCase();
-                if (nextNewerR === r) sCont++; else sRev++;
+        let runLen = 1;
+        for (let i = 1; i < revSeq.length; i++) {
+            if (revSeq[i] === revSeq[i - 1]) {
+                runLen++;
+            } else {
+                if (currentStreakLen === runLen) {
+                    sRev++;
+                } else if (currentStreakLen < runLen) {
+                    sCont++;
+                }
+                runLen = 1;
             }
         }
 
         const totalObserved = sCont + sRev;
         let pCont = 0.5;
-        if (totalObserved >= 3) {
+        if (totalObserved >= 4) {
             pCont = (sCont + 1) / (totalObserved + 2);
         } else {
-            pCont = count === 1 ? 0.35 : (count >= 5 ? 0.30 : 0.55);
+            pCont = currentStreakLen === 1 ? 0.38 : (currentStreakLen >= 4 ? 0.30 : 0.48);
         }
 
-        const pred = pCont >= 0.5 ? (last === "big" ? "BIG" : "SMALL") : (last === "big" ? "SMALL" : "BIG");
-        const conf = Math.min(88, Math.round(52 + Math.abs(pCont - 0.5) * 80));
+        const willContinue = pCont >= 0.5;
+        const pred = willContinue ? (last === "big" ? "BIG" : "SMALL") : (last === "big" ? "SMALL" : "BIG");
+        const conf = Math.min(85, Math.round(50 + Math.abs(pCont - 0.5) * 75));
 
         return {
             pred,
             conf,
-            weight: 1.35,
-            reason: `Empirical Streak (${count}x ${last.toUpperCase()}): ${totalObserved} observed (${((pred === (last === "big" ? "BIG" : "SMALL") ? pCont : (1 - pCont)) * 100).toFixed(0)}% expectation)`
+            weight: 1.2,
+            reason: `Empirical Streak (${currentStreakLen}x ${last.toUpperCase()}): ${totalObserved} observed (${((willContinue ? pCont : (1 - pCont)) * 100).toFixed(0)}% ${willContinue ? "continue" : "reverse"})`
         };
     }
 
@@ -847,7 +886,18 @@ class PredictionEngine {
             if (entry.total > 0) {
                 const acc = entry.hits / entry.total;
                 entry.accuracy = Math.round(acc * 100);
-                entry.weightMultiplier = parseFloat((0.55 + acc * 1.0).toFixed(2));
+                // Steep Non-Linear Quality Gating: Heavily penalize failing models, elevate consistent winners
+                if (acc <= 0.40) {
+                    entry.weightMultiplier = 0.20; // Drastically muted during drawdowns
+                } else if (acc <= 0.50) {
+                    entry.weightMultiplier = 0.65;
+                } else if (acc <= 0.65) {
+                    entry.weightMultiplier = 1.15;
+                } else if (acc <= 0.75) {
+                    entry.weightMultiplier = 1.65;
+                } else {
+                    entry.weightMultiplier = 2.20;
+                }
             }
         });
 
@@ -917,7 +967,7 @@ async function executeSyncCycle() {
     // Pulls up to 2,000 records (FIFO rolling buffer) for deep pattern mining
     if (engine.historyBuffer.size < 400) {
         try {
-            const sbRes = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?select=issue_number,actual_result,actual_number&order=issue_number.desc&limit=2000`, {
+            const sbRes = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?select=issue_number,predicted_type,confidence,status,actual_result,actual_number&order=issue_number.desc&limit=2000`, {
                 headers: {
                     "apikey": CONFIG.SUPABASE_KEY,
                     "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
@@ -1062,9 +1112,9 @@ export default {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v5.2 Institutional Number-First Quantitative Engine",
+                engine: "v5.3 Institutional Anti-Drawdown Quantitative Engine",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "5.2.0 Enterprise"
+                version: "5.3.0 Enterprise"
             }, null, 2), {
                 status: 200,
                 headers: {
