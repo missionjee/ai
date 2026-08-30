@@ -269,7 +269,7 @@ class PredictionEngine {
             reason: primaryModel.reason,
             bigProb: Math.round(bigRatio * 100),
             smallProb: Math.round(smallRatio * 100),
-            luckyDigits: numberFirst.primaryDigits,
+            luckyDigits: (prediction === "BIG") ? numberFirst.bigLuckyDigits : numberFirst.smallLuckyDigits,
             digitProbs: numberFirst.digitProbs,
             regime,
             volatility: volatility.toFixed(2),
@@ -836,8 +836,23 @@ class PredictionEngine {
             .map(([d, p]) => ({ digit: parseInt(d, 10), prob: Math.round(p * 100) }))
             .sort((a, b) => b.prob - a.prob);
 
+        // Strict Category Segregation: BIG digits (5-9) and SMALL digits (0-4)
+        const bigRanked = ranked.filter(r => r.digit >= 5);
+        const smallRanked = ranked.filter(r => r.digit <= 4);
+
+        const bigLucky = [
+            bigRanked[0] ? bigRanked[0].digit : 7,
+            bigRanked[1] ? bigRanked[1].digit : 8
+        ];
+        const smallLucky = [
+            smallRanked[0] ? smallRanked[0].digit : 2,
+            smallRanked[1] ? smallRanked[1].digit : 3
+        ];
+
         return {
             primaryDigits: [ranked[0].digit, ranked[1].digit],
+            bigLuckyDigits: bigLucky,
+            smallLuckyDigits: smallLucky,
             digitProbs: Object.fromEntries(ranked.map(r => [r.digit, r.prob])),
             bigProb: Math.round(bigProbMass * 100),
             smallProb: Math.round(smallProbMass * 100),
