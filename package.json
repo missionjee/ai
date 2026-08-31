@@ -1,28 +1,45 @@
 {
-  "name": "hiroto-ai-terminal",
-  "version": "2.0.0",
+  "name": "hirotoai",
+  "private": true,
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
-    "build": "echo 'Static build ready'",
-    "start": "node local-server.js",
-    "dev": "node local-server.js",
-    "supabase:init": "supabase init",
-    "supabase:link": "supabase link --project-ref fvmbqikdomcjalladwmz",
-    "supabase:push": "supabase db push"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [
-    "fintech",
-    "signal-terminal",
-    "supabase",
-    "pwa",
-    "amoled"
-  ],
-  "author": "missionjee",
-  "license": "MIT",
   "dependencies": {
-    "@supabase/server": "^1.4.1",
+    "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.1",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-progress": "^1.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-toast": "^1.2.1",
     "@supabase/supabase-js": "^2.112.4",
-    "dotenv": "^17.4.2",
-    "wrangler": "^3.109.2"
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.441.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "tailwind-merge": "^2.5.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.1",
+    "@typescript-eslint/parser": "^8.0.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.9.0",
+    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "postcss": "^8.4.44",
+    "tailwindcss": "^3.4.11",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.1",
+    "vite-plugin-pwa": "^0.20.5"
   }
 }
