@@ -159,13 +159,14 @@ class PredictionEngine {
             let weight = 1.0;
             let inverted = false;
 
+            const invertThreshold = (name === "historicalPatternAssistance") ? 0.42 : 0.36;
             if (acc >= 0.68) {
                 weight = 2.8;
             } else if (acc >= 0.56) {
                 weight = 1.8;
             } else if (acc >= 0.46) {
                 weight = 0.85;
-            } else if (acc >= 0.36) {
+            } else if (acc >= invertThreshold) {
                 weight = 0.20;
             } else {
                 weight = 1.9;
@@ -241,7 +242,7 @@ class PredictionEngine {
             }
         }
 
-        // 3. Dragon Trend & Momentum Protocol
+        // 3. Dragon Trend & Momentum Protocol (Gated Architecture)
         let streak = 1;
         const last = tokens[n - 1];
         for (let i = n - 2; i >= 0; i--) {
@@ -250,19 +251,34 @@ class PredictionEngine {
 
         let trendP = 0.5;
         let trendReason = "Neutral base";
-        if (streak >= 6) {
+        if (streak >= 7) {
+            // Reversal Confirmed (Streak 7+)
             trendP = (last === 1) ? 0.22 : 0.78;
-            trendReason = `Streak Exhaustion (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Reversal`;
-        } else if (streak >= 3) {
-            trendP = (last === 1) ? 0.68 : 0.32;
+            trendReason = `Dragon Reversal Confirmed (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> High-Confidence Inversion`;
+        } else if (streak === 6) {
+            // Reversal Pending (Streak 6): flag reversal direction but gate execution in Step 8
+            trendP = (last === 1) ? 0.38 : 0.62;
+            trendReason = `Streak Reversal Pending (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Awaiting Confirmation`;
+        } else if (streak === 4 || streak === 5) {
+            // Exclusion Zone (Streak 4 or 5): Maximum entropy zone - neutralize submodel direction
+            trendP = 0.50;
+            trendReason = `Dragon Exclusion Zone (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Indeterminate Inflection Trap`;
+        } else if (streak === 3) {
+            // Ride Dragon (Streak 3)
+            trendP = (last === 1) ? 0.65 : 0.35;
             trendReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
         } else if (streak === 1) {
             let alts = 0;
             for (let i = n - 1; i >= Math.max(1, n - 6); i--) {
                 if (tokens[i] !== tokens[i - 1]) alts++; else break;
             }
-            if (alts >= 3) {
-                trendP = (last === 1) ? 0.32 : 0.68;
+            if (alts >= 4) {
+                // Alternation Ceiling (4+ switches) - neutralize submodel direction
+                trendP = 0.50;
+                trendReason = `Alternation Ceiling (${alts} switches) -> High-Entropy Trap`;
+            } else if (alts >= 2) {
+                // Short Alternation Rhythm (2-3 switches)
+                trendP = (last === 1) ? 0.35 : 0.65;
                 trendReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
             } else {
                 trendP = 0.50;
@@ -296,7 +312,7 @@ class PredictionEngine {
             }
 
             const tot = b + s;
-            const minReq = len === 4 ? 4 : (len === 3 ? 6 : 10);
+            const minReq = 25; // Quarantine: require minimum N >= 25 historical matches before influencing directional probability
             if (tot >= minReq) {
                 const p = (weightedB + 1.0) / (weightedB + weightedS + 2.0);
                 const bias = Math.abs(p - 0.5);
@@ -309,6 +325,10 @@ class PredictionEngine {
                     histPatReason = `Historical Pattern [${needle}]: ${tot} occurrences (${winPct}% ${predStr})`;
                     break;
                 }
+            } else if (tot >= (len === 4 ? 4 : (len === 3 ? 6 : 10))) {
+                // Collect digits for lucky digits generation, but keep directional probability neutral
+                histFollowingDigits = digitCollector;
+                matchedPatternName = needle;
             }
         }
 
@@ -399,7 +419,10 @@ class PredictionEngine {
     // ==============================================================================
     _plattCalibrate(rawScore) {
         const x = rawScore - 0.50;
-        return 1.0 / (1.0 + Math.exp(-(this.plattA * x + this.plattB)));
+        const baseCalibrated = 1.0 / (1.0 + Math.exp(-(this.plattA * x + this.plattB)));
+        // Fix 4: False Bear Bias Offset (+0.023 to BIG probability to eliminate the 54.9% False Bear skew)
+        const BIG_BOOST_OFFSET = 0.023;
+        return Math.max(0.01, Math.min(0.99, baseCalibrated + BIG_BOOST_OFFSET));
     }
 
     _updatePlattParameters(validHistory) {
@@ -535,21 +558,60 @@ class PredictionEngine {
                 predToken = 1 - predToken;
             }
 
+            // Fix 5: Regime-Conditional Model Suppression & Scaling
+            let effectiveWeight = tr.weight;
+            if (regimeCheck.hurstH >= 0.53) {
+                // Trending regime (H >= 0.53): suppress counter-trend models, boost trend followers
+                if (name === "dragonMomentum") effectiveWeight *= 2.2;
+                else if (name === "latentTrajectory") effectiveWeight *= 1.8;
+                else if (name === "kneserNeyLM") effectiveWeight *= 0.25;
+                else if (name === "parityHarmonic") effectiveWeight *= 0.25;
+                else if (name === "historicalPatternAssistance") effectiveWeight *= 0.20;
+            } else if (regimeCheck.hurstH >= 0.48 && regimeCheck.hurstH <= 0.52) {
+                // Mixed/Mean-reverting regime (0.48 <= H <= 0.52): boost harmonic & n-gram models
+                if (name === "kneserNeyLM") effectiveWeight *= 1.4;
+                else if (name === "parityHarmonic") effectiveWeight *= 1.4;
+                else if (name === "dragonMomentum") effectiveWeight *= 0.9;
+            }
+
             subResults.push({
                 name,
                 pred: predToken === 1 ? "BIG" : "SMALL",
                 prob,
-                weight: tr.weight,
+                weight: effectiveWeight,
                 accuracy: tr.accuracy || 50,
                 reason: rawSub[name].reason,
                 inverted: tr.inverted
             });
         }
 
+        // Normalize weights to preserve total mass across the ensemble
+        const initialWeightMass = Object.values(this.modelTrackers).reduce((sum, tr) => sum + tr.weight, 0);
+        const currentWeightMass = subResults.reduce((sum, s) => sum + s.weight, 0);
+        if (currentWeightMass > 0 && initialWeightMass > 0) {
+            const normScale = initialWeightMass / currentWeightMass;
+            subResults.forEach(s => { s.weight = parseFloat((s.weight * normScale).toFixed(3)); });
+        }
+
+        // Streak and Pattern Rhythm Analysis
         let curStreak = 1;
         const lastToken = tokens[tokens.length - 1];
         for (let i = tokens.length - 2; i >= 0; i--) {
             if (tokens[i] === lastToken) curStreak++; else break;
+        }
+
+        let curAlts = 0;
+        for (let i = tokens.length - 1; i >= Math.max(1, tokens.length - 6); i--) {
+            if (tokens[i] !== tokens[i - 1]) curAlts++; else break;
+        }
+
+        let is22Pair = false;
+        let is22Alt = false;
+        if (tokens.length >= 4) {
+            const t0 = tokens[tokens.length - 4], t1 = tokens[tokens.length - 3],
+                  t2 = tokens[tokens.length - 2], t3 = tokens[tokens.length - 1];
+            is22Pair = (t0 === t1) && (t2 === t3) && (t0 !== t2);
+            is22Alt = (t0 === t2) && (t1 === t3) && (t0 !== t1);
         }
 
         const recentNums = numSeq.slice(-20);
@@ -614,6 +676,31 @@ class PredictionEngine {
             status = "HOLD";
             statusReason = "Streak boundary 2x transition zone [PASS]";
             confidence = Math.min(confidence, 60);
+        } else if (curStreak === 4 || curStreak === 5) {
+            // Fix 1: Dragon 4x-5x Exclusion Zone
+            status = "HOLD";
+            statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (65-67% historical loss trap). Capital protected.`;
+            confidence = Math.min(confidence, 54);
+        } else if (curStreak === 6) {
+            // Fix 1: Dragon Streak 6 Reversal Pending
+            status = "HOLD";
+            statusReason = `⏳ Dragon Reversal Pending: 6x streak reached. Awaiting secondary confirmation draw before firing.`;
+            confidence = Math.min(confidence, 58);
+        } else if (curStreak === 3 && lastToken === 0 && agreementRate < 0.82) {
+            // Fix 1: Streak 3 SMALL requires >= 82% multi-model confluence
+            status = "HOLD";
+            statusReason = `🛡️ Asymmetric Dragon Guard: 3x SMALL continuation requires >=82% confluence (current: ${Math.round(agreementRate * 100)}%).`;
+            confidence = Math.min(confidence, 56);
+        } else if (curAlts >= 4) {
+            // Fix 2: Alternation Ceiling (4+ switches)
+            status = "HOLD";
+            statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (28-37% win rate trap).`;
+            confidence = Math.min(confidence, 52);
+        } else if (is22Pair || is22Alt) {
+            // Fix 2: 2-2 Pattern (BB-SS pair or BS-BS alternation)
+            status = "HOLD";
+            statusReason = `🛡️ 2-2 Pattern Trap: ${is22Pair ? "Pair (2-2)" : "Alternation (2-2)"} detected in trailing 4 draws.`;
+            confidence = Math.min(confidence, 53);
         }
 
         const isSniper = (
@@ -699,6 +786,7 @@ class PredictionEngine {
             isSniper,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
+            engineVersion: "v8.1",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit
         };
@@ -843,7 +931,8 @@ async function executeSyncCycle() {
         small_prob: pred.smallProb,
         regime: pred.regime,
         pattern: pred.pattern,
-        is_sniper: pred.isSniper
+        is_sniper: pred.isSniper,
+        engine_version: "v8.1"
     };
 
     try {
@@ -910,7 +999,8 @@ export default {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v8.0 Quantum Enterprise (Regime Pre-Filter + Meta-Learner Stacking + Platt Calibration + PRNG Forensics)",
+                engine: "v8.1 Quantum Enterprise (Dragon Gating + 2-2 Interceptor + Quarantine + Platt Bias Correction + Regime Suppression)",
+                engine_version: "v8.1",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 data: syncResult
             }, null, 2), {
@@ -927,9 +1017,10 @@ export default {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v8.0 Quantum Enterprise",
+                engine: "v8.1 Quantum Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "8.0.0 Enterprise"
+                version: "8.1.0 Enterprise",
+                engine_version: "v8.1"
             }, null, 2), {
                 status: 200,
                 headers: {

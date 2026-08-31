@@ -299,6 +299,7 @@ create table if not exists public.global_signals (
     regime text default 'balanced',
     pattern text default 'Standard',
     is_sniper boolean default false,
+    engine_version text default 'v8.1',    -- 'v8.1' isolates clean sniper tracking from pre-v8.0 loose gate rounds
     actual_result text,                    -- 'big' or 'small' (updated upon settlement)
     actual_number integer,                 -- 0 to 9
     created_at timestamptz default now()
