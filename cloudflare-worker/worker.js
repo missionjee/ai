@@ -936,7 +936,7 @@ async function executeSyncCycle() {
     };
 
     try {
-        await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals`, {
+        const insertRes = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals`, {
             method: "POST",
             headers: {
                 "apikey": CONFIG.SUPABASE_KEY,
@@ -946,6 +946,25 @@ async function executeSyncCycle() {
             },
             body: JSON.stringify(payload)
         });
+
+        // Fallback resilience: if the SQL migration adding 'engine_version' is pending, strip it and retry
+        if (!insertRes.ok) {
+            const errJson = await insertRes.json().catch(() => null);
+            if (errJson && errJson.code === "PGRST204" && errJson.message && errJson.message.includes("engine_version")) {
+                const legacyPayload = { ...payload };
+                delete legacyPayload.engine_version;
+                await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals`, {
+                    method: "POST",
+                    headers: {
+                        "apikey": CONFIG.SUPABASE_KEY,
+                        "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "resolution=merge-duplicates"
+                    },
+                    body: JSON.stringify(legacyPayload)
+                });
+            }
+        }
     } catch (e) {}
 
     return {
