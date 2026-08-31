@@ -176,7 +176,7 @@ export function LoginPage() {
           <button
             onClick={verifyKey}
             disabled={isLoading}
-            className="w-full btn-gold py-[14px] text-[14px] tracking-[1px] flex items-center justify-center gap-2 mt-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full btn-copy-signal justify-center py-[14px] text-[14px] tracking-[1px] mt-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isLoading ? 'AUTHENTICATING...' : 'AUTHENTICATE KEY'}
           </button>

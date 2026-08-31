@@ -83,27 +83,23 @@ export function TerminalPage() {
         />
 
         {/* Footer */}
-        <footer className="flex flex-col items-center gap-3 pt-2">
+        <footer className="system-footer">
           {deferredPwaPrompt && (
             <button
               onClick={installPwa}
-              className="rounded-[12px] px-4 py-2.5 text-[12px] font-extrabold flex items-center gap-2 transition-all hover:brightness-115 hover:-translate-y-px active:translate-y-px"
-              style={{
-                background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-                border: '1px solid #38bdf8',
-                borderTop: '1px solid #7dd3fc',
-                borderBottom: '2px solid #0369a1',
-                color: '#38bdf8',
-                boxShadow: '0 4px 15px rgba(56,189,248,0.15)',
-              }}
+              className="btn-pwa-install"
             >
               <span>📲</span>
               <span>Install Hiroto AI App (PWA)</span>
             </button>
           )}
-          <p className="text-[11px] text-[#64748b] font-mono tracking-[0.5px]">
-            HIROTO AI • Single Device Locked
-          </p>
+          <div className="footer-info">
+            <span>HIROTO AI</span>
+            <span className="dot">•</span>
+            <span>Single Device Locked</span>
+            <span className="dot">•</span>
+            <span>Quantum Engine v8.2</span>
+          </div>
         </footer>
       </div>
 

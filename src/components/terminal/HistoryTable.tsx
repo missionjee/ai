@@ -1,6 +1,6 @@
 /**
  * HistoryTable — Draw history with 3D tactile bevels, strict column proportions,
- * and authentic institutional styling.
+ * and authentic institutional styling matching demo.html.
  */
 
 import { cn } from '@/lib/utils'
@@ -13,19 +13,13 @@ interface HistoryTableProps {
   onFilterChange: (filter: FilterType) => void
 }
 
-const FILTERS: { key: FilterType; label: string }[] = [
-  { key: 'ALL', label: 'All' },
-  { key: 'WINS', label: 'Wins' },
-  { key: 'LOSSES', label: 'Losses' },
-]
-
 function OutcomeBadge({ predicted, actual }: { predicted: string | null; actual: string | null }) {
   if (!predicted || !actual) {
-    return <span className="hist-outcome PENDING">PENDING</span>
+    return <span className="outcome-pill PENDING">PENDING</span>
   }
   const isWin = predicted.toUpperCase() === actual.toUpperCase()
   return (
-    <span className={cn('hist-outcome', isWin ? 'WIN' : 'LOSS')}>
+    <span className={cn('outcome-pill', isWin ? 'WIN' : 'LOSS')}>
       {isWin ? 'WIN' : 'LOSS'}
     </span>
   )
@@ -37,8 +31,8 @@ function SignalBadge({ type }: { type: string | null }) {
   return (
     <span
       className={cn(
-        'font-mono font-extrabold text-[13px]',
-        isBig ? 'text-[#fb7185]' : 'text-[#38bdf8]'
+        'table-signal-badge',
+        isBig ? 'BIG' : 'SMALL'
       )}
     >
       {type.toUpperCase()}
@@ -48,6 +42,15 @@ function SignalBadge({ type }: { type: string | null }) {
 
 export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryTableProps) {
   const userTaken = history.filter(h => h.predicted_type !== null && h.predicted_type !== undefined)
+  
+  const allCount = userTaken.length
+  const winCount = userTaken.filter(
+    h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() === h.actual_result.toUpperCase()
+  ).length
+  const lossCount = userTaken.filter(
+    h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() !== h.actual_result.toUpperCase()
+  ).length
+
   let items = userTaken.slice(0, 30)
 
   if (activeFilter === 'WINS') {
@@ -72,42 +75,41 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
       : `No ${activeFilter.toLowerCase()} recorded in your taken history.`
 
   return (
-    <section className="bevel-card p-4 sm:p-5 flex flex-col gap-3.5">
+    <section className="history-card">
       {/* Header & Filter Pills */}
-      <div className="flex justify-between items-center pb-3 border-b border-[#1e2532] flex-wrap gap-2">
-        <h2 className="font-display font-black text-[15px] text-white tracking-[0.5px]">
-          Draw History
-        </h2>
-        <div className="flex items-center gap-1.5">
-          {FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => onFilterChange(key)}
-              className={cn('filter-pill', activeFilter === key && 'active')}
-            >
-              {label}
-            </button>
-          ))}
+      <div className="history-header">
+        <h2 className="history-title">Draw History</h2>
+        <div className="filter-pills">
+          <button
+            onClick={() => onFilterChange('ALL')}
+            className={cn('filter-pill', activeFilter === 'ALL' && 'active')}
+          >
+            All ({allCount})
+          </button>
+          <button
+            onClick={() => onFilterChange('WINS')}
+            className={cn('filter-pill', activeFilter === 'WINS' && 'active')}
+          >
+            Wins ({winCount})
+          </button>
+          <button
+            onClick={() => onFilterChange('LOSSES')}
+            className={cn('filter-pill', activeFilter === 'LOSSES' && 'active')}
+          >
+            Losses ({lossCount})
+          </button>
         </div>
       </div>
 
-      {/* History Table with strict column proportions */}
-      <div className="overflow-x-auto rounded-[12px] border border-[#1e2532] bg-[#05070a]">
-        <table className="w-full text-[13px] border-collapse">
+      {/* No-Scroll Responsive History Table */}
+      <div className="history-table-container">
+        <table className="history-table">
           <thead>
-            <tr className="bg-[#0d1117] border-b border-[#1e293b]">
-              <th className="w-[35%] px-3 py-2.5 text-left text-[10px] font-extrabold uppercase tracking-[0.8px] text-[#64748b]">
-                Period
-              </th>
-              <th className="w-[22%] px-3 py-2.5 text-left text-[10px] font-extrabold uppercase tracking-[0.8px] text-[#64748b]">
-                Signal
-              </th>
-              <th className="w-[23%] px-3 py-2.5 text-left text-[10px] font-extrabold uppercase tracking-[0.8px] text-[#64748b]">
-                Result
-              </th>
-              <th className="w-[20%] px-3 py-2.5 text-right text-[10px] font-extrabold uppercase tracking-[0.8px] text-[#64748b]">
-                Outcome
-              </th>
+            <tr>
+              <th className="col-period">Period</th>
+              <th className="col-signal">Signal</th>
+              <th className="col-result">Result</th>
+              <th className="col-outcome">Outcome</th>
             </tr>
           </thead>
           <tbody>
@@ -127,19 +129,16 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
                     : '-'
 
                 return (
-                  <tr
-                    key={item.issue_number || idx}
-                    className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
-                  >
-                    <td className="px-3 py-3 font-mono text-[#cbd5e1] font-semibold">
-                      {period4}
+                  <tr key={item.issue_number || idx}>
+                    <td className="col-period">
+                      #{period4}
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="col-signal">
                       <SignalBadge type={item.predicted_type} />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="col-result">
                       {actualType ? (
-                        <div className="inline-flex items-center gap-1.5 font-mono text-[13px] font-bold">
+                        <div className="result-group">
                           <span
                             className={cn(
                               actualType === 'BIG' ? 'text-[#fb7185]' : 'text-[#38bdf8]'
@@ -147,15 +146,15 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
                           >
                             {actualType}
                           </span>
-                          <span className="bg-white/[0.08] px-1.5 py-0.5 rounded text-white text-[12px]">
+                          <span className="result-num-chip">
                             {actualNum}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[#64748b] text-[11px]">Waiting...</span>
+                        <span className="text-[#64748b] text-[11px] font-mono">Waiting...</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="col-outcome">
                       <OutcomeBadge
                         predicted={item.predicted_type}
                         actual={item.actual_result}
@@ -171,3 +170,4 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
     </section>
   )
 }
+
