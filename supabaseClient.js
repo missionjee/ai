@@ -251,6 +251,9 @@ class SupabaseService {
                 } else if (data && data.error === "INSUFFICIENT_TOKENS") {
                     this._setTokenBalance(0);
                     return { success: false, error: "INSUFFICIENT_TOKENS", remainingTokens: 0 };
+                } else if (data && (data.error === "KEY_NOT_FOUND" || data.error === "INVALID_KEY" || data.error === "KEY_DELETED")) {
+                    this.logout();
+                    return { success: false, error: "KEY_DELETED" };
                 }
             }
         } catch (e) {
@@ -293,23 +296,25 @@ class SupabaseService {
 
             if (res.ok) {
                 const rows = await res.json();
-                if (Array.isArray(rows) && rows.length > 0) {
-                    const row = rows[0];
-                    // 1. Strict Device Lock Check: Another device cannot use this key
-                    if (row.active_device_id && row.active_device_id !== this.deviceId) {
-                        this.logoutDueToDeviceConflict();
-                        return { valid: false, reason: "DEVICE_MISMATCH" };
-                    }
-                    // 2. Token Check: Depleted or deleted
-                    if (row.status === "ended" || row.status === "revoked" || row.status === "deleted" || row.tokens_balance <= 0) {
-                        this.logout();
-                        return { valid: false, reason: "ENDED" };
-                    }
-                    if (typeof row.tokens_balance === "number") {
-                        this._setTokenBalance(row.tokens_balance);
-                    }
-                    return { valid: true };
+                if (!Array.isArray(rows) || rows.length === 0) {
+                    this.logout();
+                    return { valid: false, reason: "DELETED" };
                 }
+                const row = rows[0];
+                // 1. Strict Device Lock Check: Another device cannot use this key
+                if (row.active_device_id && row.active_device_id !== this.deviceId) {
+                    this.logoutDueToDeviceConflict();
+                    return { valid: false, reason: "DEVICE_MISMATCH" };
+                }
+                // 2. Token Check: Depleted or deleted
+                if (row.status === "ended" || row.status === "revoked" || row.status === "deleted" || row.tokens_balance <= 0) {
+                    this.logout();
+                    return { valid: false, reason: "ENDED" };
+                }
+                if (typeof row.tokens_balance === "number") {
+                    this._setTokenBalance(row.tokens_balance);
+                }
+                return { valid: true };
             }
         } catch (e) {
             console.error("Device verification error:", e);

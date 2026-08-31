@@ -347,13 +347,16 @@ async function syncCycle() {
         // Local fallback execution if offline
         if (!pred && state.tokensBalance > 0) {
             const resolvedHistory = sortedHistory.filter(h => h.actual_result);
-            pred = engine.predict(resolvedHistory);
-            await supabaseClient.consumeToken(targetPeriod, pred.prediction);
+            const rawPred = engine.predict(resolvedHistory);
+            const tokenRes = await supabaseClient.consumeToken(targetPeriod, rawPred.prediction);
+            if (tokenRes && tokenRes.success) {
+                pred = rawPred;
+            }
         }
 
         state.tokensBalance = supabaseClient.getTokenBalance();
 
-        if (pred && state.tokensBalance >= 0) {
+        if (pred && state.tokensBalance >= 0 && supabaseClient.getSession()) {
             state.prediction = pred;
             currentTargetEntry = {
                 issue_number: String(targetPeriod),
