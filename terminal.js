@@ -190,6 +190,15 @@ function showToast(text) {
     }, 2500);
 }
 
+function ensureLuckyDigits(digits, predType) {
+    if (Array.isArray(digits) && digits.length >= 2 && digits[0] !== undefined && digits[1] !== undefined) {
+        const d0 = parseInt(digits[0], 10);
+        const d1 = parseInt(digits[1], 10);
+        if (!isNaN(d0) && !isNaN(d1)) return [d0, d1];
+    }
+    return (predType || "").toUpperCase() === "BIG" ? [7, 8] : [2, 3];
+}
+
 // Copy Current Signal
 function copyCurrentSignal() {
     const p = state.prediction;
@@ -198,7 +207,8 @@ function copyCurrentSignal() {
         return;
     }
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
-    const digits = p.luckyDigits ? p.luckyDigits.join(", ") : "-";
+    const resolvedDigits = ensureLuckyDigits(p.luckyDigits, p.prediction);
+    const digits = resolvedDigits.join(", ");
     const tag = p.isSniper ? " [🎯 SNIPER]" : "";
     const predDisplay = p.prediction === "BIG" ? "BIGGG" : p.prediction;
     const minimalText = `**🎯 ${period4} • ${predDisplay}${tag} • [${digits}]**`;
@@ -333,7 +343,7 @@ async function syncCycle() {
                     prediction: s.predicted_type,
                     confidence: s.confidence,
                     status: s.status,
-                    luckyDigits: s.lucky_digits || [],
+                    luckyDigits: ensureLuckyDigits(s.lucky_digits, s.predicted_type),
                     strategy: s.strategy,
                     reason: s.reason,
                     bigProb: s.big_prob,
@@ -363,7 +373,7 @@ async function syncCycle() {
                 issue_number: String(targetPeriod),
                 predicted_type: pred.prediction,
                 prediction_confidence: pred.confidence,
-                lucky_digits: pred.luckyDigits,
+                lucky_digits: ensureLuckyDigits(pred.luckyDigits, pred.prediction),
                 actual_result: null,
                 actual_number: null
             };
@@ -377,7 +387,7 @@ async function syncCycle() {
             state.prediction = {
                 prediction: currentTargetEntry.predicted_type,
                 confidence: currentTargetEntry.prediction_confidence || 65,
-                luckyDigits: currentTargetEntry.lucky_digits || [],
+                luckyDigits: ensureLuckyDigits(currentTargetEntry.lucky_digits, currentTargetEntry.predicted_type),
                 bigProb: currentTargetEntry.predicted_type === "BIG" ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65)),
                 smallProb: currentTargetEntry.predicted_type === "SMALL" ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65))
             };
@@ -484,9 +494,10 @@ function renderUI() {
             UI.confidenceBar.style.width = `${p.confidence}%`;
         }
 
-        if (UI.luckyDigit1 && UI.luckyDigit2 && p.luckyDigits) {
-            UI.luckyDigit1.textContent = p.luckyDigits[0] !== undefined ? p.luckyDigits[0] : "-";
-            UI.luckyDigit2.textContent = p.luckyDigits[1] !== undefined ? p.luckyDigits[1] : "-";
+        if (UI.luckyDigit1 && UI.luckyDigit2) {
+            const digits = ensureLuckyDigits(p?.luckyDigits, p?.prediction);
+            UI.luckyDigit1.textContent = digits[0];
+            UI.luckyDigit2.textContent = digits[1];
         }
 
         if (UI.metricConsensus) {

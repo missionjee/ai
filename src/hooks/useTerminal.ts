@@ -51,6 +51,14 @@ async function fetchRemoteData(): Promise<{ data: HistoryEntry[] | null; isLive:
   return { data: null, isLive: false }
 }
 
+function ensureLuckyDigits(digits: any, predType?: string | null): [number, number] {
+  if (Array.isArray(digits) && digits.length >= 2 && digits[0] !== undefined && digits[1] !== undefined) {
+    const d0 = Number(digits[0]), d1 = Number(digits[1])
+    if (!isNaN(d0) && !isNaN(d1)) return [d0, d1]
+  }
+  return (predType || '').toUpperCase() === 'BIG' ? [7, 8] : [2, 3]
+}
+
 export function useTerminal() {
   const [state, setState] = useState<AppState>({
     targetPeriod: null,
@@ -103,7 +111,7 @@ export function useTerminal() {
           const k = String(entry.period_number)
           const existing = historyMap.get(k)
           if (existing) { if (!existing.predicted_type) existing.predicted_type = entry.prediction_type }
-          else { historyMap.set(k, { issue_number: k, predicted_type: entry.prediction_type, prediction_confidence: 70, lucky_digits: [], actual_result: null, actual_number: null }) }
+          else { historyMap.set(k, { issue_number: k, predicted_type: entry.prediction_type, prediction_confidence: 70, lucky_digits: ensureLuckyDigits(null, entry.prediction_type), actual_result: null, actual_number: null }) }
         })
       }
     } catch { /* offline */ }
@@ -142,7 +150,7 @@ export function useTerminal() {
             confidence: s.confidence,
             status: s.status as 'CLEARED' | 'HOLD' | 'SNIPER',
             statusReason: s.statusReason || '',
-            luckyDigits: (s.lucky_digits as [number, number]) || [6, 7],
+            luckyDigits: ensureLuckyDigits(s.lucky_digits, s.predicted_type),
             strategy: s.strategy,
             reason: s.reason,
             bigProb: s.big_prob,
@@ -173,7 +181,7 @@ export function useTerminal() {
           issue_number: String(targetPeriod),
           predicted_type: prediction.prediction,
           prediction_confidence: prediction.confidence,
-          lucky_digits: prediction.luckyDigits,
+          lucky_digits: ensureLuckyDigits(prediction.luckyDigits, prediction.prediction),
           actual_result: null,
           actual_number: null,
         }
@@ -185,7 +193,7 @@ export function useTerminal() {
         confidence: currentTargetEntry.prediction_confidence || 65,
         status: 'CLEARED',
         statusReason: '',
-        luckyDigits: (currentTargetEntry.lucky_digits as [number, number]) || [6, 7],
+        luckyDigits: ensureLuckyDigits(currentTargetEntry.lucky_digits, currentTargetEntry.predicted_type),
         bigProb: currentTargetEntry.predicted_type === 'BIG' ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65)),
         smallProb: currentTargetEntry.predicted_type === 'SMALL' ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65)),
         strategy: 'Cache',

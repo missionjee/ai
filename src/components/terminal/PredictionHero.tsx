@@ -37,8 +37,14 @@ export function PredictionHero({
       : 'EVALUATING REGIME...'
 
   const confidence = isLocked ? 0 : (prediction?.confidence || 0)
-  const luckyDigit1 = isLocked ? 'X' : (prediction?.luckyDigits?.[0] ?? '-')
-  const luckyDigit2 = isLocked ? 'X' : (prediction?.luckyDigits?.[1] ?? '-')
+  const defaultLuckyBig = [7, 8]
+  const defaultLuckySmall = [2, 3]
+  const resolvedDigits = (Array.isArray(prediction?.luckyDigits) && prediction.luckyDigits.length >= 2 && prediction.luckyDigits[0] !== undefined && prediction.luckyDigits[1] !== undefined)
+    ? prediction.luckyDigits
+    : (prediction?.prediction === 'BIG' ? defaultLuckyBig : defaultLuckySmall)
+
+  const luckyDigit1 = isLocked ? 'X' : (prediction ? resolvedDigits[0] : '-')
+  const luckyDigit2 = isLocked ? 'X' : (prediction ? resolvedDigits[1] : '-')
 
   return (
     <main className="prediction-hero" id="predictionHero">
