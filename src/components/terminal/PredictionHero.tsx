@@ -14,6 +14,7 @@ interface PredictionHeroProps {
   countdown: string
   isUrgent: boolean
   onCopy: () => void
+  onUnlockTokens?: () => void
 }
 
 export function PredictionHero({
@@ -23,6 +24,7 @@ export function PredictionHero({
   countdown,
   isUrgent,
   onCopy,
+  onUnlockTokens,
 }: PredictionHeroProps) {
   const [isCopied, setIsCopied] = useState(false)
   const isLocked = tokensBalance <= 0
@@ -129,6 +131,19 @@ export function PredictionHero({
                 <span>{isCopied ? 'COPIED!' : 'Copy'}</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Action Button When Locked */}
+        {isLocked && (
+          <div className="signal-action-wrap mt-2">
+            <button
+              onClick={onUnlockTokens}
+              className="w-full btn-copy-signal justify-center py-3.5 text-[13.5px] font-black tracking-[0.8px]"
+            >
+              <span>⚡</span>
+              <span>VIEW TOKEN PACKAGES & REDEEM KEY</span>
+            </button>
           </div>
         )}
       </div>

@@ -3,10 +3,8 @@
  * Replaces d.html + terminal.js — React + TypeScript + Tailwind
  */
 
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { supabaseClient } from '@/services/supabase'
 import { useTerminal } from '@/hooks/useTerminal'
 import { useCountdown } from '@/hooks/useCountdown'
 import { PeriodHelper } from '@/engine/periodHelper'
@@ -14,10 +12,11 @@ import { Header } from '@/components/terminal/Header'
 import { MetricsRow } from '@/components/terminal/MetricsRow'
 import { PredictionHero } from '@/components/terminal/PredictionHero'
 import { HistoryTable } from '@/components/terminal/HistoryTable'
+import { TokenModal } from '@/components/terminal/TokenModal'
 import { Toast } from '@/components/ui/Toast'
 
 export function TerminalPage() {
-  const navigate = useNavigate()
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false)
   const {
     state,
     toast,
@@ -32,14 +31,6 @@ export function TerminalPage() {
   } = useTerminal()
 
   const { formatted: countdownFormatted, isUrgent } = useCountdown()
-
-  // Strict session check
-  useEffect(() => {
-    const session = supabaseClient.getSession()
-    if (!session?.key || !session?.tokens_balance || session.tokens_balance <= 0) {
-      navigate('/', { replace: true })
-    }
-  }, [navigate])
 
   const { prediction, tokensBalance, history, stats, isLiveFeed, isResolving, targetPeriod, activeFilter } = state
   const periodLabel = PeriodHelper.formatLast4(targetPeriod)
@@ -71,11 +62,12 @@ export function TerminalPage() {
           onInstallPwa={installPwa}
         />
 
-        {/* Metrics Row */}
+        {/* Metrics Row (Opens Token Packages & Key Redemption Dialog on Click) */}
         <MetricsRow
           tokensBalance={tokensBalance}
           streak={stats.streak}
           prediction={prediction}
+          onClickTokens={() => setIsTokenModalOpen(true)}
         />
 
         {/* Prediction Hero */}
@@ -86,6 +78,7 @@ export function TerminalPage() {
           countdown={countdownFormatted}
           isUrgent={isUrgent}
           onCopy={copySignal}
+          onUnlockTokens={() => setIsTokenModalOpen(true)}
         />
 
         {/* Draw History */}
@@ -115,6 +108,14 @@ export function TerminalPage() {
           </div>
         </footer>
       </div>
+
+      {/* Inbuilt AI Token Packages & Key Redemption Dialog */}
+      <TokenModal
+        isOpen={isTokenModalOpen}
+        tokensBalance={tokensBalance}
+        onClose={() => setIsTokenModalOpen(false)}
+        onRedeemed={manualSync}
+      />
 
       {/* Toast */}
       <Toast message={toast} />
