@@ -155,7 +155,7 @@ export function useTerminal() {
             entropy: '0.50',
             permutationEntropy: '0.50',
             parityPrediction: 'EVEN',
-            engineVersion: 'v8.1',
+            engineVersion: 'v9.1',
             modelPerformance: null,
           }
         }
@@ -198,7 +198,7 @@ export function useTerminal() {
         entropy: '0.50',
         permutationEntropy: '0.50',
         parityPrediction: 'EVEN',
-        engineVersion: 'v8.1',
+        engineVersion: 'v9.1',
         modelPerformance: null,
       }
     }
@@ -285,11 +285,15 @@ export function useTerminal() {
 
   const copySignal = useCallback(() => {
     const { prediction, targetPeriod } = state
-    if (!prediction || !targetPeriod) { showToast('No active signal to copy'); return }
+    if (!prediction || !targetPeriod || prediction.prediction === 'HOLD') { 
+      showToast('Cannot copy: Signal is on HOLD')
+      return 
+    }
     const period4 = PeriodHelper.formatLast4(targetPeriod)
     const digits = prediction.luckyDigits?.join(', ') ?? '-'
-    const tag = prediction.isSniper ? ' [🎯 SNIPER]' : prediction.status === 'HOLD' ? ' [HOLD]' : ''
-    const text = `🎯 ${period4} • ${prediction.prediction}${tag} • [${digits}]`
+    const tag = prediction.isSniper ? ' [🎯 SNIPER]' : ''
+    const predDisplay = prediction.prediction === 'BIG' ? 'BIGGG' : prediction.prediction
+    const text = `**🎯 ${period4} • ${predDisplay}${tag} • [${digits}]**`
     navigator.clipboard.writeText(text).then(() => showToast(`Copied: ${text}`)).catch(() => showToast('Signal copied!'))
   }, [state, showToast])
 

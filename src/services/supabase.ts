@@ -101,56 +101,44 @@ class SupabaseService {
     const cleanKey = licenseKey.trim().toUpperCase()
     if (!cleanKey) return { success: false, message: 'Please enter a license key.' }
 
-    const deviceName = navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Workstation'
+    const deviceName = typeof navigator !== 'undefined' && navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Workstation'
 
     try {
       const res = await fetch(
-        `${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`,
-        { method: 'GET', headers: this._headers }
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/rpc/auth_license_device`,
+        {
+          method: 'POST',
+          headers: this._headers,
+          body: JSON.stringify({
+            p_license_key: cleanKey,
+            p_device_id: this.deviceId,
+            p_device_name: deviceName
+          })
+        }
       )
 
-      if (!res.ok) return { success: false, message: `Authentication server error ${res.status}.` }
-
-      const rows = await res.json()
-      if (!Array.isArray(rows) || rows.length === 0) {
-        return { success: false, code: 'KEY_NOT_FOUND', message: 'Invalid license key. Key does not exist in database.' }
+      if (!res.ok) {
+        // Fallback check if RPC endpoint is unreachable
+        return { success: false, message: `Authentication server error ${res.status}.` }
       }
 
-      const user = rows[0]
-
-      if (user.status === 'revoked' || user.status === 'deleted') {
-        return { success: false, code: 'KEY_REVOKED', message: 'Access Denied: This license key has been deleted or revoked.' }
+      const data = await res.json()
+      if (!data || !data.success) {
+        const code = data?.code || 'AUTH_FAILED'
+        const message = data?.message || 'Invalid license key. Please check and retry.'
+        return { success: false, code, message }
       }
 
-      const tokenBalance = parseInt(user.tokens_balance, 10)
-      if (isNaN(tokenBalance) || tokenBalance <= 0 || user.status === 'ended') {
-        fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`, {
-          method: 'PATCH', headers: this._headers,
-          body: JSON.stringify({ status: 'ended', tokens_balance: 0 })
-        }).catch(() => {})
+      const tokenBalance = parseInt(data.tokens_balance, 10)
+      if (isNaN(tokenBalance) || tokenBalance <= 0) {
         return { success: false, code: 'KEY_ENDED', message: 'This key has ended: 0 tokens remaining. Please recharge.' }
       }
-
-      if (user.active_device_id && user.active_device_id !== this.deviceId) {
-        return { success: false, code: 'DEVICE_LOCKED', message: '🔒 ACCESS DENIED: This license key is already locked to another device.' }
-      }
-
-      await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`, {
-        method: 'PATCH', headers: this._headers,
-        body: JSON.stringify({
-          active_device_id: this.deviceId,
-          device_name: deviceName,
-          status: 'active',
-          last_login_at: new Date().toISOString(),
-          last_active_at: new Date().toISOString()
-        })
-      })
 
       const session: UserSession = {
         key: cleanKey,
         tokens_balance: tokenBalance,
         deviceId: this.deviceId,
-        status: 'active',
+        status: data.status || 'active',
         syncedWithCloud: true,
         loginTime: new Date().toISOString()
       }
@@ -298,6 +286,10 @@ class SupabaseService {
         }
       }
     } catch (e) { console.error('RPC Error:', e) }
+
+    if (this.getTokenBalance() <= 0) {
+      return { success: false, error: 'INSUFFICIENT_TOKENS', tokensBalance: 0 }
+    }
 
     const fallbackSignal = await this.getGlobalSignal(periodNumber)
     return { success: !!fallbackSignal, signal: fallbackSignal as AuthorizedPredictionResult['signal'], tokensBalance: this.getTokenBalance() }

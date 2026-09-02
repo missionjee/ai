@@ -49,13 +49,13 @@ class PredictionEngine {
         this.plattA = 2.40;
         this.plattB = -0.05;
         this.modelTrackers = {
-            contextAttention: { hits: 15, total: 25, accuracy: 60, weight: 1.8, inverted: false },
-            kneserNeyLM: { hits: 13, total: 25, accuracy: 52, weight: 0.85, inverted: false },
-            dragonMomentum: { hits: 14, total: 25, accuracy: 56, weight: 1.8, inverted: false },
-            historicalPatternAssistance: { hits: 13, total: 25, accuracy: 52, weight: 1.0, inverted: false },
-            empiricalMarkov: { hits: 12, total: 25, accuracy: 48, weight: 0.85, inverted: false },
-            parityHarmonic: { hits: 13, total: 25, accuracy: 52, weight: 0.85, inverted: false },
-            latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 1.8, inverted: false }
+            parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
+            latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
+            contextAttention: { hits: 14, total: 25, accuracy: 56, weight: 1.80, inverted: false },
+            kneserNeyLM: { hits: 13, total: 25, accuracy: 52, weight: 1.20, inverted: false },
+            dragonMomentum: { hits: 13, total: 25, accuracy: 52, weight: 1.00, inverted: false },
+            historicalPatternAssistance: { hits: 12, total: 25, accuracy: 48, weight: 0.30, inverted: false },
+            empiricalMarkov: { hits: 11, total: 25, accuracy: 44, weight: 0.20, inverted: false }
         };
     }
 
@@ -125,21 +125,40 @@ class PredictionEngine {
         };
     }
 
+    _detectChangepoint(tokens, digits) {
+        const n = tokens.length;
+        if (n < 8) return { changepointDetected: false, shiftDirection: null, shiftMagnitude: 0 };
+        const recent4 = tokens.slice(-4);
+        const prior12 = tokens.slice(Math.max(0, n - 16), n - 4);
+        if (prior12.length < 4) return { changepointDetected: false, shiftDirection: null, shiftMagnitude: 0 };
+
+        const meanPrior = prior12.reduce((a, b) => a + b, 0) / prior12.length;
+        const meanRecent = recent4.reduce((a, b) => a + b, 0) / recent4.length;
+        const shiftDiff = meanRecent - meanPrior;
+
+        const isShift = Math.abs(shiftDiff) >= 0.50;
+        return {
+            changepointDetected: isShift,
+            shiftDirection: shiftDiff > 0 ? "BIG_SHIFT" : "SMALL_SHIFT",
+            shiftMagnitude: parseFloat(Math.abs(shiftDiff).toFixed(3))
+        };
+    }
+
     // ==============================================================================
     // ONLINE DYNAMIC SELF-LEARNING (Exp3 Multi-Armed Bandit Hedge)
     // ==============================================================================
     _updateDynamicSelfLearning(validHistory) {
-        const windowLen = Math.min(25, validHistory.length - 12);
+        const windowLen = Math.min(30, validHistory.length - 10);
         if (windowLen < 8) return;
 
         const trackers = {
+            parityHarmonic: { hits: 0, total: 0 },
+            latentTrajectory: { hits: 0, total: 0 },
             contextAttention: { hits: 0, total: 0 },
             kneserNeyLM: { hits: 0, total: 0 },
             dragonMomentum: { hits: 0, total: 0 },
             historicalPatternAssistance: { hits: 0, total: 0 },
-            empiricalMarkov: { hits: 0, total: 0 },
-            parityHarmonic: { hits: 0, total: 0 },
-            latentTrajectory: { hits: 0, total: 0 }
+            empiricalMarkov: { hits: 0, total: 0 }
         };
 
         for (let k = 1; k <= windowLen; k++) {
@@ -149,32 +168,29 @@ class PredictionEngine {
             const preds = this._computeRawSubmodels(subHist);
 
             for (const [name, p] of Object.entries(preds)) {
-                trackers[name].total++;
-                if (p.predToken === actual) trackers[name].hits++;
+                if (trackers[name]) {
+                    trackers[name].total++;
+                    if (p.predToken === actual) trackers[name].hits++;
+                }
             }
         }
 
         for (const [name, tr] of Object.entries(trackers)) {
-            const acc = tr.total > 0 ? tr.hits / tr.total : 0.5;
+            const acc = tr.total > 0 ? tr.hits / tr.total : 0.50;
             let weight = 1.0;
             let inverted = false;
 
-            const invertThreshold = (name === "historicalPatternAssistance") ? 0.42 : 0.36;
-            if (acc >= 0.68) {
-                weight = 2.8;
-            } else if (acc >= 0.56) {
-                weight = 1.8;
-            } else if (acc >= 0.46) {
-                weight = 0.85;
-            } else if (acc >= invertThreshold) {
-                weight = 0.20;
+            if (acc >= 0.58) {
+                weight = (name === "parityHarmonic" || name === "latentTrajectory") ? 2.60 : 2.00;
+            } else if (acc >= 0.52) {
+                weight = (name === "parityHarmonic" || name === "latentTrajectory") ? 2.20 : 1.40;
+            } else if (acc >= 0.48) {
+                weight = (name === "empiricalMarkov" || name === "historicalPatternAssistance") ? 0.25 : 0.90;
+            } else if (acc >= 0.36) {
+                weight = 0.15; // Suppress negative drag
             } else {
-                weight = 1.9;
-                inverted = true;
-            }
-
-            if (name === "historicalPatternAssistance") {
-                weight = Math.min(1.35, weight);
+                weight = 1.80;
+                inverted = true; // Invert anti-correlated model
             }
 
             this.modelTrackers[name] = {
@@ -252,9 +268,9 @@ class PredictionEngine {
         let trendP = 0.5;
         let trendReason = "Neutral base";
         if (streak >= 7) {
-            // Reversal Confirmed (Streak 7+)
-            trendP = (last === 1) ? 0.22 : 0.78;
-            trendReason = `Dragon Reversal Confirmed (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> High-Confidence Inversion`;
+            // Dragon Trend Decay (Streak 7+): Neutral baseline decay (no forced counter-trend betting)
+            trendP = (last === 1) ? 0.46 : 0.54;
+            trendReason = `Dragon Trend Decay (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Neutral Baseline`;
         } else if (streak === 6) {
             // Reversal Pending (Streak 6): flag reversal direction but gate execution in Step 8
             trendP = (last === 1) ? 0.38 : 0.62;
@@ -355,12 +371,21 @@ class PredictionEngine {
         const oddRatio = oddCount / recentParities.length;
         const parityP = 0.44 + 0.12 * oddRatio;
 
-        // 7. Continuous Latent Trajectory EMA
-        let ema = digits[Math.max(0, n - 8)];
-        for (let i = Math.max(0, n - 7); i < n; i++) {
-            ema = 0.42 * digits[i] + 0.58 * ema;
+        // 7. Continuous Latent Trajectory (Adaptive Dual-Speed EMA + Velocity Lead)
+        let emaFast = digits[Math.max(0, n - 4)];
+        for (let i = Math.max(0, n - 3); i < n; i++) {
+            emaFast = 0.72 * digits[i] + 0.28 * emaFast;
         }
-        const contP = 1 / (1 + Math.exp(-(ema - 4.5) * 0.70));
+        let emaSlow = digits[Math.max(0, n - 8)];
+        for (let i = Math.max(0, n - 7); i < n; i++) {
+            emaSlow = 0.35 * digits[i] + 0.65 * emaSlow;
+        }
+        const prevNum = n >= 2 ? digits[n - 2] : lastNum;
+        const velocity = lastNum - prevNum;
+
+        // Responsive continuous value: fast EMA + velocity lead prevents sticky lag on reversals
+        const blendedEma = 0.55 * emaFast + 0.25 * emaSlow + 0.20 * (lastNum + 0.35 * velocity);
+        const contP = 1 / (1 + Math.exp(-(blendedEma - 4.5) * 0.70));
 
         return {
             contextAttention: { predToken: attP >= 0.5 ? 1 : 0, prob: attP, reason: "Context Attention (LLM soft matching)" },
@@ -369,15 +394,15 @@ class PredictionEngine {
             historicalPatternAssistance: { predToken: histPatP >= 0.5 ? 1 : 0, prob: histPatP, reason: histPatReason, pattern: matchedPatternName, followingDigits: histFollowingDigits },
             empiricalMarkov: { predToken: markovP >= 0.5 ? 1 : 0, prob: markovP, reason: `Digit Transition Matrix from draw ${lastNum}` },
             parityHarmonic: { predToken: parityP >= 0.5 ? 1 : 0, prob: parityP, reason: `Parity Harmonic (${Math.round(oddRatio*100)}% ODD bias)` },
-            latentTrajectory: { predToken: contP >= 0.5 ? 1 : 0, prob: contP, reason: `Continuous Latent EMA (${ema.toFixed(2)})` }
+            latentTrajectory: { predToken: contP >= 0.5 ? 1 : 0, prob: contP, reason: `Continuous Latent EMA (${blendedEma.toFixed(2)})` }
         };
     }
 
     // ==============================================================================
-    // META-LEARNER STACKING (Non-Linear Synergies)
+    // META-LEARNER STACKING (Non-Linear Synergies on 14 Joint Features)
     // ==============================================================================
     _evaluateMetaLearner(subResults, context) {
-        const { shannonEntropy, curStreak, hurstH } = context;
+        const { shannonEntropy, curStreak, curAlts, hurstH, is22Pair, is22Alt, changepoint } = context;
 
         let weightedBase = 0;
         let totalW = 0;
@@ -387,6 +412,7 @@ class PredictionEngine {
         });
         let rawScore = weightedBase / (totalW || 1.0);
 
+        // 1. Dragon x Markov Synergy in Trending Regimes
         const dragonSub = subResults.find(s => s.name === "dragonMomentum");
         const markovSub = subResults.find(s => s.name === "empiricalMarkov");
         if (dragonSub && markovSub && curStreak >= 3 && hurstH >= 0.52) {
@@ -397,16 +423,32 @@ class PredictionEngine {
             }
         }
 
+        // 2. Kneser-Ney x Parity x Context Attention Synergy in Alternating Regimes
         const knSub = subResults.find(s => s.name === "kneserNeyLM");
         const paritySub = subResults.find(s => s.name === "parityHarmonic");
-        if (knSub && paritySub && curStreak === 1 && hurstH < 0.52) {
+        if (knSub && paritySub && curStreak === 1 && (curAlts >= 2 || hurstH < 0.52)) {
             const knDir = knSub.prob >= 0.5 ? 1 : 0;
             const parityDir = paritySub.prob >= 0.5 ? 1 : 0;
             if (knDir === parityDir) {
-                rawScore = 0.70 * rawScore + 0.30 * knSub.prob;
+                rawScore = 0.65 * rawScore + 0.35 * knSub.prob;
             }
         }
 
+        // 3. 2-2 Pattern Micro-Structure Modulation
+        if (is22Pair && curStreak === 1) {
+            const latentSub = subResults.find(s => s.name === "latentTrajectory");
+            if (latentSub) {
+                rawScore = 0.60 * rawScore + 0.40 * latentSub.prob;
+            }
+        }
+
+        // 4. Online Changepoint De-biasing
+        if (changepoint && changepoint.changepointDetected) {
+            const targetProb = changepoint.shiftDirection === "BIG_SHIFT" ? 0.62 : 0.38;
+            rawScore = 0.70 * rawScore + 0.30 * targetProb;
+        }
+
+        // 5. High-entropy dampening
         if (shannonEntropy > 0.90) {
             rawScore = 0.50 + (rawScore - 0.50) * 0.75;
         }
@@ -420,9 +462,8 @@ class PredictionEngine {
     _plattCalibrate(rawScore) {
         const x = rawScore - 0.50;
         const baseCalibrated = 1.0 / (1.0 + Math.exp(-(this.plattA * x + this.plattB)));
-        // Fix 4: False Bear Bias Offset (+0.023 to BIG probability to eliminate the 54.9% False Bear skew)
-        const BIG_BOOST_OFFSET = 0.023;
-        return Math.max(0.01, Math.min(0.99, baseCalibrated + BIG_BOOST_OFFSET));
+        // Symmetrical Calibration: Zero bias offset for optimal False Bear / False Bull balance
+        return Math.max(0.01, Math.min(0.99, baseCalibrated));
     }
 
     _updatePlattParameters(validHistory) {
@@ -536,8 +577,9 @@ class PredictionEngine {
         const tokens = validHistory.map(d => (d.actual_result || d.result_type).toLowerCase() === "big" ? 1 : 0);
         const numSeq = validHistory.map(h => h.actual_number).filter(n => n !== null && !isNaN(n));
 
-        // Step 1: Regime Validity Pre-Filter
+        // Step 1: Regime Validity Pre-Filter (Hurst Exponent & Autocorrelation ACF) & Changepoint Detection
         const regimeCheck = this._regimeValidityCheck(tokens, numSeq);
+        const changepoint = this._detectChangepoint(tokens, numSeq);
 
         // Step 2: Dynamic Self-Learning Weight Optimization
         this._updateDynamicSelfLearning(validHistory);
@@ -625,7 +667,11 @@ class PredictionEngine {
         const rawEnsembleScore = this._evaluateMetaLearner(subResults, {
             shannonEntropy,
             curStreak,
+            curAlts,
+            is22Pair,
+            is22Alt,
             hurstH: regimeCheck.hurstH,
+            changepoint,
             recentAcc: 55
         });
 
@@ -704,18 +750,18 @@ class PredictionEngine {
         }
 
         const isSniper = (
-            (calibratedP >= 0.78 || calibratedP <= 0.22) &&
-            agreeingModels.length >= 5 &&
-            shannonEntropy < 0.84 &&
+            (calibratedP >= 0.70 || calibratedP <= 0.30) &&
+            agreeingModels.length >= 4 &&
+            shannonEntropy < 0.86 &&
             regimeCheck.hurstH >= 0.50 &&
-            margin >= 0.14 &&
+            margin >= 0.10 &&
             status !== "HOLD"
         );
 
         if (isSniper) {
             status = "SNIPER";
             statusReason = `🎯 Ultra-Sniper: ${agreeingModels.length}/7 models, Hurst H=${regimeCheck.hurstH}, Calibrated ${(Math.max(calibratedP, 1 - calibratedP)*100).toFixed(0)}%`;
-            confidence = Math.max(78, confidence);
+            confidence = Math.max(76, confidence);
         }
 
         // Step 9: Empirical Lucky Digits
@@ -735,12 +781,21 @@ class PredictionEngine {
             });
         }
 
-        let ema = numSeq[Math.max(0, numSeq.length - 8)];
-        for (let i = Math.max(0, numSeq.length - 7); i < numSeq.length; i++) {
-            ema = 0.42 * numSeq[i] + 0.58 * ema;
+        let emaFast = numSeq[Math.max(0, numSeq.length - 4)];
+        for (let i = Math.max(0, numSeq.length - 3); i < numSeq.length; i++) {
+            emaFast = 0.72 * numSeq[i] + 0.28 * emaFast;
         }
+        let emaSlow = numSeq[Math.max(0, numSeq.length - 8)];
+        for (let i = Math.max(0, numSeq.length - 7); i < numSeq.length; i++) {
+            emaSlow = 0.35 * numSeq[i] + 0.65 * emaSlow;
+        }
+        const lastD = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
+        const prevD = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastD;
+        const velocity = lastD - prevD;
+        const blendedEma = 0.55 * emaFast + 0.25 * emaSlow + 0.20 * (lastD + 0.35 * velocity);
+
         for (let d = 0; d <= 9; d++) {
-            const g = Math.exp(-0.5 * Math.pow((d - ema) / 2.0, 2));
+            const g = Math.exp(-0.5 * Math.pow((d - blendedEma) / 2.0, 2));
             digitScores[d] *= (0.75 + g * 1.5);
         }
 
@@ -782,11 +837,11 @@ class PredictionEngine {
             volatility: "0.48",
             entropy: shannonEntropy.toFixed(2),
             permutationEntropy: permEntropy.toFixed(2),
-            continuousVal: parseFloat(ema.toFixed(2)),
+            continuousVal: parseFloat(blendedEma.toFixed(2)),
             isSniper,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "v8.1",
+            engineVersion: "v9.1",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit
         };
@@ -813,6 +868,54 @@ class PredictionEngine {
         const maxPe = Math.log2(6);
         return Math.max(0.0, Math.min(1.0, pe / maxPe));
     }
+
+    generatePerformanceReport() {
+        const models = {};
+        let totalHits = 0, totalRounds = 0;
+        for (const [name, tr] of Object.entries(this.modelTrackers)) {
+            totalHits += tr.hits;
+            totalRounds += tr.total;
+            const winRate = tr.total > 0 ? (tr.hits / tr.total) * 100 : 50;
+            models[name] = {
+                accuracy: `${winRate.toFixed(1)}%`,
+                weight: tr.weight,
+                hits: tr.hits,
+                total: tr.total,
+                status: winRate >= 53 ? "💎 STRONG ALPHA" : (winRate >= 50 ? "✅ POSITIVE EDGE" : (winRate >= 48 ? "⚖️ BASELINE" : "⚠️ SUPPRESSED DRAG")),
+                inverted: tr.inverted
+            };
+        }
+
+        const validHistory = Array.from(this.historyBuffer.values()).filter(h => h.actual_result || h.result_type);
+        const tokens = validHistory.map(h => (h.actual_result || h.result_type || "").toLowerCase() === "big" ? 1 : 0);
+        const digits = validHistory.map(h => h.actual_number !== null && h.actual_number !== undefined ? parseInt(h.actual_number, 10) : 4);
+        const regime = this._regimeValidityCheck(tokens, digits);
+
+        return {
+            status: "ONLINE",
+            engine_version: "v9.0 Autonomous Meta-Learner Enterprise",
+            timestamp: new Date().toISOString(),
+            historical_rounds_buffered: this.historyBuffer.size,
+            active_regime: {
+                regimeName: regime.regimeName,
+                hurstExponent: regime.hurstH,
+                autocorrelation1: regime.autocorr1,
+                isWhiteNoise: regime.isWhiteNoise
+            },
+            platt_scaling_parameters: {
+                A_temperature: parseFloat(this.plattA.toFixed(4)),
+                B_bias: parseFloat(this.plattB.toFixed(4)),
+                calibration_type: "Symmetric Zero-Offset Logistic"
+            },
+            meta_learner_models: models,
+            aggregate_submodel_accuracy: totalRounds > 0 ? `${((totalHits / totalRounds) * 100).toFixed(2)}%` : "50.00%",
+            recommendations: regime.isWhiteNoise
+                ? "Regime classified as White Noise. Holding bets to protect capital."
+                : (regime.regimeName === "trending"
+                    ? "Persistent trend detected (H >= 0.53). Boosting Latent Trajectory EMA and Parity Harmonic momentum."
+                    : "Mixed/oscillatory regime detected. Utilizing multi-scale context similarity and harmonic transitions.")
+        };
+    }
 }
 
 // Global Singleton Engine Instance
@@ -822,7 +925,9 @@ const engine = new PredictionEngine();
 // 2. CLOUDFLARE WORKER LIFECYCLE & SYNC CONTROLLER
 // ==============================================================================
 function calculateNextPeriod(latestIssueStr) {
+    if (!latestIssueStr) return "";
     const s = String(latestIssueStr).trim();
+    if (!s) return "";
     if (s.length < 17) {
         try {
             return String(BigInt(s) + 1n);
@@ -860,9 +965,13 @@ async function fetchWithTriProxy(url) {
 
     for (const target of proxies) {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
             const res = await fetch(target, {
+                signal: controller.signal,
                 headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
             });
+            clearTimeout(timeoutId);
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data) && data.length > 0) return data;
@@ -932,7 +1041,7 @@ async function executeSyncCycle() {
         regime: pred.regime,
         pattern: pred.pattern,
         is_sniper: pred.isSniper,
-        engine_version: "v8.1"
+        engine_version: "v9.0"
     };
 
     try {
@@ -986,7 +1095,7 @@ async function executeSyncCycle() {
 // ==============================================================================
 // 3. EXPORT HANDLERS (Cron Scheduled & Fast HTTP Interface)
 // ==============================================================================
-export default {
+const workerHandler = {
     async scheduled(event, env, ctx) {
         ctx.waitUntil(executeSyncCycle());
     },
@@ -998,11 +1107,13 @@ export default {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v8.0 Quantum Enterprise (Regime Pre-Filter + Meta-Learner Stacking + Platt Calibration + PRNG Forensics)",
+                engine: "v9.0 Autonomous Meta-Learner Enterprise (Exp3 Dynamic Weights + Symmetric Platt Logistic + Auto-Pruning)",
+                engine_version: "v9.0",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
                 buffer_target: "2,000-Round FIFO Ring Buffer",
-                platt_parameters: { A: engine.plattA, B: engine.plattB },
+                platt_parameters: { A: parseFloat(engine.plattA.toFixed(4)), B: parseFloat(engine.plattB.toFixed(4)) },
+                diagnostics_url: "/report",
                 timestamp: new Date().toISOString()
             }, null, 2), {
                 status: 200,
@@ -1018,11 +1129,24 @@ export default {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v8.1 Quantum Enterprise (Dragon Gating + 2-2 Interceptor + Quarantine + Platt Bias Correction + Regime Suppression)",
-                engine_version: "v8.1",
+                engine: "v9.0 Autonomous Meta-Learner Enterprise (Dynamic Re-Weighting + Symmetric Calibration + Risk Gating)",
+                engine_version: "v9.0",
                 historical_rounds_buffered: engine.historyBuffer.size,
+                diagnostics_url: "/report",
                 data: syncResult
             }, null, 2), {
+                status: 200,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "no-cache, no-store, must-revalidate"
+                }
+            });
+        }
+
+        if (url.pathname === "/report" || url.pathname === "/diagnostics") {
+            const report = engine.generatePerformanceReport();
+            return new Response(JSON.stringify(report, null, 2), {
                 status: 200,
                 headers: {
                     "Content-Type": "application/json",
@@ -1036,10 +1160,11 @@ export default {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v8.1 Quantum Enterprise",
+                engine: "v9.0 Autonomous Meta-Learner Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "8.1.0 Enterprise",
-                engine_version: "v8.1"
+                version: "9.0.0 Enterprise",
+                engine_version: "v9.0",
+                diagnostics_url: "/report"
             }, null, 2), {
                 status: 200,
                 headers: {
@@ -1058,3 +1183,6 @@ export default {
         });
     }
 };
+
+export { PredictionEngine, calculateNextPeriod, CONFIG, fetchWithTriProxy, executeSyncCycle };
+export default workerHandler;

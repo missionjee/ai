@@ -193,14 +193,15 @@ function showToast(text) {
 // Copy Current Signal
 function copyCurrentSignal() {
     const p = state.prediction;
-    if (!p || !state.targetPeriod) {
-        showToast("No active signal to copy");
+    if (!p || !state.targetPeriod || p.prediction === "HOLD") {
+        showToast("Cannot copy: Signal is on HOLD");
         return;
     }
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
     const digits = p.luckyDigits ? p.luckyDigits.join(", ") : "-";
-    const tag = p.isSniper ? " [🎯 SNIPER]" : (p.status === "HOLD" ? " [HOLD]" : "");
-    const minimalText = `🎯 ${period4} • ${p.prediction}${tag} • [${digits}]`;
+    const tag = p.isSniper ? " [🎯 SNIPER]" : "";
+    const predDisplay = p.prediction === "BIG" ? "BIGGG" : p.prediction;
+    const minimalText = `**🎯 ${period4} • ${predDisplay}${tag} • [${digits}]**`;
 
     navigator.clipboard.writeText(minimalText).then(() => {
         showToast(`Copied: ${minimalText}`);

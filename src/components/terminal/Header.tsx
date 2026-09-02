@@ -21,7 +21,7 @@ export function Header({
   isLiveFeed,
   isResolving,
 }: HeaderProps) {
-  const statusLabel = isResolving ? 'SYNCING' : isLiveFeed ? 'LIVE FEED' : 'LOCAL FEED'
+  const statusLabel = isResolving ? 'SYNCING' : isLiveFeed ? 'LIVE' : 'LOCAL'
   const isGreen = !isResolving && isLiveFeed
 
   return (
@@ -37,7 +37,7 @@ export function Header({
               HIROTO
             </h1>
             <span className="font-mono text-[10px] font-bold text-[#38bdf8] bg-[#38bdf8]/[0.12] border border-[#38bdf8]/[0.28] px-1.5 py-0.5 rounded">
-              v8.2 PRO
+              v9.1 PRO
             </span>
           </div>
           <span className="text-[10px] sm:text-[10.5px] font-extrabold tracking-[1.6px] uppercase bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] bg-clip-text text-transparent leading-tight">

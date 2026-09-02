@@ -40,10 +40,20 @@ interface SubResult {
   inverted: boolean
 }
 
+interface ChangepointCheck {
+  changepointDetected: boolean
+  shiftDirection: 'BIG_SHIFT' | 'SMALL_SHIFT' | null
+  shiftMagnitude: number
+}
+
 interface MetaContext {
   shannonEntropy: number
   curStreak: number
+  curAlts?: number
+  is22Pair?: boolean
+  is22Alt?: boolean
   hurstH: number
+  changepoint?: ChangepointCheck
   recentAcc: number
 }
 
@@ -63,13 +73,13 @@ export class PredictionEngine {
   private plattA = 2.40
   private plattB = -0.05
   private modelTrackers: ModelTrackers = {
-    contextAttention: { hits: 15, total: 25, accuracy: 60, weight: 1.8, inverted: false },
-    kneserNeyLM: { hits: 13, total: 25, accuracy: 52, weight: 0.85, inverted: false },
-    dragonMomentum: { hits: 14, total: 25, accuracy: 56, weight: 1.8, inverted: false },
-    historicalPatternAssistance: { hits: 13, total: 25, accuracy: 52, weight: 1.0, inverted: false },
-    empiricalMarkov: { hits: 12, total: 25, accuracy: 48, weight: 0.85, inverted: false },
-    parityHarmonic: { hits: 13, total: 25, accuracy: 52, weight: 0.85, inverted: false },
-    latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 1.8, inverted: false },
+    parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
+    latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
+    contextAttention: { hits: 14, total: 25, accuracy: 56, weight: 1.80, inverted: false },
+    kneserNeyLM: { hits: 13, total: 25, accuracy: 52, weight: 1.20, inverted: false },
+    dragonMomentum: { hits: 13, total: 25, accuracy: 52, weight: 1.00, inverted: false },
+    historicalPatternAssistance: { hits: 12, total: 25, accuracy: 48, weight: 0.30, inverted: false },
+    empiricalMarkov: { hits: 11, total: 25, accuracy: 44, weight: 0.20, inverted: false },
   }
 
   constructor() {
@@ -149,18 +159,37 @@ export class PredictionEngine {
     return { valid: !isWhiteNoise, hurstH: parseFloat(H.toFixed(3)), autocorr1: parseFloat(ac1.toFixed(3)), regimeName, isWhiteNoise }
   }
 
+  private _detectChangepoint(tokens: number[], _digits?: number[]): ChangepointCheck {
+    const n = tokens.length
+    if (n < 8) return { changepointDetected: false, shiftDirection: null, shiftMagnitude: 0 }
+    const recent4 = tokens.slice(-4)
+    const prior12 = tokens.slice(Math.max(0, n - 16), n - 4)
+    if (prior12.length < 4) return { changepointDetected: false, shiftDirection: null, shiftMagnitude: 0 }
+
+    const meanPrior = prior12.reduce((a, b) => a + b, 0) / prior12.length
+    const meanRecent = recent4.reduce((a, b) => a + b, 0) / recent4.length
+    const shiftDiff = meanRecent - meanPrior
+
+    const isShift = Math.abs(shiftDiff) >= 0.50
+    return {
+      changepointDetected: isShift,
+      shiftDirection: shiftDiff > 0 ? 'BIG_SHIFT' : 'SMALL_SHIFT',
+      shiftMagnitude: parseFloat(Math.abs(shiftDiff).toFixed(3))
+    }
+  }
+
   private _updateDynamicSelfLearning(validHistory: HistoryEntry[]): void {
-    const windowLen = Math.min(25, validHistory.length - 12)
+    const windowLen = Math.min(30, validHistory.length - 10)
     if (windowLen < 8) return
 
     const trackers: Record<keyof ModelTrackers, { hits: number; total: number }> = {
+      parityHarmonic: { hits: 0, total: 0 },
+      latentTrajectory: { hits: 0, total: 0 },
       contextAttention: { hits: 0, total: 0 },
       kneserNeyLM: { hits: 0, total: 0 },
       dragonMomentum: { hits: 0, total: 0 },
       historicalPatternAssistance: { hits: 0, total: 0 },
       empiricalMarkov: { hits: 0, total: 0 },
-      parityHarmonic: { hits: 0, total: 0 },
-      latentTrajectory: { hits: 0, total: 0 },
     }
 
     for (let k = 1; k <= windowLen; k++) {
@@ -170,22 +199,29 @@ export class PredictionEngine {
       const preds = this._computeRawSubmodels(subHist)
 
       for (const [name, p] of Object.entries(preds) as [keyof ModelTrackers, SubmodelResult][]) {
-        trackers[name].total++
-        if (p.predToken === actual) trackers[name].hits++
+        if (trackers[name]) {
+          trackers[name].total++
+          if (p.predToken === actual) trackers[name].hits++
+        }
       }
     }
 
     for (const [name, tr] of Object.entries(trackers) as [keyof ModelTrackers, { hits: number; total: number }][]) {
-      const acc = tr.total > 0 ? tr.hits / tr.total : 0.5
+      const acc = tr.total > 0 ? tr.hits / tr.total : 0.50
       let weight = 1.0
       let inverted = false
-      const invertThreshold = name === 'historicalPatternAssistance' ? 0.42 : 0.36
-      if (acc >= 0.68) weight = 2.8
-      else if (acc >= 0.56) weight = 1.8
-      else if (acc >= 0.46) weight = 0.85
-      else if (acc >= invertThreshold) weight = 0.20
-      else { weight = 1.9; inverted = true }
-      if (name === 'historicalPatternAssistance') weight = Math.min(1.35, weight)
+      if (acc >= 0.58) {
+        weight = (name === 'parityHarmonic' || name === 'latentTrajectory') ? 2.60 : 2.00
+      } else if (acc >= 0.52) {
+        weight = (name === 'parityHarmonic' || name === 'latentTrajectory') ? 2.20 : 1.40
+      } else if (acc >= 0.48) {
+        weight = (name === 'empiricalMarkov' || name === 'historicalPatternAssistance') ? 0.25 : 0.90
+      } else if (acc >= 0.36) {
+        weight = 0.15
+      } else {
+        weight = 1.80
+        inverted = true
+      }
       this.modelTrackers[name] = { hits: tr.hits, total: tr.total, accuracy: Math.round(acc * 100), weight, inverted }
     }
   }
@@ -244,7 +280,7 @@ export class PredictionEngine {
     const last = tokens[n - 1]
     for (let i = n - 2; i >= 0; i--) { if (tokens[i] === last) streak++; else break }
     let trendP = 0.5, trendReason = 'Neutral base'
-    if (streak >= 7) { trendP = last === 1 ? 0.22 : 0.78; trendReason = `Dragon Reversal Confirmed (${streak}x) -> High-Confidence Inversion` }
+    if (streak >= 7) { trendP = last === 1 ? 0.46 : 0.54; trendReason = `Dragon Trend Decay (${streak}x) -> Neutral Baseline` }
     else if (streak === 6) { trendP = last === 1 ? 0.38 : 0.62; trendReason = `Streak Reversal Pending (${streak}x) -> Awaiting Confirmation` }
     else if (streak === 4 || streak === 5) { trendP = 0.50; trendReason = `Dragon Exclusion Zone (${streak}x) -> Indeterminate Inflection Trap` }
     else if (streak === 3) { trendP = last === 1 ? 0.65 : 0.35; trendReason = `Dragon Momentum (${streak}x) -> Ride Trend` }
@@ -307,10 +343,16 @@ export class PredictionEngine {
     const oddRatio = oddCount / recentParities.length
     const parityP = 0.44 + 0.12 * oddRatio
 
-    // 7. Continuous Latent Trajectory EMA
-    let ema = digits[Math.max(0, n - 8)]
-    for (let i = Math.max(0, n - 7); i < n; i++) ema = 0.42 * digits[i] + 0.58 * ema
-    const contP = 1 / (1 + Math.exp(-(ema - 4.5) * 0.70))
+    // 7. Continuous Latent Trajectory (Adaptive Dual-Speed EMA + Velocity Lead)
+    let emaFast = digits[Math.max(0, n - 4)]
+    for (let i = Math.max(0, n - 3); i < n; i++) emaFast = 0.72 * digits[i] + 0.28 * emaFast
+    let emaSlow = digits[Math.max(0, n - 8)]
+    for (let i = Math.max(0, n - 7); i < n; i++) emaSlow = 0.35 * digits[i] + 0.65 * emaSlow
+    const prevNum = n >= 2 ? digits[n - 2] : lastNum
+    const velocity = lastNum - prevNum
+
+    const blendedEma = 0.55 * emaFast + 0.25 * emaSlow + 0.20 * (lastNum + 0.35 * velocity)
+    const contP = 1 / (1 + Math.exp(-(blendedEma - 4.5) * 0.70))
 
     return {
       contextAttention: { predToken: attP >= 0.5 ? 1 : 0, prob: attP, reason: 'Context Attention (LLM soft matching)' },
@@ -319,12 +361,12 @@ export class PredictionEngine {
       historicalPatternAssistance: { predToken: histPatP >= 0.5 ? 1 : 0, prob: histPatP, reason: histPatReason, pattern: matchedPatternName, followingDigits: histFollowingDigits },
       empiricalMarkov: { predToken: markovP >= 0.5 ? 1 : 0, prob: markovP, reason: `Digit Transition Matrix from draw ${lastNum}` },
       parityHarmonic: { predToken: parityP >= 0.5 ? 1 : 0, prob: parityP, reason: `Parity Harmonic (${Math.round(oddRatio * 100)}% ODD bias)` },
-      latentTrajectory: { predToken: contP >= 0.5 ? 1 : 0, prob: contP, reason: `Continuous Latent EMA (${ema.toFixed(2)})` },
+      latentTrajectory: { predToken: contP >= 0.5 ? 1 : 0, prob: contP, reason: `Continuous Latent EMA (${blendedEma.toFixed(2)})` },
     }
   }
 
   private _evaluateMetaLearner(subResults: SubResult[], context: MetaContext): number {
-    const { shannonEntropy, curStreak, hurstH } = context
+    const { shannonEntropy, curStreak, curAlts = 0, hurstH, is22Pair, changepoint } = context
     let weightedBase = 0, totalW = 0
     subResults.forEach(s => { weightedBase += s.prob * s.weight; totalW += s.weight })
     let rawScore = weightedBase / (totalW || 1.0)
@@ -339,10 +381,22 @@ export class PredictionEngine {
 
     const knSub = subResults.find(s => s.name === 'kneserNeyLM')
     const paritySub = subResults.find(s => s.name === 'parityHarmonic')
-    if (knSub && paritySub && curStreak === 1 && hurstH < 0.52) {
+    if (knSub && paritySub && curStreak === 1 && (curAlts >= 2 || hurstH < 0.52)) {
       if ((knSub.prob >= 0.5 ? 1 : 0) === (paritySub.prob >= 0.5 ? 1 : 0)) {
-        rawScore = 0.70 * rawScore + 0.30 * knSub.prob
+        rawScore = 0.65 * rawScore + 0.35 * knSub.prob
       }
+    }
+
+    if (is22Pair && curStreak === 1) {
+      const latentSub = subResults.find(s => s.name === 'latentTrajectory')
+      if (latentSub) {
+        rawScore = 0.60 * rawScore + 0.40 * latentSub.prob
+      }
+    }
+
+    if (changepoint?.changepointDetected) {
+      const targetProb = changepoint.shiftDirection === 'BIG_SHIFT' ? 0.62 : 0.38
+      rawScore = 0.70 * rawScore + 0.30 * targetProb
     }
 
     if (shannonEntropy > 0.90) rawScore = 0.50 + (rawScore - 0.50) * 0.75
@@ -352,8 +406,8 @@ export class PredictionEngine {
   private _plattCalibrate(rawScore: number): number {
     const x = rawScore - 0.50
     const baseCalibrated = 1.0 / (1.0 + Math.exp(-(this.plattA * x + this.plattB)))
-    const BIG_BOOST_OFFSET = 0.023
-    return Math.max(0.01, Math.min(0.99, baseCalibrated + BIG_BOOST_OFFSET))
+    // Symmetrical Calibration: Zero bias offset for optimal False Bear / False Bull balance
+    return Math.max(0.01, Math.min(0.99, baseCalibrated))
   }
 
   private _updatePlattParameters(validHistory: HistoryEntry[]): void {
@@ -456,15 +510,22 @@ export class PredictionEngine {
     const numSeq = validHistory.map(h => h.actual_number).filter((n): n is number => n !== null && !isNaN(n))
 
     const regimeCheck = this._regimeValidityCheck(tokens)
+    const changepoint = this._detectChangepoint(tokens, numSeq)
+
     this._updateDynamicSelfLearning(validHistory)
     this._updatePlattParameters(validHistory)
-    const rawSub = this._computeRawSubmodels(validHistory)
 
+    const rawSub = this._computeRawSubmodels(validHistory)
     const subResults: SubResult[] = []
-    for (const [name, tr] of Object.entries(this.modelTrackers) as [keyof ModelTrackers, typeof this.modelTrackers[keyof ModelTrackers]][]) {
+
+    for (const [name, tr] of Object.entries(this.modelTrackers) as [keyof ModelTrackers, { weight: number; inverted: boolean; accuracy?: number }][]) {
       let prob = rawSub[name].prob
       let predToken = rawSub[name].predToken
-      if (tr.inverted) { prob = 1.0 - prob; predToken = (1 - predToken) as 0 | 1 }
+
+      if (tr.inverted) {
+        prob = 1.0 - prob
+        predToken = (1 - predToken) as 0 | 1
+      }
 
       let effectiveWeight = tr.weight
       if (regimeCheck.hurstH >= 0.53) {
@@ -513,7 +574,16 @@ export class PredictionEngine {
     const shannonEntropy = probsCounts.length > 0 ? -probsCounts.reduce((sum, p) => sum + p * Math.log2(p), 0) / Math.log2(10) : 1.0
     const permEntropy = this._calculatePermutationEntropy(numSeq.slice(-15))
 
-    const rawEnsembleScore = this._evaluateMetaLearner(subResults, { shannonEntropy, curStreak, hurstH: regimeCheck.hurstH, recentAcc: 55 })
+    const rawEnsembleScore = this._evaluateMetaLearner(subResults, {
+      shannonEntropy,
+      curStreak,
+      curAlts,
+      is22Pair,
+      is22Alt,
+      hurstH: regimeCheck.hurstH,
+      changepoint,
+      recentAcc: 55
+    })
     const calibratedP = this._plattCalibrate(rawEnsembleScore)
     const prediction: 'BIG' | 'SMALL' = calibratedP >= 0.50 ? 'BIG' : 'SMALL'
     const margin = Math.abs(calibratedP - 0.50)
@@ -557,12 +627,19 @@ export class PredictionEngine {
       status = 'HOLD'; statusReason = `🛡️ 2-2 Pattern Trap detected.`; confidence = Math.min(confidence, 53)
     }
 
-    const isSniper = calibratedP >= 0.78 || (calibratedP <= 0.22 && agreeingModels.length >= 5 && shannonEntropy < 0.84 && regimeCheck.hurstH >= 0.50 && margin >= 0.14 && status !== 'HOLD')
+    const isSniper = (
+      (calibratedP >= 0.70 || calibratedP <= 0.30) &&
+      agreeingModels.length >= 4 &&
+      shannonEntropy < 0.86 &&
+      regimeCheck.hurstH >= 0.50 &&
+      margin >= 0.10 &&
+      status !== 'HOLD'
+    )
 
     if (isSniper) {
       status = 'SNIPER'
       statusReason = `🎯 Ultra-Sniper: ${agreeingModels.length}/7 models, Hurst H=${regimeCheck.hurstH}, Calibrated ${(Math.max(calibratedP, 1 - calibratedP) * 100).toFixed(0)}%`
-      confidence = Math.max(78, confidence)
+      confidence = Math.max(76, confidence)
     }
 
     const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4
@@ -574,10 +651,17 @@ export class PredictionEngine {
     if (rawSub.historicalPatternAssistance?.followingDigits) {
       rawSub.historicalPatternAssistance.followingDigits.forEach(fd => { if (fd >= 0 && fd <= 9) digitScores[fd] += 1.4 })
     }
-    let emaFinal = numSeq[Math.max(0, numSeq.length - 8)]
-    for (let i = Math.max(0, numSeq.length - 7); i < numSeq.length; i++) emaFinal = 0.42 * numSeq[i] + 0.58 * emaFinal
+    let emaFast = numSeq[Math.max(0, numSeq.length - 4)]
+    for (let i = Math.max(0, numSeq.length - 3); i < numSeq.length; i++) emaFast = 0.72 * numSeq[i] + 0.28 * emaFast
+    let emaSlow = numSeq[Math.max(0, numSeq.length - 8)]
+    for (let i = Math.max(0, numSeq.length - 7); i < numSeq.length; i++) emaSlow = 0.35 * numSeq[i] + 0.65 * emaSlow
+    const lastD = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4
+    const prevD = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastD
+    const velocity = lastD - prevD
+    const blendedEma = 0.55 * emaFast + 0.25 * emaSlow + 0.20 * (lastD + 0.35 * velocity)
+
     for (let d = 0; d <= 9; d++) {
-      const g = Math.exp(-0.5 * Math.pow((d - emaFinal) / 2.0, 2))
+      const g = Math.exp(-0.5 * Math.pow((d - blendedEma) / 2.0, 2))
       digitScores[d] *= (0.75 + g * 1.5)
     }
 
@@ -609,10 +693,10 @@ export class PredictionEngine {
       volatility: '0.48',
       entropy: shannonEntropy.toFixed(2),
       permutationEntropy: permEntropy.toFixed(2),
-      continuousVal: parseFloat(emaFinal.toFixed(2)),
+      continuousVal: parseFloat(blendedEma.toFixed(2)),
       isSniper, pattern: patternDesc,
       parityPrediction: lastNum % 2 === 1 ? 'EVEN' : 'ODD',
-      engineVersion: 'v8.1',
+      engineVersion: 'v9.1',
       modelPerformance: this.modelTrackers,
       prngForensics: prngAudit
     }

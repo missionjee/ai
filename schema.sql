@@ -263,24 +263,50 @@ begin
 end;
 $$;
 
--- 7. Row Level Security (RLS)
+-- 7. Row Level Security (RLS) & Hardened Security Policies
 alter table public.user_profiles enable row level security;
 alter table public.token_ledger enable row level security;
 
--- Public access policies
-create policy "Allow read access to user_profiles" on public.user_profiles for select using (true);
-create policy "Allow insert access to user_profiles" on public.user_profiles for insert with check (true);
-create policy "Allow update access to user_profiles" on public.user_profiles for update using (true);
-create policy "Allow delete access to user_profiles" on public.user_profiles for delete using (true);
+-- Drop legacy permissive policies
+drop policy if exists "Allow read access to user_profiles" on public.user_profiles;
+drop policy if exists "Allow insert access to user_profiles" on public.user_profiles;
+drop policy if exists "Allow update access to user_profiles" on public.user_profiles;
+drop policy if exists "Allow delete access to user_profiles" on public.user_profiles;
 
+drop policy if exists "Allow read access to token_ledger" on public.token_ledger;
+drop policy if exists "Allow insert access to token_ledger" on public.token_ledger;
+drop policy if exists "Allow delete access to token_ledger" on public.token_ledger;
+
+-- Read policies
+create policy "Allow read access to user_profiles" on public.user_profiles for select using (true);
 create policy "Allow read access to token_ledger" on public.token_ledger for select using (true);
-create policy "Allow insert access to token_ledger" on public.token_ledger for insert with check (true);
-create policy "Allow delete access to token_ledger" on public.token_ledger for delete using (true);
+
+-- Strict service_role write access
+create policy "Service role full access on user_profiles" on public.user_profiles 
+    for all 
+    using (auth.role() = 'service_role') 
+    with check (auth.role() = 'service_role');
+
+create policy "Service role full access on token_ledger" on public.token_ledger 
+    for all 
+    using (auth.role() = 'service_role') 
+    with check (auth.role() = 'service_role');
 
 -- Grant schema access
-grant usage on schema public to anon, authenticated;
-grant all on all tables in schema public to anon, authenticated;
-grant all on all routines in schema public to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.user_profiles to anon, authenticated;
+grant select on public.token_ledger to anon, authenticated;
+grant all on all tables in schema public to service_role;
+
+-- Grant execution ONLY to safe client RPCs
+grant execute on function public.auth_license_device(text, text, text) to anon, authenticated, service_role;
+grant execute on function public.verify_single_device(text, text) to anon, authenticated, service_role;
+grant execute on function public.consume_prediction_token(text, text, text, text) to anon, authenticated, service_role;
+grant execute on function public.get_authorized_prediction(text, text, text) to anon, authenticated, service_role;
+
+-- Revoke dangerous admin RPC execution from anon and authenticated
+revoke execute on function public.credit_user_tokens(text, integer) from anon, authenticated;
+grant execute on function public.credit_user_tokens(text, integer) to service_role;
 
 -- ==============================================================================
 -- 8. CENTRAL 24/7 GLOBAL SIGNALS (Single Source of Truth for all connected users)
@@ -310,11 +336,19 @@ create index if not exists idx_global_signals_issue on public.global_signals (is
 -- Realtime Publication for instant sub-second WebSocket broadcast to all apps
 alter publication supabase_realtime add table public.global_signals;
 
--- Row Level Security (Restricted Access: Zero Direct Public Reads)
+-- Row Level Security (Restricted Access: Zero Direct Public Reads or Forged Writes)
 alter table public.global_signals enable row level security;
 drop policy if exists "Allow public read access to global_signals" on public.global_signals;
-create policy "Allow service write access to global_signals" on public.global_signals for insert with check (true);
-create policy "Allow service update access to global_signals" on public.global_signals for update using (true);
+drop policy if exists "Allow service write access to global_signals" on public.global_signals;
+drop policy if exists "Allow service update access to global_signals" on public.global_signals;
+
+create policy "Allow service write access to global_signals" on public.global_signals 
+    for insert 
+    with check (auth.role() = 'service_role');
+
+create policy "Allow service update access to global_signals" on public.global_signals 
+    for update 
+    using (auth.role() = 'service_role');
 
 -- Revoke direct anon select: Scrapers CANNOT read global_signals table directly via REST
 revoke select on public.global_signals from anon;
@@ -518,7 +552,8 @@ begin
 end;
 $$;
 
-grant execute on function public.delete_license_cascade(text) to anon, authenticated, service_role;
+revoke execute on function public.delete_license_cascade(text) from anon, authenticated;
+grant execute on function public.delete_license_cascade(text) to service_role;
 
 -- D. Foreign Key Constraint with ON DELETE CASCADE
 alter table public.token_ledger

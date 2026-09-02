@@ -228,7 +228,7 @@ class DeepSequenceAttention:
 
 class StackingMetaLearner:
     """
-    Ensemble Meta-Learner with Wilson Score Calibration.
+    Ensemble Meta-Learner with Wilson Score Calibration and Dynamic Micro-Regime Synergies.
     Combines Continuous Latent Regressor, CatBoost, LightGBM, and Deep Attention.
     """
     def __init__(self):
@@ -239,15 +239,32 @@ class StackingMetaLearner:
             "continuous_regressor": 0.15
         }
 
-    def ensemble_distribution(self, cat_p, lgb_p, deep_p, reg_info):
-        # 1. Blend 10-class distributions
+    def ensemble_distribution(self, cat_p, lgb_p, deep_p, reg_info, context=None):
+        # 1. Dynamic Weight Adjustment based on context (if provided)
+        weights = dict(self.weights)
+        if context:
+            regime = context.get("regime", "mixed")
+            alt_rate = context.get("alt_rate", 0.5)
+            if regime == "trending":
+                weights["catboost"] = 0.40
+                weights["lightgbm"] = 0.35
+                weights["continuous_regressor"] = 0.15
+                weights["deep_attention"] = 0.10
+            elif regime in ["mean_reverting", "alternating"] or alt_rate > 0.6:
+                weights["deep_attention"] = 0.35
+                weights["catboost"] = 0.25
+                weights["lightgbm"] = 0.25
+                weights["continuous_regressor"] = 0.15
+
+        # 2. Blend 10-class distributions
+        total_w = sum(weights.values())
         blended = (
-            cat_p * self.weights["catboost"] +
-            lgb_p * self.weights["lightgbm"] +
-            deep_p * self.weights["deep_attention"]
+            cat_p * (weights["catboost"] / total_w) +
+            lgb_p * (weights["lightgbm"] / total_w) +
+            deep_p * (weights["deep_attention"] / total_w)
         )
         
-        # 2. Inject continuous regressor prior
+        # 3. Inject continuous regressor prior
         c_val = reg_info.get("continuous_val", 4.5)
         reg_dist = np.zeros(10)
         for d in range(10):
@@ -258,15 +275,20 @@ class StackingMetaLearner:
         final_probs = 0.82 * blended + 0.18 * reg_dist
         final_probs /= np.sum(final_probs)
         
-        # 3. Derive Big vs Small
+        # 4. Derive Big vs Small
         big_prob = float(np.sum(final_probs[5:]))
         small_prob = float(np.sum(final_probs[:5]))
         
-        # 4. Top 2 Lucky Digits
-        ranked_digits = np.argsort(final_probs)[::-1]
-        lucky_digits = [int(ranked_digits[0]), int(ranked_digits[1])]
+        # 5. Top 2 Lucky Digits (Category segregated)
+        ranked_big = [d for d in np.argsort(final_probs)[::-1] if d >= 5]
+        ranked_small = [d for d in np.argsort(final_probs)[::-1] if d < 5]
         
-        # 5. Prediction class & Calibrated Confidence
+        if big_prob >= small_prob:
+            lucky_digits = [int(ranked_big[0]), int(ranked_big[1])]
+        else:
+            lucky_digits = [int(ranked_small[0]), int(ranked_small[1])]
+        
+        # 6. Prediction class & Calibrated Confidence
         pred_type = "BIG" if big_prob >= small_prob else "SMALL"
         dominant_prob = max(big_prob, small_prob)
         confidence = int(np.clip(52 + (dominant_prob - 0.5) * 88, 52, 94))

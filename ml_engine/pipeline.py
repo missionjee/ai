@@ -153,14 +153,11 @@ class QuantitativePipeline:
         cat_dist = self.catboost.predict_distribution(target_features)
         lgb_dist = self.lightgbm.predict_distribution(target_features)
         deep_dist = self.attention.predict_distribution(all_nums)
-        
-        # Stacking ensemble
-        ens = self.ensemble.ensemble_distribution(cat_dist, lgb_dist, deep_dist, reg_info)
-        
         # Regime determination
         h_s = entropy_metrics.get("shannon_entropy_10", 1.0)
         p_e = entropy_metrics.get("permutation_entropy", 1.0)
         hurst = entropy_metrics.get("hurst_exponent", 0.5)
+        alt_rate = target_features[-1] if len(target_features) > 0 else 0.5
         
         if hurst > 0.60:
             regime = "trending"
@@ -168,7 +165,13 @@ class QuantitativePipeline:
             regime = "mean_reverting"
         else:
             regime = "alternating" if p_e < 0.80 else "mixed"
-            
+
+        # Stacking ensemble with regime-adaptive weights
+        ens = self.ensemble.ensemble_distribution(
+            cat_dist, lgb_dist, deep_dist, reg_info,
+            context={"regime": regime, "alt_rate": alt_rate}
+        )
+        
         # Confluence & Sniper Detection
         # Check alignment between continuous regressor, GBDT, and Attention
         c_pred = reg_info["pred_type"]
