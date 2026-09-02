@@ -214,15 +214,15 @@ export class PredictionEngine {
             let inverted = false;
 
             if (acc >= 0.58) {
-                weight = (name === "parityHarmonic" || name === "latentTrajectory") ? 2.60 : 2.00;
+                weight = (name === "parityHarmonic" || name === "latentTrajectory") ? 2.40 : 1.90;
             } else if (acc >= 0.52) {
-                weight = (name === "parityHarmonic" || name === "latentTrajectory") ? 2.20 : 1.40;
+                weight = (name === "parityHarmonic" || name === "latentTrajectory") ? 2.00 : 1.40;
             } else if (acc >= 0.48) {
-                weight = (name === "empiricalMarkov" || name === "historicalPatternAssistance") ? 0.25 : 0.90;
-            } else if (acc >= 0.36) {
-                weight = 0.15; // Suppress negative drag
+                weight = (name === "empiricalMarkov" || name === "historicalPatternAssistance") ? 0.35 : 0.85;
+            } else if (acc >= 0.38) {
+                weight = 0.30;
             } else {
-                weight = 1.80;
+                weight = 1.60;
                 inverted = true; // Invert anti-correlated model
             }
 
@@ -397,12 +397,12 @@ export class PredictionEngine {
         for (let d = 5; d <= 9; d++) empiricalBigMass += (digitTransCounts[d] + 0.5);
         const markovP = empiricalBigMass / (empiricalBigMass + empiricalSmallMass);
 
-        // 6. Parity Harmonic Transition
+        // 6. Parity Harmonic Transition (Symmetrical Mapping)
         const recentParities = digits.slice(-8).map(d => d % 2 === 1 ? 1 : 0);
         let oddCount = 0;
         recentParities.forEach(p => { if (p === 1) oddCount++; });
         const oddRatio = oddCount / recentParities.length;
-        const parityP = 0.44 + 0.12 * oddRatio;
+        const parityP = 0.50 + 0.28 * (oddRatio - 0.50);
 
         // 7. Continuous Latent Trajectory (Adaptive Dual-Speed EMA + Velocity Lead)
         let emaFast = digits[Math.max(0, n - 4)];
@@ -446,25 +446,20 @@ export class PredictionEngine {
         });
         let rawScore = weightedBase / (totalW || 1.0);
 
-        // Feature Interactions & Adaptive Regimes:
-        // 1. Dragon x Markov Synergy in Trending Regimes
+        // 1. Joint Dragon-Markov Confirmation Synergy
         const dragonSub = subResults.find(s => s.name === "dragonMomentum");
         const markovSub = subResults.find(s => s.name === "empiricalMarkov");
         if (dragonSub && markovSub && curStreak >= 3 && hurstH >= 0.52) {
-            const dragonDir = dragonSub.prob >= 0.5 ? 1 : 0;
-            const markovDir = markovSub.prob >= 0.5 ? 1 : 0;
-            if (dragonDir === markovDir) {
+            if ((dragonSub.prob >= 0.5 ? 1 : 0) === (markovSub.prob >= 0.5 ? 1 : 0)) {
                 rawScore = 0.65 * rawScore + 0.35 * dragonSub.prob;
             }
         }
 
-        // 2. Kneser-Ney x Parity x Context Attention Synergy in Alternating Regimes
+        // 2. Kneser-Ney & Parity Oscillation Synergy
         const knSub = subResults.find(s => s.name === "kneserNeyLM");
         const paritySub = subResults.find(s => s.name === "parityHarmonic");
         if (knSub && paritySub && curStreak === 1 && (curAlts >= 2 || hurstH < 0.52)) {
-            const knDir = knSub.prob >= 0.5 ? 1 : 0;
-            const parityDir = paritySub.prob >= 0.5 ? 1 : 0;
-            if (knDir === parityDir) {
+            if ((knSub.prob >= 0.5 ? 1 : 0) === (paritySub.prob >= 0.5 ? 1 : 0)) {
                 rawScore = 0.65 * rawScore + 0.35 * knSub.prob;
             }
         }
@@ -483,7 +478,13 @@ export class PredictionEngine {
             rawScore = 0.70 * rawScore + 0.30 * targetProb;
         }
 
-        // 5. High-entropy dampening
+        // 5. Adaptive Directional Equilibrium Guard: If market is non-trending (Hurst < 0.54) and not in a confirmed streak, neutralize false drift
+        if (hurstH < 0.54 && curStreak <= 2) {
+            const excess = rawScore - 0.50;
+            rawScore = 0.50 + excess * 0.85;
+        }
+
+        // 6. High-entropy dampening
         if (shannonEntropy > 0.90) {
             rawScore = 0.50 + (rawScore - 0.50) * 0.75;
         }
@@ -527,11 +528,12 @@ export class PredictionEngine {
             const p = 1.0 / (1.0 + Math.exp(-(A * x + B)));
             const grad = p - actual;
             A -= lr * grad * x;
-            B -= lr * grad;
+            // Anti-Bias Regularization: Apply L2 decay on B
+            B = (B - lr * grad) * 0.88;
         }
 
         this.plattA = Math.max(1.2, Math.min(4.5, A));
-        this.plattB = Math.max(-0.8, Math.min(0.8, B));
+        this.plattB = Math.max(-0.25, Math.min(0.25, B));
     }
 
     // ==============================================================================
@@ -844,10 +846,9 @@ export class PredictionEngine {
             status = "HOLD";
             statusReason = `⏳ Dragon Reversal Pending: 6x streak reached. Awaiting secondary confirmation draw before firing.`;
             confidence = Math.min(confidence, 58);
-        } else if (curStreak === 3 && lastToken === 0 && agreementRate < 0.82) {
-            // Fix 1: Streak 3 SMALL requires >= 82% multi-model confluence
+        } else if (curStreak === 3 && agreementRate < 0.70) {
             status = "HOLD";
-            statusReason = `🛡️ Asymmetric Dragon Guard: 3x SMALL continuation requires >=82% confluence (current: ${Math.round(agreementRate * 100)}%).`;
+            statusReason = `🛡️ Dragon Momentum Gate: 3x streak requires >=70% confluence (current: ${Math.round(agreementRate * 100)}%).`;
             confidence = Math.min(confidence, 56);
         } else if (curAlts >= 3) {
             // Fix 2: Lowered Alternation Ceiling from 4 to 3 switches to prevent 3rd loss

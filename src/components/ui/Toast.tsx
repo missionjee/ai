@@ -13,16 +13,17 @@ export function Toast({ message }: ToastProps) {
   return (
     <div className={cn(
       'fixed bottom-6 left-1/2 -translate-x-1/2 z-50',
-      'px-4 py-2.5 rounded-[10px] text-[13px] font-bold text-white',
+      'px-4 py-2 rounded-[12px] text-[12.5px] font-black text-white',
       'animate-toast-in',
-      'max-w-[90vw] text-center'
+      'max-w-[92vw] text-center whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-center gap-1.5'
     )}
       style={{
-        background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-        border: '1px solid #334155',
-        borderTop: '1px solid #475569',
-        borderBottom: '2px solid #000',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.8)',
+        background: 'rgba(10, 14, 22, 0.92)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.25)',
+        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
       }}
     >
       {message}

@@ -211,15 +211,15 @@ export class PredictionEngine {
       let weight = 1.0
       let inverted = false
       if (acc >= 0.58) {
-        weight = (name === 'parityHarmonic' || name === 'latentTrajectory') ? 2.60 : 2.00
+        weight = (name === 'parityHarmonic' || name === 'latentTrajectory') ? 2.40 : 1.90
       } else if (acc >= 0.52) {
-        weight = (name === 'parityHarmonic' || name === 'latentTrajectory') ? 2.20 : 1.40
+        weight = (name === 'parityHarmonic' || name === 'latentTrajectory') ? 2.00 : 1.40
       } else if (acc >= 0.48) {
-        weight = (name === 'empiricalMarkov' || name === 'historicalPatternAssistance') ? 0.25 : 0.90
-      } else if (acc >= 0.36) {
-        weight = 0.15
+        weight = (name === 'empiricalMarkov' || name === 'historicalPatternAssistance') ? 0.35 : 0.85
+      } else if (acc >= 0.38) {
+        weight = 0.30
       } else {
-        weight = 1.80
+        weight = 1.60
         inverted = true
       }
       this.modelTrackers[name] = { hits: tr.hits, total: tr.total, accuracy: Math.round(acc * 100), weight, inverted }
@@ -336,12 +336,12 @@ export class PredictionEngine {
     for (let d = 5; d <= 9; d++) empiricalBigMass += (digitTransCounts[d] + 0.5)
     const markovP = empiricalBigMass / (empiricalBigMass + empiricalSmallMass)
 
-    // 6. Parity Harmonic
+    // 6. Parity Harmonic (Symmetrical Mapping)
     const recentParities = digits.slice(-8).map(d => d % 2 === 1 ? 1 : 0)
     let oddCount = 0
     recentParities.forEach(p => { if (p === 1) oddCount++ })
     const oddRatio = oddCount / recentParities.length
-    const parityP = 0.44 + 0.12 * oddRatio
+    const parityP = 0.50 + 0.28 * (oddRatio - 0.50)
 
     // 7. Continuous Latent Trajectory (Adaptive Dual-Speed EMA + Velocity Lead)
     let emaFast = digits[Math.max(0, n - 4)]
@@ -399,6 +399,12 @@ export class PredictionEngine {
       rawScore = 0.70 * rawScore + 0.30 * targetProb
     }
 
+    // Adaptive Directional Equilibrium Guard: If market is non-trending (Hurst < 0.54) and not in a confirmed streak, neutralize false drift
+    if (hurstH < 0.54 && curStreak <= 2) {
+      const excess = rawScore - 0.50
+      rawScore = 0.50 + excess * 0.85
+    }
+
     if (shannonEntropy > 0.90) rawScore = 0.50 + (rawScore - 0.50) * 0.75
     return Math.max(0.01, Math.min(0.99, rawScore))
   }
@@ -429,10 +435,12 @@ export class PredictionEngine {
       const raw = sumP / (sumW || 1)
       const x = raw - 0.50
       const p = 1.0 / (1.0 + Math.exp(-(A * x + B)))
-      A -= lr * (p - actual) * x; B -= lr * (p - actual)
+      A -= lr * (p - actual) * x
+      // Anti-Bias Regularization: Apply L2 decay on B to enforce zero directional bias
+      B = (B - lr * (p - actual)) * 0.88
     }
     this.plattA = Math.max(1.2, Math.min(4.5, A))
-    this.plattB = Math.max(-0.8, Math.min(0.8, B))
+    this.plattB = Math.max(-0.25, Math.min(0.25, B))
   }
 
   private _auditPRNGStructure(digits: number[]) {
@@ -684,8 +692,8 @@ export class PredictionEngine {
       status = 'HOLD'; statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak. Capital protected.`; confidence = Math.min(confidence, 54)
     } else if (curStreak === 6) {
       status = 'HOLD'; statusReason = `⏳ Dragon Reversal Pending: 6x streak. Awaiting confirmation.`; confidence = Math.min(confidence, 58)
-    } else if (curStreak === 3 && lastToken === 0 && agreementRate < 0.82) {
-      status = 'HOLD'; statusReason = `🛡️ Asymmetric Dragon Guard: 3x SMALL requires >=82% confluence.`; confidence = Math.min(confidence, 56)
+    } else if (curStreak === 3 && agreementRate < 0.70) {
+      status = 'HOLD'; statusReason = `🛡️ Dragon Momentum Gate: 3x streak requires >=70% confluence.`; confidence = Math.min(confidence, 56)
     } else if (curAlts >= 3) {
       // Lowered from 4 to 3 switches to intercept oscillation losses early
       status = 'HOLD'; statusReason = `🛡️ Alternation Ceiling: ${curAlts} switches.`; confidence = Math.min(confidence, 52)

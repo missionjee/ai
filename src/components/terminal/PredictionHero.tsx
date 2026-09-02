@@ -58,6 +58,22 @@ export function PredictionHero({
     }
   }
 
+  const getShortHoldReason = (reason?: string): string => {
+    if (!reason) return 'HOLD [PASS]'
+    const r = reason.toLowerCase()
+    if (r.includes('quarantine') || r.includes('miss') || r.includes('loss')) return 'HOLD [ANTI-DRAWDOWN]'
+    if (r.includes('dragon')) return 'HOLD [DRAGON STREAK]'
+    if (r.includes('2-2') || r.includes('pair')) return 'HOLD [2-2 PATTERN]'
+    if (r.includes('alternat') || r.includes('switch')) return 'HOLD [OSCILLATION]'
+    if (r.includes('symmetry')) return 'HOLD [ASYMMETRY TRAP]'
+    if (r.includes('white-noise') || r.includes('noise')) return 'HOLD [WHITE NOISE]'
+    if (r.includes('entropy') || r.includes('chop')) return 'HOLD [CHOP ZONE]'
+    if (r.includes('synchroniz') || r.includes('buffering')) return 'HOLD [SYNCING]'
+    if (r.includes('streak boundary') || r.includes('transition')) return 'HOLD [TRANSITION]'
+    if (r.includes('discordance') || r.includes('edge')) return 'HOLD [LOW EDGE]'
+    return 'HOLD [PASS]'
+  }
+
   return (
     <main className="prediction-hero" id="predictionHero">
       {/* Target Period & Countdown Header */}
@@ -77,19 +93,19 @@ export function PredictionHero({
       {/* Main Prediction Banner */}
       <div className="hero-main-banner">
         <div className={cn('signal-banner', signalKey)}>
-          <span className="signal-tag">
+          <span className="signal-tag whitespace-nowrap overflow-hidden text-ellipsis max-w-full block">
             {isLocked && <span>🔒 SIGNAL LOCKED</span>}
             {!isLocked && prediction?.status === 'HOLD' && (
-              <span>⚠️ {prediction?.statusReason ? prediction.statusReason.toUpperCase() : 'CAUTION • HIGH CHOP ZONE [PASS]'}</span>
+              <span>⚠️ {getShortHoldReason(prediction?.statusReason)}</span>
             )}
             {!isLocked && prediction?.isSniper && (
-              <span>🎯 SNIPER CONFLUENCE ({prediction.confidence}%)</span>
+              <span>🎯 SNIPER SIGNAL</span>
             )}
             {!isLocked && prediction?.status === 'CLEARED' && !prediction?.isSniper && (
-              <span>⚡ QUANTUM SIGNAL ({confidence}%)</span>
+              <span>⚡ QUANTUM SIGNAL</span>
             )}
             {!isLocked && !prediction && (
-              <span>SYNCHRONIZING EDGE FEED...</span>
+              <span>⚡ SYNCING FEED...</span>
             )}
           </span>
           <span className="signal-text">{signalText}</span>

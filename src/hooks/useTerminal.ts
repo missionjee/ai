@@ -333,7 +333,7 @@ export function useTerminal() {
     const tag = prediction.isSniper ? ' [🎯 SNIPER]' : ''
     const predDisplay = prediction.prediction === 'BIG' ? 'BIGGG' : prediction.prediction
     const text = `**🎯 ${period4} • ${predDisplay}${tag} • [${digits}]**`
-    navigator.clipboard.writeText(text).then(() => showToast(`Copied: ${text}`)).catch(() => showToast('Signal copied!'))
+    navigator.clipboard.writeText(text).then(() => showToast(`✓ Copied: ${predDisplay} [${digits}]`)).catch(() => showToast('✓ Copied to clipboard!'))
   }, [state, showToast])
 
   const toggleSound = useCallback(() => {
