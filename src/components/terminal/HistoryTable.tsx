@@ -41,31 +41,35 @@ function SignalBadge({ type }: { type: string | null }) {
 }
 
 export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryTableProps) {
-  const resolvedList = history.filter(h => h.actual_result !== null && h.actual_result !== undefined)
+  const resolvedList = history.filter(h => h.actual_result !== null && h.actual_result !== undefined).slice(0, 30)
   
   const allCount = resolvedList.length
   const winCount = resolvedList.filter(
-    h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() === h.actual_result.toUpperCase()
+    h => {
+      const p = String(h.predicted_type || '').toUpperCase()
+      const a = String(h.actual_result || '').toUpperCase()
+      return p && a && p === a
+    }
   ).length
-  const lossCount = resolvedList.filter(
-    h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() !== h.actual_result.toUpperCase()
-  ).length
+  const lossCount = allCount - winCount
 
-  let items = resolvedList.slice(0, 30)
+  let items = resolvedList
 
   if (activeFilter === 'WINS') {
-    items = items.filter(
-      h =>
-        h.predicted_type &&
-        h.actual_result &&
-        h.predicted_type.toUpperCase() === h.actual_result.toUpperCase()
+    items = resolvedList.filter(
+      h => {
+        const p = String(h.predicted_type || '').toUpperCase()
+        const a = String(h.actual_result || '').toUpperCase()
+        return p && a && p === a
+      }
     )
   } else if (activeFilter === 'LOSSES') {
-    items = items.filter(
-      h =>
-        h.predicted_type &&
-        h.actual_result &&
-        h.predicted_type.toUpperCase() !== h.actual_result.toUpperCase()
+    items = resolvedList.filter(
+      h => {
+        const p = String(h.predicted_type || '').toUpperCase()
+        const a = String(h.actual_result || '').toUpperCase()
+        return !p || !a || p !== a
+      }
     )
   }
 

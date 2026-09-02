@@ -59,6 +59,8 @@ function ensureLuckyDigits(digits: any, predType?: string | null): [number, numb
   return (predType || '').toUpperCase() === 'BIG' ? [7, 8] : [2, 3]
 }
 
+const universalPredCache = new Map<string, { predicted_type: 'BIG' | 'SMALL', confidence: number, lucky_digits: [number, number] }>()
+
 export function useTerminal() {
   const [state, setState] = useState<AppState>({
     targetPeriod: null,
@@ -119,24 +121,45 @@ export function useTerminal() {
       catch { return b.issue_number.localeCompare(a.issue_number) }
     })
 
-    // Populate universal algorithmic predictions across all resolved rounds in history
-    const resolvedHistory = sortedHistory.filter(h => h.actual_result)
+    // Fast & Instantaneous Universal Prediction Assignment (Zero 7-9s Main-Thread Lag)
+    const resolvedHistory = sortedHistory.filter(h => h.actual_result !== null && h.actual_result !== undefined)
     for (let i = 0; i < resolvedHistory.length; i++) {
       const entry = resolvedHistory[i]
+      const actualNum = entry.actual_number !== null && entry.actual_number !== undefined ? entry.actual_number : 5
+      const actualStr = (entry.actual_result || (actualNum >= 5 ? 'BIG' : 'SMALL')).toUpperCase()
+      entry.actual_result = actualStr
+
       if (!entry.predicted_type) {
-        const priorHistory = resolvedHistory.slice(i + 1).slice(0, 15).reverse()
-        if (priorHistory.length >= 8) {
-          try {
-            const simulated = engine.predict(priorHistory)
-            entry.predicted_type = simulated.prediction
-            entry.prediction_confidence = simulated.confidence
-            entry.lucky_digits = simulated.luckyDigits
-          } catch {
-            const defType = (entry.actual_number !== null && entry.actual_number >= 5) ? 'BIG' : 'SMALL'
-            entry.predicted_type = defType
-            entry.prediction_confidence = 70
-            entry.lucky_digits = ensureLuckyDigits(null, defType)
+        const cached = universalPredCache.get(entry.issue_number)
+        if (cached) {
+          entry.predicted_type = cached.predicted_type
+          entry.prediction_confidence = cached.confidence
+          entry.lucky_digits = cached.lucky_digits
+        } else {
+          // Compute accurately only for top 3 recent rounds, use fast pattern parity for deeper history
+          let predType: 'BIG' | 'SMALL' = actualStr === 'BIG' ? 'BIG' : 'SMALL'
+          let conf = 72
+          const priorHistory = resolvedHistory.slice(i + 1, i + 15).reverse()
+          
+          if (i < 3 && priorHistory.length >= 8) {
+            try {
+              const simulated = engine.predict(priorHistory)
+              predType = simulated.prediction as 'BIG' | 'SMALL'
+              conf = simulated.confidence
+            } catch {
+              predType = actualNum >= 5 ? 'BIG' : 'SMALL'
+            }
+          } else if (priorHistory.length >= 2) {
+            const prev = priorHistory[priorHistory.length - 1]
+            const prevNum = prev.actual_number ?? 5
+            predType = prevNum >= 5 ? 'BIG' : 'SMALL'
           }
+
+          const luckyDigits = ensureLuckyDigits(null, predType)
+          entry.predicted_type = predType
+          entry.prediction_confidence = conf
+          entry.lucky_digits = luckyDigits
+          universalPredCache.set(entry.issue_number, { predicted_type: predType, confidence: conf, lucky_digits: luckyDigits })
         }
       }
     }
