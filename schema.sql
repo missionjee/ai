@@ -370,12 +370,12 @@ begin
     end if;
 
     select count(*) into v_count from public.global_signals;
-    if v_count > 2000 then
-        -- Indexed offset lookup of 2000th issue_number
+    if v_count > 5000 then
+        -- Indexed offset lookup of 5000th issue_number (5k buffer)
         select issue_number into v_cutoff_issue
         from public.global_signals
         order by issue_number desc
-        offset 2000 limit 1;
+        offset 5000 limit 1;
 
         if v_cutoff_issue is not null then
             delete from public.global_signals

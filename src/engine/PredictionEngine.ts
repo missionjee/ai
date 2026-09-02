@@ -103,13 +103,13 @@ export class PredictionEngine {
   private _savePersistentBuffer(): void {
     try {
       let arr = Array.from(this.historyBuffer.values())
-      if (arr.length > 2000) {
+      if (arr.length > 5000) {
         arr = arr.sort((a, b) => {
           try {
             const aI = BigInt(a.issue_number), bI = BigInt(b.issue_number)
             return aI > bI ? 1 : aI < bI ? -1 : 0
           } catch { return a.issue_number.localeCompare(b.issue_number) }
-        }).slice(-2000)
+        }).slice(-5000)
         this.historyBuffer.clear()
         arr.forEach(item => this.historyBuffer.set(String(item.issue_number), item))
       }

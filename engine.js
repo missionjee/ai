@@ -73,7 +73,7 @@ export class PredictionEngine {
         if (typeof localStorage === "undefined") return;
         try {
             const arr = Array.from(this.historyBuffer.values());
-            if (arr.length > 2000) {
+            if (arr.length > 5000) {
                 const sorted = arr.sort((a, b) => {
                     try {
                         const bI = BigInt(b.issue_number);
@@ -83,7 +83,7 @@ export class PredictionEngine {
                         return String(a.issue_number).localeCompare(String(b.issue_number));
                     }
                 });
-                const trimmed = sorted.slice(-2000);
+                const trimmed = sorted.slice(-5000);
                 this.historyBuffer.clear();
                 trimmed.forEach(item => this.historyBuffer.set(String(item.issue_number), item));
             }

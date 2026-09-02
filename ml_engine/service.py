@@ -89,10 +89,10 @@ class PredictionDaemon:
 
     def hydrate_history_from_supabase(self):
         """
-        Pulls up to 2,000 historical records from Supabase global_signals.
+        Pulls up to 5,000 historical records from Supabase global_signals.
         """
         try:
-            url = f"{CONFIG['SUPABASE_URL']}/rest/v1/global_signals?select=issue_number,actual_result,actual_number&order=issue_number.asc&limit=2000"
+            url = f"{CONFIG['SUPABASE_URL']}/rest/v1/global_signals?select=issue_number,actual_result,actual_number&order=issue_number.asc&limit=5000"
             res = requests.get(url, headers=HEADERS, timeout=8)
             if res.status_code == 200:
                 self.records_cache = res.json()

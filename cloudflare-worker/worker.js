@@ -1068,7 +1068,7 @@ async function fetchWithTriProxy(url) {
 async function executeSyncCycle() {
     if (engine.historyBuffer.size < 400) {
         try {
-            const sbRes = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?select=issue_number,predicted_type,confidence,status,actual_result,actual_number&order=issue_number.desc&limit=2000`, {
+            const sbRes = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?select=issue_number,predicted_type,confidence,status,actual_result,actual_number&order=issue_number.desc&limit=5000`, {
                 headers: {
                     "apikey": CONFIG.SUPABASE_KEY,
                     "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
