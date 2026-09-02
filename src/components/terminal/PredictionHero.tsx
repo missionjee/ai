@@ -139,10 +139,10 @@ export function PredictionHero({
           <div className="signal-action-wrap mt-2">
             <button
               onClick={onUnlockTokens}
-              className="w-full btn-copy-signal justify-center py-3.5 text-[13.5px] font-black tracking-[0.8px]"
+              className="w-full btn-copy-signal justify-center py-3 text-[13px] font-black tracking-[0.8px]"
             >
               <span>⚡</span>
-              <span>VIEW TOKEN PACKAGES & REDEEM KEY</span>
+              <span>REDEEM KEY / GET TOKENS</span>
             </button>
           </div>
         )}
