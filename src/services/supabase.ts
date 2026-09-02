@@ -9,11 +9,13 @@
  */
 
 import {
+  AdminStats,
   AuthResult,
   AuthorizedPredictionResult,
   GlobalSignal,
   TokenLedgerEntry,
   TokenResult,
+  UserProfile,
   UserSession
 } from '@/types'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/config/env'
@@ -312,6 +314,213 @@ class SupabaseService {
       }
     } catch { /* noop */ }
     return []
+  }
+
+  /**
+   * ============================================================================
+   * ADMINISTRATIVE CONTROL SUITE (Admin Panel APIs)
+   * ============================================================================
+   */
+
+  /**
+   * Fetch all user profiles / license keys
+   */
+  async getAllUserProfiles(): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?select=*&order=created_at.desc`,
+        { headers: this._headers }
+      )
+      if (res.ok) {
+        const rows = await res.json()
+        if (Array.isArray(rows)) return rows as UserProfile[]
+      }
+    } catch (err) {
+      console.error('[Admin] Error fetching user profiles:', err)
+    }
+    return []
+  }
+
+  /**
+   * Create a new license key in Supabase
+   */
+  async createUserProfile(licenseKey: string, tokens: number = 100): Promise<{ success: boolean; message?: string }> {
+    const cleanKey = licenseKey.trim().toUpperCase()
+    if (!cleanKey) return { success: false, message: 'License key cannot be empty.' }
+
+    try {
+      const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles`, {
+        method: 'POST',
+        headers: {
+          ...this._headers,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          license_key: cleanKey,
+          tokens_balance: tokens,
+          status: 'active',
+          created_at: new Date().toISOString()
+        })
+      })
+
+      if (res.ok || res.status === 201) {
+        return { success: true }
+      }
+      const err = await res.json().catch(() => ({}))
+      return { success: false, message: err?.message || `Error ${res.status}: Key may already exist.` }
+    } catch {
+      return { success: false, message: 'Network error creating license key.' }
+    }
+  }
+
+  /**
+   * Credit or adjust tokens for a license key
+   */
+  async creditUserTokens(licenseKey: string, amount: number): Promise<{ success: boolean; newBalance?: number; message?: string }> {
+    const cleanKey = licenseKey.trim().toUpperCase()
+    try {
+      const fetchRes = await fetch(
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}&select=tokens_balance`,
+        { headers: this._headers }
+      )
+      if (fetchRes.ok) {
+        const rows = await fetchRes.json()
+        if (rows.length > 0) {
+          const current = Number(rows[0].tokens_balance) || 0
+          const updated = Math.max(0, current + amount)
+          const patchRes = await fetch(
+            `${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`,
+            {
+              method: 'PATCH',
+              headers: { ...this._headers, 'Prefer': 'return=representation' },
+              body: JSON.stringify({ tokens_balance: updated, status: 'active', updated_at: new Date().toISOString() })
+            }
+          )
+          if (patchRes.ok) return { success: true, newBalance: updated }
+        }
+      }
+      return { success: false, message: 'License key not found.' }
+    } catch {
+      return { success: false, message: 'Network error updating token balance.' }
+    }
+  }
+
+  /**
+   * Unbind device lock (Reset active_device_id)
+   */
+  async resetDeviceLock(licenseKey: string): Promise<{ success: boolean; message?: string }> {
+    const cleanKey = licenseKey.trim().toUpperCase()
+    try {
+      const res = await fetch(
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`,
+        {
+          method: 'PATCH',
+          headers: { ...this._headers, 'Prefer': 'return=representation' },
+          body: JSON.stringify({ active_device_id: null, device_name: null, updated_at: new Date().toISOString() })
+        }
+      )
+      return { success: res.ok }
+    } catch {
+      return { success: false, message: 'Network error resetting device lock.' }
+    }
+  }
+
+  /**
+   * Update key status (active | suspended | revoked)
+   */
+  async updateKeyStatus(licenseKey: string, status: 'active' | 'suspended' | 'revoked'): Promise<{ success: boolean }> {
+    const cleanKey = licenseKey.trim().toUpperCase()
+    try {
+      const res = await fetch(
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`,
+        {
+          method: 'PATCH',
+          headers: { ...this._headers, 'Prefer': 'return=representation' },
+          body: JSON.stringify({ status, updated_at: new Date().toISOString() })
+        }
+      )
+      return { success: res.ok }
+    } catch {
+      return { success: false }
+    }
+  }
+
+  /**
+   * Delete a license key and cascade delete associated records
+   */
+  async deleteLicenseKey(licenseKey: string): Promise<{ success: boolean }> {
+    const cleanKey = licenseKey.trim().toUpperCase()
+    try {
+      const res = await fetch(
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(cleanKey)}`,
+        { method: 'DELETE', headers: this._headers }
+      )
+      return { success: res.ok }
+    } catch {
+      return { success: false }
+    }
+  }
+
+  /**
+   * Fetch recent global signals with win/loss calculations
+   */
+  async getRecentGlobalSignals(limit = 40): Promise<GlobalSignal[]> {
+    try {
+      const res = await fetch(
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?select=*&order=issue_number.desc&limit=${limit}`,
+        { headers: this._headers }
+      )
+      if (res.ok) {
+        const rows = await res.json()
+        if (Array.isArray(rows)) return rows as GlobalSignal[]
+      }
+    } catch { /* noop */ }
+    return []
+  }
+
+  /**
+   * Fetch full recent token ledger entries
+   */
+  async getRecentTokenLedger(limit = 60): Promise<any[]> {
+    try {
+      const res = await fetch(
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/token_ledger?select=*&order=id.desc&limit=${limit}`,
+        { headers: this._headers }
+      )
+      if (res.ok) {
+        const rows = await res.json()
+        if (Array.isArray(rows)) return rows
+      }
+    } catch { /* noop */ }
+    return []
+  }
+
+  /**
+   * Calculate aggregated admin statistics
+   */
+  async getAdminStats(): Promise<AdminStats> {
+    const [profiles, signals] = await Promise.all([
+      this.getAllUserProfiles(),
+      this.getRecentGlobalSignals(100)
+    ])
+
+    const totalKeys = profiles.length
+    const activeKeys = profiles.filter(p => p.status === 'active' && p.tokens_balance > 0).length
+    const totalTokensCirculating = profiles.reduce((sum, p) => sum + (Number(p.tokens_balance) || 0), 0)
+    const boundDevicesCount = profiles.filter(p => !!p.active_device_id).length
+
+    const settledSignals = signals.filter(s => !!s.actual_result && s.predicted_type !== 'HOLD')
+    const winCount = settledSignals.filter(s => s.predicted_type?.toUpperCase() === s.actual_result?.toUpperCase()).length
+    const winRate24h = settledSignals.length > 0 ? Math.round((winCount / settledSignals.length) * 100) : 0
+
+    return {
+      totalKeys,
+      activeKeys,
+      totalTokensCirculating,
+      boundDevicesCount,
+      signals24hCount: signals.length,
+      winRate24h
+    }
   }
 
   logoutDueToDeviceConflict(): void {

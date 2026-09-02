@@ -134,9 +134,20 @@ export interface UserProfile {
   tokens_balance: number
   active_device_id: string | null
   device_name: string | null
-  status: 'active' | 'ended' | 'revoked' | 'deleted'
+  status: 'active' | 'ended' | 'revoked' | 'deleted' | 'suspended'
   last_login_at: string | null
   last_active_at: string | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface AdminStats {
+  totalKeys: number
+  activeKeys: number
+  totalTokensCirculating: number
+  boundDevicesCount: number
+  signals24hCount: number
+  winRate24h: number
 }
 
 // Session stored in localStorage
