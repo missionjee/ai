@@ -4,7 +4,6 @@
  */
 
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useTerminal } from '@/hooks/useTerminal'
 import { useCountdown } from '@/hooks/useCountdown'
@@ -105,9 +104,7 @@ export function TerminalPage() {
             <span className="dot">•</span>
             <span>Single Device Locked</span>
             <span className="dot">•</span>
-            <Link to="/admin" className="text-[#64748b] hover:text-[#94a3b8] transition-colors cursor-pointer">
-              Admin Suite ↗
-            </Link>
+            <span>Quantum Engine v9.2</span>
           </div>
         </footer>
       </div>
