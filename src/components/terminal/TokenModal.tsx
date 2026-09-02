@@ -103,9 +103,9 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
 
       {/* Modal Dialog Card (Dark Tinted Glass Aesthetic) */}
       <div
-        className="relative z-10 w-full max-w-[480px] max-h-[92vh] overflow-y-auto rounded-[20px] p-4 sm:p-5 flex flex-col gap-3.5 text-white custom-scrollbar"
+        className="relative z-10 w-full max-w-[420px] rounded-[20px] p-5 sm:p-6 flex flex-col gap-4 text-white"
         style={{
-          background: 'rgba(10, 14, 22, 0.92)',
+          background: 'rgba(10, 14, 22, 0.95)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -114,79 +114,43 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
         }}
       >
         {/* Header with Title & Close Button */}
-        <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.07]">
-          <div className="flex items-center gap-2">
-            <span className="text-[17px]">⚡</span>
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[18px]">🔑</span>
             <div>
               <h2 className="font-display font-black text-[15px] sm:text-[16px] text-white tracking-[0.8px] leading-tight">
-                AI TOKEN PACKAGES
+                REDEEM ACCESS KEY
               </h2>
-              <span className="text-[9.5px] font-extrabold uppercase tracking-[1.4px] bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] bg-clip-text text-transparent">
-                INSTITUTIONAL ACCESS & REDEMPTION
+              <span className="text-[9.5px] font-extrabold uppercase tracking-[1.4px] bg-gradient-to-r from-[#00ffcc] to-[#38bdf8] bg-clip-text text-transparent">
+                LICENSE KEY ACTIVATION
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-[#94a3b8] hover:text-white transition-all text-[12px]"
+            className="w-7 h-7 rounded-full bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-[#94a3b8] hover:text-white transition-all text-[12px] cursor-pointer"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
 
-        {/* Token Balance Indicator */}
-        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-black/40 border border-white/[0.06]">
-          <span className="text-[10.5px] font-bold text-[#94a3b8] uppercase tracking-wider">
+        {/* Current Token Balance Indicator */}
+        <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <span className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
             Current Balance:
           </span>
-          <span className="font-display text-[14px] font-black text-[#fbbf24] flex items-center gap-1">
+          <span className="font-display text-[14px] font-black text-[#fbbf24] flex items-center gap-1.5">
             <span>⚡</span>
             <span>{tokensBalance} Tokens Remaining</span>
           </span>
         </div>
 
-        {/* In-Modal Compressed AI Token Packages Display */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[10.5px] font-extrabold uppercase tracking-wider text-[#cbd5e1]">
-            <span>⚡ Official Token Packages</span>
-            <span className="text-[9.5px] font-bold text-[#f59e0b] bg-[#f59e0b]/10 px-2 py-0.5 rounded-full border border-[#f59e0b]/20">
-              INSTANT ACTIVATION
-            </span>
-          </div>
-
-          <div className="relative rounded-xl overflow-hidden border border-white/[0.1] bg-[#04060a] shadow-[0_4px_18px_rgba(0,0,0,0.7)] flex items-center justify-center p-1">
-            <img
-              src="/Neon%20Hiroto%20AI%20Token%20Packages.png"
-              alt="Neon Hiroto AI Token Packages"
-              className="w-full h-auto object-contain rounded-lg max-h-[220px] sm:max-h-[260px] select-none"
-            />
-          </div>
-        </div>
-
-        {/* Prominent Direct Telegram Redirect Button */}
-        <button
-          onClick={openTelegram}
-          className="w-full py-2.5 px-3 rounded-xl text-[12.5px] font-black flex items-center justify-center gap-2 text-white bg-gradient-to-r from-[#0088cc] via-[#24A1DE] to-[#0088cc] hover:from-[#0099e6] hover:to-[#0099e6] border border-[#38bdf8]/40 shadow-[0_0_16px_rgba(36,161,222,0.35)] transition-all duration-150 active:translate-y-0.5 hover:shadow-[0_0_24px_rgba(36,161,222,0.6)] cursor-pointer tracking-[0.5px]"
-        >
-          <span className="text-[14px]">✈</span>
-          <span>REDIRECT TO TELEGRAM (BUY TOKENS) ↗</span>
-        </button>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-0.5">
-          <div className="flex-1 h-px bg-white/[0.06]" />
-          <span className="text-[9.5px] font-extrabold uppercase tracking-[1.4px] text-[#64748b]">
-            ENTER ACCESS KEY
-          </span>
-          <div className="flex-1 h-px bg-white/[0.06]" />
-        </div>
-
-        {/* License Key Entry Section */}
-        <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center text-[10px] font-extrabold uppercase tracking-[1px] text-[#94a3b8]">
-            <span>12-Digit License Key</span>
-            <span className="font-mono text-[#f5b335]">{charCount} / {maxCount}</span>
+        {/* License Key Entry Form */}
+        <div className="flex flex-col gap-2.5">
+          <div className="flex justify-between items-center text-[10.5px] font-extrabold uppercase tracking-[1px] text-[#94a3b8]">
+            <span>Enter 12-Digit License Key</span>
+            <span className="font-mono text-[#00ffcc]">{charCount} / {maxCount}</span>
           </div>
 
           <input
@@ -198,67 +162,54 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
             }}
             placeholder="XXXX-XXXX-XXXX"
             maxLength={14}
+            autoFocus
             autoComplete="off"
             spellCheck={false}
             className={cn(
-              'w-full rounded-[11px] px-3.5 py-2.5 font-mono text-[15px] font-black text-white tracking-[2px] text-center uppercase outline-none transition-all duration-200',
+              'w-full rounded-[12px] px-3.5 py-3 font-mono text-[16px] font-black text-white tracking-[3px] text-center uppercase outline-none transition-all duration-200',
               'bg-[#04060a]',
               hasError
-                ? 'border border-[#e11d48] border-b-[#e11d48] border-b-2'
-                : 'border border-white/[0.08] border-t-black/80 border-b-2 border-b-white/[0.15] focus:border-[#f5b335] focus:border-b-[#f5b335] focus:bg-[#06090d]',
-              'placeholder:text-[#475569] placeholder:text-[12px] placeholder:tracking-[1px] placeholder:normal-case placeholder:font-normal',
-              'shadow-[inset_0_2px_5px_rgba(0,0,0,0.8)]'
+                ? 'border border-[#e11d48] border-b-[#e11d48] border-b-2 shadow-[0_0_12px_rgba(225,29,72,0.3)]'
+                : 'border border-white/[0.12] border-b-2 border-b-white/[0.25] focus:border-[#00ffcc] focus:border-b-[#00ffcc] focus:bg-[#06090d] focus:shadow-[0_0_16px_rgba(0,255,204,0.2)]',
+              'placeholder:text-[#475569] placeholder:text-[13px] placeholder:tracking-[1.5px] placeholder:normal-case placeholder:font-normal',
+              'shadow-[inset_0_2px_6px_rgba(0,0,0,0.8)]'
             )}
           />
 
-          {/* Action Button: REDEEM KEY Only */}
+          {/* Action Button: REDEEM KEY */}
           <button
             onClick={handleRedeemKey}
-            disabled={isLoading}
-            className="w-full btn-copy-signal justify-center py-2.5 text-[12.5px] font-black tracking-[0.8px] disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={isLoading || keyValue.length < 14}
+            className="w-full btn-copy-signal justify-center py-3 text-[13px] font-black tracking-[1px] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all active:scale-[0.98]"
           >
             <span>{isLoading ? '⏳' : '⚡'}</span>
             <span>{isLoading ? 'VERIFYING KEY...' : 'REDEEM KEY'}</span>
           </button>
 
-          {/* Status Message */}
+          {/* Status Feedback Message */}
           {statusMsg && (
-            <p
+            <div
               className={cn(
-                'text-[11px] text-center font-bold',
-                statusMsg.type === 'error' && 'text-[#fb7185]',
-                statusMsg.type === 'success' && 'text-[#34d399]',
-                statusMsg.type === 'info' && 'text-[#f5b335]'
+                'text-[11.5px] text-center font-bold px-3 py-2 rounded-lg border transition-all animate-fadeIn',
+                statusMsg.type === 'error' && 'text-[#fb7185] bg-[#fb7185]/10 border-[#fb7185]/30',
+                statusMsg.type === 'success' && 'text-[#34d399] bg-[#34d399]/10 border-[#34d399]/30',
+                statusMsg.type === 'info' && 'text-[#00ffcc] bg-[#00ffcc]/10 border-[#00ffcc]/30'
               )}
             >
               {statusMsg.text}
-            </p>
+            </div>
           )}
         </div>
 
-        {/* 2 Prominent Redesigned Features: AI Accuracy & Quantum Engine */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-white/[0.07]">
-          {/* Feature 1: Quantitative Accuracy */}
-          <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] border-t-white/[0.12] flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 text-[11px] font-black text-[#38bdf8]">
-              <span>🎯</span>
-              <span>QUANTITATIVE ACCURACY</span>
-            </div>
-            <p className="text-[10px] text-[#94a3b8] leading-tight">
-              Multi-model Exp3 Bandit ensemble with Platt probability calibration & Hurst memory forensics.
-            </p>
-          </div>
-
-          {/* Feature 2: Quantum Engine & Safety Matrix */}
-          <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] border-t-white/[0.12] flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 text-[11px] font-black text-[#34d399]">
-              <span>🛡️</span>
-              <span>ANTI-DRAWDOWN SHIELD</span>
-            </div>
-            <p className="text-[10px] text-[#94a3b8] leading-tight">
-              Real-time dragon streak gating, volatility bounds & walk-forward backtest verification.
-            </p>
-          </div>
+        {/* Minimal Telegram Support / Purchase Link */}
+        <div className="pt-2 border-t border-white/[0.07] text-center">
+          <button
+            onClick={openTelegram}
+            className="text-[11px] font-bold text-[#38bdf8] hover:text-[#7dd3fc] transition-colors inline-flex items-center gap-1.5 cursor-pointer bg-transparent border-none p-0"
+          >
+            <span>Need an access key or tokens?</span>
+            <span className="underline underline-offset-2">Contact @hirotoaii ↗</span>
+          </button>
         </div>
       </div>
     </div>

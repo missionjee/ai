@@ -9,9 +9,11 @@ export function useCountdown() {
   const [secondsLeft, setSecondsLeft] = useState(PeriodHelper.getSecondsLeft())
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsLeft(PeriodHelper.getSecondsLeft())
-    }, 1000)
+    const checkSeconds = () => {
+      const next = PeriodHelper.getSecondsLeft()
+      setSecondsLeft(prev => (prev !== next ? next : prev))
+    }
+    const interval = setInterval(checkSeconds, 250)
     return () => clearInterval(interval)
   }, [])
 

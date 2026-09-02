@@ -208,4 +208,88 @@ describe('PredictionEngine Core Submodels & Statistics', () => {
         assert.ok(res.conformalRisk !== undefined, 'predict() must return conformalRisk object');
         assert.equal(typeof res.conformalRisk.isGated, 'boolean');
     });
+
+    it('13. Tiered Signal Architecture: verifies Sniper (2U), Standard (1U), Scout (½U), and Hold (0U)', () => {
+        const engine = new PredictionEngine();
+
+        // High conviction trending series -> Sniper or Standard
+        const sniperHistory = createHistory([7, 8, 9, 8, 7, 8, 9, 8, 9, 8, 9, 8, 7, 8, 9, 8]);
+        const res1 = engine.predict(sniperHistory);
+        assert.ok(['SNIPER', 'STANDARD', 'SCOUT', 'HOLD'].includes(res1.tier), `Invalid tier: ${res1.tier}`);
+        assert.ok(['2U', '1U', '0.5U', '0U [PASS]'].includes(res1.recommendedStake), `Invalid stake: ${res1.recommendedStake}`);
+
+        // Hold series in white-noise / chop
+        const holdHistory = createHistory([0, 9, 1, 8, 2, 7, 3, 6, 4, 5, 0, 9, 1, 8]);
+        const resHold = engine.predict(holdHistory);
+        assert.equal(resHold.status, 'HOLD');
+        assert.equal(resHold.tier, 'HOLD');
+        assert.equal(resHold.recommendedStake, '0U [PASS]');
+        assert.ok(resHold.holdAnalysis !== undefined, 'Hold result must include holdAnalysis');
+        assert.ok(typeof resHold.holdAnalysis.regime === 'string');
+    });
+
+    it('14. Per-Regime Softened Entropy Gating: evaluates regime-specific thresholds', () => {
+        const engine = new PredictionEngine();
+
+        // 1. Dragon Trending (Hurst >= 0.53 or streak >= 3) -> 0.92
+        const tauDragon = engine._getRegimeEntropyThreshold({ hurstH: 0.56, isWhiteNoise: false }, 3, 0, false, { detected: false });
+        assert.equal(tauDragon, 0.92);
+
+        // 2. 2-2 Pattern / Structural Doublet -> 0.90
+        const tau22 = engine._getRegimeEntropyThreshold({ hurstH: 0.50, isWhiteNoise: false }, 2, 0, true, { detected: false });
+        assert.equal(tau22, 0.90);
+
+        // 3. Mean Reversion (Hurst < 0.45) -> 0.89
+        const tauMeanRev = engine._getRegimeEntropyThreshold({ hurstH: 0.42, isWhiteNoise: false }, 1, 1, false, { detected: false });
+        assert.equal(tauMeanRev, 0.89);
+
+        // 4. Broken Symmetry Trap -> 0.87
+        const tauBroken = engine._getRegimeEntropyThreshold({ hurstH: 0.50, isWhiteNoise: false }, 1, 1, false, { detected: true });
+        assert.equal(tauBroken, 0.87);
+
+        // 5. White Noise / High Chop -> 0.84
+        const tauNoise = engine._getRegimeEntropyThreshold({ hurstH: 0.50, isWhiteNoise: true }, 1, 3, false, { detected: false });
+        assert.equal(tauNoise, 0.84);
+    });
+
+    it('15. Dynamic Quarantine Mode: adjusts lockout duration dynamically per regime', () => {
+        const engine = new PredictionEngine();
+
+        // Fast 1R exit in persistent Dragon trend
+        const durTrend = engine._getDynamicQuarantineDuration({ hurstH: 0.58, regimeName: 'trending' }, 4, 0.78, 0.85);
+        assert.equal(durTrend, 1);
+
+        // 2R exit in 2-2 structural rhythm
+        const dur22 = engine._getDynamicQuarantineDuration({ hurstH: 0.51, regimeName: 'mean-reverting' }, 2, 0.82, 0.60);
+        assert.equal(dur22, 2);
+
+        // 3R hard lockout in high-entropy chop
+        const durChop = engine._getDynamicQuarantineDuration({ hurstH: 0.46, regimeName: 'chop' }, 1, 0.94, 0.40);
+        assert.equal(durChop, 3);
+    });
+
+    it('16. Historical Hold Retrospective Audit: classifies holds and measures avoided losses vs missed wins', () => {
+        const engine = new PredictionEngine();
+        const testHistory = [];
+        for (let i = 0; i < 60; i++) {
+            const num = (i * 3 + 2) % 10;
+            const res = num >= 5 ? 'big' : 'small';
+            testHistory.push({
+                issue_number: String(20260901100010000n + BigInt(i)),
+                actual_result: res,
+                actual_number: num,
+                result_type: res
+            });
+        }
+
+        const audit = engine.auditHistoricalHolds(testHistory);
+        assert.ok(typeof audit.totalRounds === 'number');
+        assert.ok(typeof audit.totalHolds === 'number');
+        assert.ok(typeof audit.holdRatePercent === 'number');
+        assert.ok(typeof audit.avoidedLosses === 'number');
+        assert.ok(typeof audit.missedWins === 'number');
+        assert.ok(typeof audit.protectionEfficiencyPercent === 'number');
+        assert.ok(typeof audit.regimeBreakdown === 'object');
+        assert.equal(audit.avoidedLosses + audit.missedWins, audit.totalHolds);
+    });
 });

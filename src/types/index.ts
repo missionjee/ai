@@ -4,10 +4,60 @@
 
 // Prediction Signal Types
 export type SignalType = 'BIG' | 'SMALL' | 'HOLD'
-export type StatusType = 'CLEARED' | 'HOLD' | 'SNIPER'
+export type StatusType = 'CLEARED' | 'HOLD' | 'SNIPER' | 'STANDARD' | 'SCOUT'
+export type SignalTier = 'SNIPER' | 'STANDARD' | 'SCOUT' | 'HOLD'
 export type OutcomeType = 'WIN' | 'LOSS' | 'PENDING'
 export type FilterType = 'ALL' | 'WINS' | 'LOSSES'
 export type RegimeName = 'trending' | 'mean-reverting' | 'mixed' | 'synchronizing'
+export type HoldRegime =
+  | 'CHOP_OSCILLATION'
+  | 'DRAGON_STREAK'
+  | 'PERIODIC_2_2'
+  | 'BROKEN_SYMMETRY'
+  | 'WHITE_NOISE'
+  | 'QUARANTINE'
+  | 'MODEL_DISCORDANCE'
+  | 'SYNCING'
+
+export type HoldCounterfactual =
+  | 'CORRECT_AVOIDED_LOSS'
+  | 'OVERLY_CAUTIOUS_MISSED_WIN'
+  | 'NEUTRAL_CHOP'
+  | 'PENDING'
+
+export interface HoldAuditItem {
+  issue_number: string
+  holdRegime: HoldRegime
+  statusReason: string
+  calibratedP: number
+  unconstrainedPrediction: 'BIG' | 'SMALL'
+  actualResult: string | null
+  counterfactual: HoldCounterfactual
+}
+
+export interface HoldAuditSummary {
+  totalRounds: number
+  totalHolds: number
+  holdRatePercent: number
+  avoidedLosses: number
+  missedWins: number
+  protectionEfficiencyPercent: number
+  regimeBreakdown: Record<string, {
+    total: number
+    avoidedLosses: number
+    missedWins: number
+    efficiencyPercent: number
+    recommendedEntropyCutoff: number
+  }>
+}
+
+export interface ConformalRiskDecision {
+  isGated: boolean
+  nonConformityScore: number
+  calibratedThreshold: number
+  empiricalRiskBound: number
+  rejectionReason: string
+}
 
 // Model trackers
 export interface ModelTracker {
@@ -48,6 +98,15 @@ export interface PredictionResult {
   permutationEntropy: string
   continuousVal?: number
   isSniper: boolean
+  tier?: SignalTier
+  recommendedStake?: string
+  regimeEntropyThreshold?: number
+  conformalRisk?: ConformalRiskDecision
+  holdAnalysis?: {
+    regime: HoldRegime
+    counterfactual?: HoldCounterfactual
+    explanation: string
+  }
   pattern: string
   parityPrediction: string
   engineVersion: string

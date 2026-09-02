@@ -3,18 +3,33 @@
  */
 
 export const PeriodHelper = {
+  /**
+   * Generates the deterministic active period for the given timestamp (UTC-based).
+   * Tiranga 1M lottery periods run 0001 to 1440 every UTC day.
+   */
+  getCurrentPeriod(date: Date = new Date()): string {
+    const y = date.getUTCFullYear()
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(date.getUTCDate()).padStart(2, '0')
+    const minuteOfDay = date.getUTCHours() * 60 + date.getUTCMinutes() + 1
+    const periodIdx = Math.min(1440, Math.max(1, minuteOfDay))
+    return `${y}${m}${d}10001${String(periodIdx).padStart(4, '0')}`
+  },
+
+  /**
+   * Generates the period that just concluded and is awaiting draw settlement.
+   */
+  getPreviousPeriod(date: Date = new Date()): string {
+    const prevDate = new Date(date.getTime() - 60000)
+    return this.getCurrentPeriod(prevDate)
+  },
+
   generateFallbackPeriod(date: Date = new Date()): string {
-    const midnight = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0)
-    const minutes = Math.floor((date.getTime() - midnight.getTime()) / 60000)
-    const counter = 10000 + minutes
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, '0')
-    const d = String(date.getDate()).padStart(2, '0')
-    return `${y}${m}${d}1000${counter}`
+    return this.getCurrentPeriod(date)
   },
 
   getNextPeriod(issueNumber: string): string {
-    if (!issueNumber) return ''
+    if (!issueNumber) return this.getCurrentPeriod()
     const s = String(issueNumber).trim()
     if (s.length >= 17) {
       const datePart = s.slice(0, 8)
@@ -46,8 +61,9 @@ export const PeriodHelper = {
 
   formatLast4(issueNumber: string | null): string {
     if (!issueNumber) return '----'
-    const str = String(issueNumber)
-    return '#' + (str.length >= 4 ? str.slice(-4) : str)
+    const str = String(issueNumber).trim()
+    const clean = str.startsWith('#') ? str.slice(1) : str
+    return '#' + (clean.length >= 4 ? clean.slice(-4) : clean)
   },
 
   getSecondsLeft(date: Date = new Date()): number {

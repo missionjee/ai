@@ -19,13 +19,13 @@ export function MetricsRow({ tokensBalance, streak, prediction, onClickTokens }:
 
   return (
     <section className="grid grid-cols-3 gap-2.5">
-      {/* Tokens Left (Interactive Trigger for Token Packages & Key Redemption) */}
+      {/* Tokens Left (Interactive Trigger for Key Redemption) */}
       <div
         onClick={onClickTokens}
         role={onClickTokens ? 'button' : undefined}
         tabIndex={onClickTokens ? 0 : undefined}
         className="metric-box metric-tokens cursor-pointer select-none group transition-transform active:scale-95"
-        title="Click to View Token Packages & Redeem Key"
+        title="Click to Redeem License Key"
       >
         <span className="metric-label flex items-center justify-center gap-1 group-hover:text-[#f59e0b] transition-colors">
           Tokens Left ↗

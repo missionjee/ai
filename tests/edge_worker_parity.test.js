@@ -31,6 +31,8 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         assert.equal(workerRes.prediction, clientRes.prediction, 'Prediction mismatch');
         assert.equal(workerRes.confidence, clientRes.confidence, 'Confidence mismatch');
         assert.equal(workerRes.status, clientRes.status, 'Status mismatch');
+        assert.equal(workerRes.tier, clientRes.tier, 'Tier mismatch');
+        assert.equal(workerRes.recommendedStake, clientRes.recommendedStake, 'Stake mismatch');
         assert.equal(workerRes.isSniper, clientRes.isSniper, 'isSniper mismatch');
         assert.equal(workerRes.bigProb, clientRes.bigProb, 'bigProb mismatch');
         assert.equal(workerRes.smallProb, clientRes.smallProb, 'smallProb mismatch');
@@ -49,6 +51,7 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         const body = await res.json();
         assert.equal(body.status, 'HEALTHY');
         assert.equal(body.platform, 'Cloudflare Workers 24/7');
+        assert.equal(body.buffer_target, '5,000-Round FIFO Ring Buffer');
         assert.ok(typeof body.historical_rounds_buffered === 'number');
         assert.ok(typeof body.platt_parameters === 'object');
     });
@@ -60,7 +63,7 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.status, 'ONLINE');
-        assert.equal(body.engine_version, 'v9.0');
+        assert.equal(body.engine_version, 'v9.1');
         assert.equal(body.diagnostics_url, '/report');
     });
 
@@ -71,7 +74,9 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.status, 'ONLINE');
-        assert.equal(body.engine_version, 'v9.0 Autonomous Meta-Learner Enterprise');
+        assert.equal(body.engine_version, 'v9.1 Autonomous Meta-Learner Enterprise');
+        assert.equal(body.buffer_capacity, 5000);
+        assert.ok(typeof body.hold_audit_summary === 'object');
         assert.ok(typeof body.meta_learner_models === 'object');
         assert.ok(typeof body.active_regime === 'object');
         assert.ok(typeof body.recommendations === 'string');

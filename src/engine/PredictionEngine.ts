@@ -10,7 +10,80 @@
  * 6. PRNG / LCG Forensics Diagnostic
  */
 
-import type { HistoryEntry, ModelTrackers, PredictionResult, RegimeName } from '@/types'
+import type {
+  ConformalRiskDecision,
+  HistoryEntry,
+  HoldAuditSummary,
+  HoldRegime,
+  ModelTrackers,
+  PredictionResult,
+  RegimeName,
+  SignalTier,
+  StatusType
+} from '@/types'
+
+export class ConformalRiskGator {
+  alpha: number
+  windowSize: number
+  nonConformityScores: number[]
+
+  constructor(targetErrorRate = 0.12, windowSize = 120) {
+    this.alpha = targetErrorRate
+    this.windowSize = windowSize
+    this.nonConformityScores = []
+  }
+
+  recordSettlement(predictedProb: number, isWin: boolean): void {
+    const score = isWin ? (1.0 - predictedProb) : predictedProb
+    this.nonConformityScores.push(score)
+    if (this.nonConformityScores.length > this.windowSize) {
+      this.nonConformityScores.shift()
+    }
+  }
+
+  computeThreshold(): number {
+    const n = this.nonConformityScores.length
+    if (n < 30) return 0.22
+
+    const sorted = [...this.nonConformityScores].sort((a, b) => a - b)
+    const pIndex = Math.min(n - 1, Math.ceil((1.0 - this.alpha) * (n + 1)) - 1)
+    return sorted[Math.max(0, pIndex)]
+  }
+
+  evaluateSignal(calibratedProb: number, shannonEntropy: number, hurstExponent: number, regimeEntropyThreshold = 0.88): ConformalRiskDecision {
+    const currentScore = 1.0 - calibratedProb
+    const tau = this.computeThreshold()
+
+    if (shannonEntropy > regimeEntropyThreshold) {
+      return {
+        isGated: false,
+        nonConformityScore: currentScore,
+        calibratedThreshold: tau,
+        empiricalRiskBound: this.alpha,
+        rejectionReason: `Elevated informational entropy (${shannonEntropy.toFixed(3)} > ${regimeEntropyThreshold.toFixed(2)})`
+      }
+    }
+
+    if (hurstExponent >= 0.48 && hurstExponent <= 0.52) {
+      return {
+        isGated: false,
+        nonConformityScore: currentScore,
+        calibratedThreshold: tau,
+        empiricalRiskBound: this.alpha,
+        rejectionReason: `White noise regime (Hurst ${hurstExponent.toFixed(2)} in neutral band)`
+      }
+    }
+
+    const isGated = currentScore <= tau
+    return {
+      isGated,
+      nonConformityScore: parseFloat(currentScore.toFixed(4)),
+      calibratedThreshold: parseFloat(tau.toFixed(4)),
+      empiricalRiskBound: this.alpha,
+      rejectionReason: isGated ? 'CLEARED_SNIPER' : `Score ${currentScore.toFixed(3)} exceeds tau ${tau.toFixed(3)}`
+    }
+  }
+}
 
 interface SubmodelResult {
   predToken: 0 | 1
@@ -72,7 +145,8 @@ export class PredictionEngine {
   private historyBuffer = new Map<string, HistoryEntry>()
   private plattA = 2.40
   private plattB = -0.05
-  private modelTrackers: ModelTrackers = {
+  public conformalGator = new ConformalRiskGator(0.12, 120)
+  public modelTrackers: ModelTrackers = {
     parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
     latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
     contextAttention: { hits: 14, total: 25, accuracy: 56, weight: 1.80, inverted: false },
@@ -533,6 +607,176 @@ export class PredictionEngine {
     return Math.max(explicitMisses, simulatedMisses)
   }
 
+  _getRegimeEntropyThreshold(
+    regimeCheck: RegimeCheck,
+    curStreak: number,
+    curAlts: number,
+    is22Pair: boolean,
+    brokenSymmetry: { detected: boolean; patternName: string }
+  ): number {
+    if (regimeCheck.hurstH >= 0.53 || curStreak >= 3) {
+      return 0.92
+    }
+    if (is22Pair || (curStreak === 2 && regimeCheck.hurstH >= 0.49)) {
+      return 0.90
+    }
+    if (regimeCheck.hurstH < 0.45) {
+      return 0.89
+    }
+    if (brokenSymmetry.detected) {
+      return 0.87
+    }
+    if (curAlts >= 3) {
+      return 0.84
+    }
+    if (regimeCheck.isWhiteNoise) {
+      return 0.84
+    }
+    return 0.88
+  }
+
+  _getDynamicQuarantineDuration(
+    regimeCheck: RegimeCheck,
+    curStreak: number,
+    shannonEntropy: number,
+    agreementRate: number
+  ): number {
+    if ((regimeCheck.hurstH >= 0.54 || curStreak >= 3) && agreementRate >= 0.70) {
+      return 1
+    }
+    if (regimeCheck.hurstH >= 0.49 && shannonEntropy <= 0.88) {
+      return 2
+    }
+    return 3
+  }
+
+  _classifyHoldRegime(
+    regimeCheck: RegimeCheck,
+    curStreak: number,
+    curAlts: number,
+    is22Pair: boolean,
+    is22Alt: boolean,
+    brokenSymmetry: { detected: boolean; patternName: string },
+    consecutiveMisses: number,
+    shannonEntropy: number,
+    agreementRate: number
+  ): HoldRegime {
+    if (consecutiveMisses >= 2) return 'QUARANTINE'
+    if (curStreak === 4 || curStreak === 5 || curStreak === 6) return 'DRAGON_STREAK'
+    if (curStreak === 2) return 'DRAGON_STREAK'
+    if (is22Pair || is22Alt) return 'PERIODIC_2_2'
+    if (brokenSymmetry.detected) return 'BROKEN_SYMMETRY'
+    if (curAlts >= 3) return 'CHOP_OSCILLATION'
+    if (regimeCheck.isWhiteNoise) return 'WHITE_NOISE'
+    if (shannonEntropy > 0.88) return 'CHOP_OSCILLATION'
+    if (agreementRate < 0.60) return 'MODEL_DISCORDANCE'
+    return 'CHOP_OSCILLATION'
+  }
+
+  /**
+   * Comprehensive Hold Round Retrospective Audit across 5k Buffer
+   */
+  auditHistoricalHolds(history: HistoryEntry[]): HoldAuditSummary & { recentHoldItems: any[] } {
+    if (!Array.isArray(history) || history.length < 15) {
+      return {
+        totalRounds: 0,
+        totalHolds: 0,
+        holdRatePercent: 0,
+        avoidedLosses: 0,
+        missedWins: 0,
+        protectionEfficiencyPercent: 0,
+        regimeBreakdown: {},
+        recentHoldItems: []
+      }
+    }
+
+    const sorted = [...history].sort((a, b) => {
+      try {
+        const aI = BigInt(a.issue_number), bI = BigInt(b.issue_number)
+        return aI > bI ? 1 : aI < bI ? -1 : 0
+      } catch { return String(a.issue_number).localeCompare(String(b.issue_number)) }
+    })
+
+    const validHistory = sorted.filter(h => h.actual_result)
+    const holdItems: any[] = []
+    const regimeStats: Record<string, { total: number; avoidedLosses: number; missedWins: number; recommendedEntropyCutoff: number }> = {}
+
+    const testDepth = Math.min(5000, validHistory.length)
+    const startIndex = Math.max(12, validHistory.length - testDepth)
+
+    for (let idx = startIndex; idx < validHistory.length; idx++) {
+      const subHistory = validHistory.slice(0, idx)
+      const actualItem = validHistory[idx]
+      const actualResult = (actualItem.actual_result || '').toUpperCase()
+      if (actualResult !== 'BIG' && actualResult !== 'SMALL') continue
+
+      const predRes = this.predict(subHistory)
+      if (predRes.status === 'HOLD') {
+        const unconstrainedPred = (predRes.calibratedP ?? 0.5) >= 0.50 ? 'BIG' : 'SMALL'
+        const isLossAvoided = unconstrainedPred !== actualResult
+        const counterfactual = isLossAvoided ? 'CORRECT_AVOIDED_LOSS' : 'OVERLY_CAUTIOUS_MISSED_WIN'
+        const regimeKey = predRes.holdAnalysis?.regime || 'CHOP_OSCILLATION'
+
+        holdItems.push({
+          issue_number: actualItem.issue_number,
+          holdRegime: regimeKey,
+          statusReason: predRes.statusReason,
+          calibratedP: predRes.calibratedP || 0.50,
+          unconstrainedPrediction: unconstrainedPred,
+          actualResult,
+          counterfactual
+        })
+
+        if (!regimeStats[regimeKey]) {
+          regimeStats[regimeKey] = {
+            total: 0,
+            avoidedLosses: 0,
+            missedWins: 0,
+            recommendedEntropyCutoff: 0.88
+          }
+        }
+        regimeStats[regimeKey].total++
+        if (isLossAvoided) regimeStats[regimeKey].avoidedLosses++
+        else regimeStats[regimeKey].missedWins++
+      }
+    }
+
+    const totalHolds = holdItems.length
+    const totalEvaluated = validHistory.length - startIndex
+    const totalAvoidedLosses = holdItems.filter(h => h.counterfactual === 'CORRECT_AVOIDED_LOSS').length
+    const totalMissedWins = totalHolds - totalAvoidedLosses
+    const efficiency = totalHolds > 0 ? parseFloat(((totalAvoidedLosses / totalHolds) * 100).toFixed(2)) : 0
+
+    const breakdown: Record<string, { total: number; avoidedLosses: number; missedWins: number; efficiencyPercent: number; recommendedEntropyCutoff: number }> = {}
+    for (const [rKey, stats] of Object.entries(regimeStats)) {
+      const regEff = stats.total > 0 ? parseFloat(((stats.avoidedLosses / stats.total) * 100).toFixed(2)) : 0
+      let recommendedCutoff = 0.88
+      if (rKey === 'DRAGON_STREAK' || rKey === 'trending') recommendedCutoff = 0.92
+      else if (rKey === 'PERIODIC_2_2') recommendedCutoff = 0.90
+      else if (rKey === 'mean-reverting') recommendedCutoff = 0.89
+      else if (rKey === 'CHOP_OSCILLATION' || rKey === 'WHITE_NOISE') recommendedCutoff = 0.84
+
+      breakdown[rKey] = {
+        total: stats.total,
+        avoidedLosses: stats.avoidedLosses,
+        missedWins: stats.missedWins,
+        efficiencyPercent: regEff,
+        recommendedEntropyCutoff: recommendedCutoff
+      }
+    }
+
+    return {
+      totalRounds: totalEvaluated,
+      totalHolds,
+      holdRatePercent: totalEvaluated > 0 ? parseFloat(((totalHolds / totalEvaluated) * 100).toFixed(2)) : 0,
+      avoidedLosses: totalAvoidedLosses,
+      missedWins: totalMissedWins,
+      protectionEfficiencyPercent: efficiency,
+      regimeBreakdown: breakdown,
+      recentHoldItems: holdItems.slice(-50)
+    }
+  }
+
   /**
    * Primary Prediction Interface
    */
@@ -569,12 +813,20 @@ export class PredictionEngine {
     if (validHistory.length < 8) {
       return {
         prediction: 'HOLD' as const, confidence: 50, status: 'HOLD' as const,
+        tier: 'HOLD' as const,
+        recommendedStake: '0U [PASS]',
+        regimeEntropyThreshold: 0.88,
+        holdAnalysis: {
+          regime: 'SYNCING',
+          counterfactual: 'PENDING',
+          explanation: `Synchronizing (${validHistory.length}/8 required)...`
+        },
         statusReason: `Synchronizing (${validHistory.length}/8 required)...`,
         strategy: 'Stream Initialization', reason: 'Awaiting minimum statistical round depth',
         bigProb: 50, smallProb: 50, luckyDigits: [6, 7],
         digitProbs: Object.fromEntries(Array.from({ length: 10 }, (_, i) => [i, 10])),
         regime: 'synchronizing' as const, volatility: '0.50', entropy: '1.00', permutationEntropy: '1.00',
-        isSniper: false, pattern: 'Buffering', parityPrediction: 'EVEN', engineVersion: 'v8.1', modelPerformance: null
+        isSniper: false, pattern: 'Buffering', parityPrediction: 'EVEN', engineVersion: 'v9.1', modelPerformance: null
       }
     }
 
@@ -664,45 +916,131 @@ export class PredictionEngine {
     const agreementRate = agreeingModels.length / subResults.length
     let confidence = Math.min(this.maxConfidence, Math.max(this.minConfidence, Math.round(52 + margin * 88)))
 
-    // Step 7: Consecutive Miss Protection (Anti-Drawdown Shield & Walk-Forward Backtest)
+    // Step 7: Consecutive Miss Protection & Rhythm Analysis
     const consecutiveMisses = this._computeWalkForwardConsecutiveMisses(validHistory)
     const brokenSymmetry = this._detectBrokenSymmetryPattern(tokens)
 
     // Step 8: Execution Status & Multi-Tier Anti-Drawdown Safety Matrix
-    let status: 'CLEARED' | 'HOLD' | 'SNIPER' = 'CLEARED'
+    const dynamicQuarantineRounds = this._getDynamicQuarantineDuration(regimeCheck, curStreak, shannonEntropy, agreementRate)
+    const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, brokenSymmetry)
+
+    let status: StatusType = 'CLEARED'
+    let tier: SignalTier = 'STANDARD'
+    let recommendedStake = '1U'
     let statusReason = `Multi-model confluence verified (Hurst H=${regimeCheck.hurstH})`
 
-    if (regimeCheck.isWhiteNoise && curStreak <= 2) {
-      status = 'HOLD'; statusReason = `🛡️ White-Noise Filter: Hurst H=${regimeCheck.hurstH}. Capital preserved.`; confidence = Math.min(confidence, 55)
+    const isConfirmedRegimeMatch = (
+      (curStreak >= 3 && agreementRate >= 0.50) ||
+      (is22Pair && agreementRate >= 0.40) ||
+      (regimeCheck.hurstH >= 0.54) ||
+      (regimeCheck.hurstH <= 0.44 && margin >= 0.03)
+    )
+
+    let holdRegime: HoldRegime | null = null
+
+    if (regimeCheck.isWhiteNoise && curStreak <= 2 && agreementRate < 0.75) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'WHITE_NOISE'
+      statusReason = `🛡️ White-Noise Filter: Hurst H=${regimeCheck.hurstH}. Capital preserved.`
+      confidence = Math.min(confidence, 55)
     } else if (consecutiveMisses >= 3) {
-      // Anti-3rd+ Loss Barrier: Extended quarantine lock to eliminate 3+ losing streaks
-      status = 'HOLD'; statusReason = `🛡️ Anti-Drawdown Quarantine: ${consecutiveMisses} consecutive losses detected. Halting executions until regime stabilizes.`; confidence = Math.min(confidence, 50)
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'QUARANTINE'
+      statusReason = `🛡️ Anti-Drawdown Quarantine: ${consecutiveMisses} consecutive losses detected in ${regimeCheck.regimeName} (${dynamicQuarantineRounds}R lockout required). Halting executions until regime stabilizes.`
+      confidence = Math.min(confidence, 50)
     } else if (consecutiveMisses >= 2) {
-      status = 'HOLD'; statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses.`; confidence = Math.min(confidence, 56)
-    } else if (consecutiveMisses === 1 && (margin < 0.08 || agreementRate < 0.70)) {
-      // Post-Loss Filter: Tighten edge requirement to prevent 2nd/3rd consecutive loss
-      status = 'HOLD'; statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=70% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`; confidence = Math.min(confidence, 58)
-    } else if (shannonEntropy > 0.93) {
-      status = 'HOLD'; statusReason = 'Elevated informational entropy (chop zone).'; confidence = Math.min(confidence, 56)
-    } else if (agreementRate < 0.60 || margin < 0.05) {
-      status = 'HOLD'; statusReason = 'Model discordance (insufficient directional edge).'; confidence = Math.min(confidence, 58)
-    } else if (curStreak === 2) {
-      status = 'HOLD'; statusReason = 'Streak boundary 2x transition zone [PASS]'; confidence = Math.min(confidence, 60)
+      const allowFastExit = ((regimeCheck.hurstH >= 0.54 || curStreak >= 3) && agreementRate >= 0.75 && margin >= 0.10)
+      if (!allowFastExit) {
+        status = 'HOLD'
+        tier = 'HOLD'
+        recommendedStake = '0U [PASS]'
+        holdRegime = 'QUARANTINE'
+        statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses detected. Absorbing market regime shift.`
+        confidence = Math.min(confidence, 56)
+      }
+    } else if (consecutiveMisses === 1 && (margin < 0.08 || agreementRate < 0.70) && !isConfirmedRegimeMatch) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'QUARANTINE'
+      statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=70% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`
+      confidence = Math.min(confidence, 58)
+    } else if (shannonEntropy > regimeEntropyThreshold) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'CHOP_OSCILLATION'
+      statusReason = `🛡️ Regime Entropy Gate: Shannon H=${shannonEntropy.toFixed(2)} exceeds ${regimeCheck.regimeName} threshold (${regimeEntropyThreshold.toFixed(2)}).`
+      confidence = Math.min(confidence, 56)
+    } else if (agreementRate < 0.50 && !isConfirmedRegimeMatch) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'MODEL_DISCORDANCE'
+      statusReason = 'Model discordance (insufficient directional edge).'
+      confidence = Math.min(confidence, 58)
+    } else if (curStreak === 2 && !isConfirmedRegimeMatch) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'DRAGON_STREAK'
+      statusReason = 'Streak boundary 2x transition zone [PASS]'
+      confidence = Math.min(confidence, 60)
     } else if (curStreak === 4 || curStreak === 5) {
-      status = 'HOLD'; statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak. Capital protected.`; confidence = Math.min(confidence, 54)
+      if (agreementRate < 0.75 || margin < 0.12) {
+        status = 'HOLD'
+        tier = 'HOLD'
+        recommendedStake = '0U [PASS]'
+        holdRegime = 'DRAGON_STREAK'
+        statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (65-67% historical loss trap). Capital protected.`
+        confidence = Math.min(confidence, 54)
+      }
     } else if (curStreak === 6) {
-      status = 'HOLD'; statusReason = `⏳ Dragon Reversal Pending: 6x streak. Awaiting confirmation.`; confidence = Math.min(confidence, 58)
-    } else if (curStreak === 3 && agreementRate < 0.70) {
-      status = 'HOLD'; statusReason = `🛡️ Dragon Momentum Gate: 3x streak requires >=70% confluence.`; confidence = Math.min(confidence, 56)
-    } else if (curAlts >= 3) {
-      // Lowered from 4 to 3 switches to intercept oscillation losses early
-      status = 'HOLD'; statusReason = `🛡️ Alternation Ceiling: ${curAlts} switches.`; confidence = Math.min(confidence, 52)
-    } else if (curAlts === 2 && (shannonEntropy > 0.88 || regimeCheck.hurstH < 0.48)) {
-      status = 'HOLD'; statusReason = `🛡️ Early Alternation Trap: 2 switches under elevated entropy (${shannonEntropy.toFixed(2)}).`; confidence = Math.min(confidence, 54)
-    } else if (is22Pair || is22Alt) {
-      status = 'HOLD'; statusReason = `🛡️ 2-2 Pattern Trap detected.`; confidence = Math.min(confidence, 53)
-    } else if (brokenSymmetry.detected) {
-      status = 'HOLD'; statusReason = `🛡️ Broken Symmetry Trap: ${brokenSymmetry.patternName} detected.`; confidence = Math.min(confidence, 53)
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'DRAGON_STREAK'
+      statusReason = `⏳ Dragon Reversal Pending: 6x streak reached. Awaiting secondary confirmation draw before firing.`
+      confidence = Math.min(confidence, 58)
+    } else if (curStreak === 3 && agreementRate < 0.70 && margin < 0.10) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'DRAGON_STREAK'
+      statusReason = `🛡️ Dragon Momentum Gate: 3x streak requires >=70% confluence (current: ${Math.round(agreementRate * 100)}%).`
+      confidence = Math.min(confidence, 56)
+    } else if (curAlts >= 3 && shannonEntropy > 0.84) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'CHOP_OSCILLATION'
+      statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (chop trap).`
+      confidence = Math.min(confidence, 52)
+    } else if (curAlts === 2 && (shannonEntropy > 0.88 || regimeCheck.hurstH < 0.48) && !isConfirmedRegimeMatch) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'CHOP_OSCILLATION'
+      statusReason = `🛡️ Early Alternation Trap: 2 switches under elevated entropy (${shannonEntropy.toFixed(2)}).`
+      confidence = Math.min(confidence, 54)
+    } else if ((is22Pair || is22Alt) && agreementRate < 0.60 && margin < 0.08) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'PERIODIC_2_2'
+      statusReason = `🛡️ 2-2 Pattern Trap: ${is22Pair ? 'Pair (2-2)' : 'Alternation (2-2)'} detected in trailing 4 draws.`
+      confidence = Math.min(confidence, 53)
+    } else if (brokenSymmetry.detected && agreementRate < 0.70 && margin < 0.10) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'BROKEN_SYMMETRY'
+      statusReason = `🛡️ Broken Symmetry Trap: ${brokenSymmetry.patternName} detected in recent sequence.`
+      confidence = Math.min(confidence, 53)
     }
 
     const isSniper = (
@@ -714,11 +1052,40 @@ export class PredictionEngine {
       status !== 'HOLD'
     )
 
-    if (isSniper) {
-      status = 'SNIPER'
-      statusReason = `🎯 Ultra-Sniper: ${agreeingModels.length}/7 models, Hurst H=${regimeCheck.hurstH}, Calibrated ${(Math.max(calibratedP, 1 - calibratedP) * 100).toFixed(0)}%`
-      confidence = Math.max(76, confidence)
+    if (status !== 'HOLD') {
+      if (isSniper) {
+        status = 'SNIPER'
+        tier = 'SNIPER'
+        recommendedStake = '2U'
+        statusReason = `🎯 Ultra-Sniper: ${agreeingModels.length}/7 models, Hurst H=${regimeCheck.hurstH}, Calibrated ${(Math.max(calibratedP, 1 - calibratedP) * 100).toFixed(0)}% [2U Stake]`
+        confidence = Math.max(78, confidence)
+      } else if (agreeingModels.length >= 3 && margin >= 0.04 && shannonEntropy <= regimeEntropyThreshold) {
+        status = 'CLEARED'
+        tier = 'STANDARD'
+        recommendedStake = '1U'
+        statusReason = `⚡ Standard Signal: ${agreeingModels.length}/7 consensus, Calibrated ${(Math.max(calibratedP, 1 - calibratedP) * 100).toFixed(0)}% in ${regimeCheck.regimeName} [1U Stake]`
+        confidence = Math.max(62, confidence)
+      } else if (agreeingModels.length >= 2 && isConfirmedRegimeMatch) {
+        status = 'SCOUT'
+        tier = 'SCOUT'
+        recommendedStake = '0.5U'
+        statusReason = `🔭 Scout Signal: Confirmed ${regimeCheck.regimeName} match with ${agreeingModels.length}/7 consensus [½U Stake]`
+        confidence = Math.max(54, confidence)
+      } else {
+        status = 'HOLD'
+        tier = 'HOLD'
+        recommendedStake = '0U [PASS]'
+        holdRegime = 'MODEL_DISCORDANCE'
+        statusReason = 'Model discordance (insufficient directional edge for Scout tier).'
+        confidence = Math.min(confidence, 58)
+      }
     }
+
+    const holdAnalysis = status === 'HOLD' ? {
+      regime: holdRegime || this._classifyHoldRegime(regimeCheck, curStreak, curAlts, is22Pair, is22Alt, brokenSymmetry, consecutiveMisses, shannonEntropy, agreementRate),
+      counterfactual: 'PENDING' as const,
+      explanation: statusReason
+    } : undefined
 
     const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4
     const digitScores: Record<number, number> = {}
@@ -757,6 +1124,8 @@ export class PredictionEngine {
       : rawSub.dragonMomentum.reason
 
     const prngAudit = this._auditPRNGStructure(numSeq.slice(-60))
+    const dominantProb = Math.max(calibratedP, 1.0 - calibratedP)
+    const conformalDecision = this.conformalGator.evaluateSignal(dominantProb, shannonEntropy, regimeCheck.hurstH, regimeEntropyThreshold)
 
     return {
       prediction, confidence, status, statusReason,
@@ -772,11 +1141,17 @@ export class PredictionEngine {
       entropy: shannonEntropy.toFixed(2),
       permutationEntropy: permEntropy.toFixed(2),
       continuousVal: parseFloat(blendedEma.toFixed(2)),
-      isSniper, pattern: patternDesc,
+      isSniper,
+      tier,
+      recommendedStake,
+      regimeEntropyThreshold,
+      holdAnalysis,
+      pattern: patternDesc,
       parityPrediction: lastNum % 2 === 1 ? 'EVEN' : 'ODD',
       engineVersion: 'v9.1',
       modelPerformance: this.modelTrackers,
-      prngForensics: prngAudit
+      prngForensics: prngAudit,
+      conformalRisk: conformalDecision
     }
   }
 }

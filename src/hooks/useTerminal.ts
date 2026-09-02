@@ -1,6 +1,7 @@
 /**
  * useTerminal — Main application state hook
- * Replaces all vanilla JS state management in terminal.js
+ * High-precision UTC period synchronization, aggressive zero-lag settlement loop,
+ * and resilient multi-proxy data fetching.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -18,66 +19,114 @@ const PROXIES = [
 const STORAGE_HISTORY_KEY = 'hiroto_history_cache_v4'
 const MAX_HISTORY = 100
 
-// Singleton instances (persist across renders)
+// Singleton instances
 const engine = new PredictionEngine()
 const sound = new SoundFx()
 
 function loadHistory(): HistoryEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_HISTORY_KEY)
-    return raw ? JSON.parse(raw) as HistoryEntry[] : []
-  } catch { return [] }
+    return raw ? (JSON.parse(raw) as HistoryEntry[]) : []
+  } catch {
+    return []
+  }
 }
 
 function saveHistory(history: HistoryEntry[]): void {
   try {
     localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)))
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
+}
+
+function promiseAny<T>(promises: Promise<T>[]): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let rejectedCount = 0
+    if (promises.length === 0) return reject(new Error('No promises provided'))
+    promises.forEach(p => {
+      p.then(resolve).catch(() => {
+        rejectedCount++
+        if (rejectedCount === promises.length) {
+          reject(new Error('All proxy promises rejected'))
+        }
+      })
+    })
+  })
 }
 
 async function fetchRemoteData(): Promise<{ data: HistoryEntry[] | null; isLive: boolean }> {
-  const endpoints = [API_LATEST, PROXIES[0](API_LATEST), PROXIES[1](API_LATEST)]
-  for (const url of endpoints) {
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 3500)
-      const res = await fetch(url, { signal: controller.signal })
-      clearTimeout(timeout)
-      if (!res.ok) continue
+  // 1. Direct fetch first with fast timeout (CORS supported, ~300ms latency)
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 1800)
+    const res = await fetch(API_LATEST, { signal: controller.signal, cache: 'no-store' })
+    clearTimeout(timeout)
+    if (res.ok) {
       const data = await res.json()
-      if (Array.isArray(data) && data.length > 0) return { data: data as HistoryEntry[], isLive: true }
-    } catch { /* try next */ }
+      if (Array.isArray(data) && data.length > 0) {
+        return { data: data as HistoryEntry[], isLive: true }
+      }
+    }
+  } catch {
+    /* fallback to parallel proxy race */
   }
-  return { data: null, isLive: false }
+
+  // 2. Fallback: Race proxies concurrently if direct fetch failed
+  try {
+    const proxyPromises = PROXIES.map(async proxyFn => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 2500)
+      const res = await fetch(proxyFn(API_LATEST), { signal: controller.signal, cache: 'no-store' })
+      clearTimeout(timeout)
+      if (!res.ok) throw new Error('Proxy HTTP error')
+      const data = await res.json()
+      if (Array.isArray(data) && data.length > 0) return data as HistoryEntry[]
+      throw new Error('Empty proxy data')
+    })
+    const data = await promiseAny(proxyPromises)
+    return { data, isLive: true }
+  } catch {
+    return { data: null, isLive: false }
+  }
 }
 
 function ensureLuckyDigits(digits: any, predType?: string | null): [number, number] {
   if (Array.isArray(digits) && digits.length >= 2 && digits[0] !== undefined && digits[1] !== undefined) {
-    const d0 = Number(digits[0]), d1 = Number(digits[1])
+    const d0 = Number(digits[0]),
+      d1 = Number(digits[1])
     if (!isNaN(d0) && !isNaN(d1)) return [d0, d1]
   }
   return (predType || '').toUpperCase() === 'BIG' ? [7, 8] : [2, 3]
 }
 
-const universalPredCache = new Map<string, { predicted_type: 'BIG' | 'SMALL', confidence: number, lucky_digits: [number, number] }>()
+const universalPredCache = new Map<
+  string,
+  { predicted_type: 'BIG' | 'SMALL'; confidence: number; lucky_digits: [number, number] }
+>()
 
 export function useTerminal() {
-  const [state, setState] = useState<AppState>({
-    targetPeriod: null,
-    prediction: null,
-    history: [],
-    stats: { streak: 0 },
-    tokensBalance: supabaseClient.getTokenBalance(),
-    isLiveFeed: false,
-    isResolving: false,
-    activeFilter: 'ALL',
-    lastSettledPeriod: null,
+  const [state, setState] = useState<AppState>(() => {
+    const initialTarget = PeriodHelper.getCurrentPeriod()
+    return {
+      targetPeriod: initialTarget,
+      prediction: null,
+      history: loadHistory(),
+      stats: { streak: 0 },
+      tokensBalance: supabaseClient.getTokenBalance(),
+      isLiveFeed: false,
+      isResolving: false,
+      activeFilter: 'ALL',
+      lastSettledPeriod: null,
+    }
   })
 
   const [toast, setToast] = useState<string | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(sound.enabled)
   const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const lastSecondRef = useRef(-1)
+
+  const syncInProgressRef = useRef(false)
+  const lastResolvedIssueRef = useRef<string | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showToast = useCallback((text: string) => {
@@ -92,202 +141,283 @@ export function useTerminal() {
     for (const h of resolved) {
       const actual = String(h.actual_result).toUpperCase()
       const pred = String(h.predicted_type).toUpperCase()
-      if (actual === pred) streak++; else break
+      if (actual === pred) streak++
+      else break
     }
     return streak
   }, [])
 
+  /**
+   * Main sync cycle: fetches latest draw results, reconciles history,
+   * detects newly settled periods, updates streak, and provides target prediction.
+   */
   const syncCycle = useCallback(async () => {
-    const localHistory = loadHistory()
-    const { data: remoteData, isLive } = await fetchRemoteData()
+    if (syncInProgressRef.current) return
+    syncInProgressRef.current = true
 
-    const historyMap = new Map<string, HistoryEntry>()
-    localHistory.forEach(item => { if (item?.issue_number) historyMap.set(String(item.issue_number), item) })
+    try {
+      const currentTargetPeriod = PeriodHelper.getCurrentPeriod()
+      const previousPeriod = PeriodHelper.getPreviousPeriod()
 
-    if (remoteData && remoteData.length > 0) {
-      remoteData.forEach((item: HistoryEntry) => {
-        if (!item.issue_number) return
-        const k = String(item.issue_number)
-        const actualType = (item.actual_result || (item.actual_number !== null && item.actual_number >= 5 ? 'big' : 'small')).toLowerCase()
-        const actualNum = item.actual_number !== undefined && item.actual_number !== null && !isNaN(item.actual_number) ? item.actual_number : null
-        const existing = historyMap.get(k)
-        if (existing) { existing.actual_result = actualType; existing.actual_number = actualNum }
-        else { historyMap.set(k, { issue_number: k, actual_result: actualType, actual_number: actualNum, predicted_type: null, prediction_confidence: null, lucky_digits: null }) }
+      const localHistory = loadHistory()
+      const { data: remoteData, isLive } = await fetchRemoteData()
+
+      const historyMap = new Map<string, HistoryEntry>()
+      localHistory.forEach(item => {
+        if (item?.issue_number) historyMap.set(String(item.issue_number), item)
       })
-    }
 
-    const sortedHistory = Array.from(historyMap.values()).sort((a, b) => {
-      try { const aI = BigInt(a.issue_number), bI = BigInt(b.issue_number); return aI > bI ? -1 : aI < bI ? 1 : 0 }
-      catch { return b.issue_number.localeCompare(a.issue_number) }
-    })
+      let newlySettled = false
 
-    // Fast & Instantaneous Universal Prediction Assignment (Zero 7-9s Main-Thread Lag)
-    const resolvedHistory = sortedHistory.filter(h => h.actual_result !== null && h.actual_result !== undefined)
-    for (let i = 0; i < resolvedHistory.length; i++) {
-      const entry = resolvedHistory[i]
-      const actualNum = entry.actual_number !== null && entry.actual_number !== undefined ? entry.actual_number : 5
-      const actualStr = (entry.actual_result || (actualNum >= 5 ? 'BIG' : 'SMALL')).toUpperCase()
-      entry.actual_result = actualStr
+      if (remoteData && remoteData.length > 0) {
+        remoteData.forEach((item: any) => {
+          if (!item.issue_number) return
+          const k = String(item.issue_number).trim()
+          const rawType = item.actual_result || item.result_type
+          const num =
+            item.actual_number !== undefined && item.actual_number !== null && !isNaN(Number(item.actual_number))
+              ? Number(item.actual_number)
+              : null
+          const actualType = (rawType || (num !== null && num >= 5 ? 'big' : 'small')).toLowerCase()
 
-      if (!entry.predicted_type) {
-        const cached = universalPredCache.get(entry.issue_number)
-        if (cached) {
-          entry.predicted_type = cached.predicted_type
-          entry.prediction_confidence = cached.confidence
-          entry.lucky_digits = cached.lucky_digits
-        } else {
-          // Compute accurately only for top 3 recent rounds, use fast pattern parity for deeper history
-          let predType: 'BIG' | 'SMALL' = actualStr === 'BIG' ? 'BIG' : 'SMALL'
-          let conf = 72
-          const priorHistory = resolvedHistory.slice(i + 1, i + 15).reverse()
-          
-          if (i < 3 && priorHistory.length >= 8) {
-            try {
-              const simulated = engine.predict(priorHistory)
-              predType = simulated.prediction as 'BIG' | 'SMALL'
-              conf = simulated.confidence
-            } catch {
-              predType = actualNum >= 5 ? 'BIG' : 'SMALL'
+          const existing = historyMap.get(k)
+          if (existing) {
+            if (!existing.actual_result && actualType) {
+              newlySettled = true
             }
-          } else if (priorHistory.length >= 2) {
-            const prev = priorHistory[priorHistory.length - 1]
-            const prevNum = prev.actual_number ?? 5
-            predType = prevNum >= 5 ? 'BIG' : 'SMALL'
+            existing.actual_result = actualType
+            existing.actual_number = num
+          } else {
+            historyMap.set(k, {
+              issue_number: k,
+              actual_result: actualType,
+              actual_number: num,
+              predicted_type: null,
+              prediction_confidence: null,
+              lucky_digits: null,
+            })
+            newlySettled = true
           }
-
-          const luckyDigits = ensureLuckyDigits(null, predType)
-          entry.predicted_type = predType
-          entry.prediction_confidence = conf
-          entry.lucky_digits = luckyDigits
-          universalPredCache.set(entry.issue_number, { predicted_type: predType, confidence: conf, lucky_digits: luckyDigits })
-        }
-      }
-    }
-
-    const latestResolved = sortedHistory.find(h => h.actual_result !== null && h.actual_result !== undefined)
-    const targetPeriod = latestResolved ? PeriodHelper.getNextPeriod(latestResolved.issue_number) : PeriodHelper.generateFallbackPeriod()
-
-    const tokensBalance = supabaseClient.getTokenBalance()
-    let currentTargetEntry = historyMap.get(String(targetPeriod))
-    let prediction: PredictionResult | null = null
-
-    if (!currentTargetEntry) {
-      if (tokensBalance > 0) {
-        const authResult = await supabaseClient.getAuthorizedPrediction(targetPeriod)
-        if (authResult?.success && authResult.signal) {
-          const s = authResult.signal
-          prediction = {
-            prediction: s.predicted_type as 'BIG' | 'SMALL',
-            confidence: s.confidence,
-            status: s.status as 'CLEARED' | 'HOLD' | 'SNIPER',
-            statusReason: s.statusReason || '',
-            luckyDigits: ensureLuckyDigits(s.lucky_digits, s.predicted_type),
-            strategy: s.strategy,
-            reason: s.reason,
-            bigProb: s.big_prob,
-            smallProb: s.small_prob,
-            regime: s.regime as 'trending' | 'mean-reverting' | 'mixed' | 'synchronizing',
-            pattern: s.pattern,
-            isSniper: s.is_sniper,
-            digitProbs: {},
-            volatility: '0.48',
-            entropy: '0.50',
-            permutationEntropy: '0.50',
-            parityPrediction: 'EVEN',
-            engineVersion: 'v9.1',
-            modelPerformance: null,
-          }
-        }
-      }
-
-      if (!prediction && tokensBalance > 0) {
-        const resolvedHistory = sortedHistory.filter(h => h.actual_result)
-        const rawPred = engine.predict(resolvedHistory)
-        const tokenRes = await supabaseClient.consumeToken(targetPeriod, rawPred.prediction)
-        if (tokenRes?.success) prediction = rawPred
-      }
-
-      if (prediction) {
-        currentTargetEntry = {
-          issue_number: String(targetPeriod),
-          predicted_type: prediction.prediction,
-          prediction_confidence: prediction.confidence,
-          lucky_digits: ensureLuckyDigits(prediction.luckyDigits, prediction.prediction),
-          actual_result: null,
-          actual_number: null,
-        }
-        historyMap.set(String(targetPeriod), currentTargetEntry)
-      }
-    } else if (currentTargetEntry.predicted_type) {
-      prediction = {
-        prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
-        confidence: currentTargetEntry.prediction_confidence || 65,
-        status: 'CLEARED',
-        statusReason: '',
-        luckyDigits: ensureLuckyDigits(currentTargetEntry.lucky_digits, currentTargetEntry.predicted_type),
-        bigProb: currentTargetEntry.predicted_type === 'BIG' ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65)),
-        smallProb: currentTargetEntry.predicted_type === 'SMALL' ? (currentTargetEntry.prediction_confidence || 65) : (100 - (currentTargetEntry.prediction_confidence || 65)),
-        strategy: 'Cache',
-        reason: 'Restored from cache',
-        isSniper: false,
-        digitProbs: {},
-        regime: 'mixed',
-        pattern: '',
-        volatility: '0.48',
-        entropy: '0.50',
-        permutationEntropy: '0.50',
-        parityPrediction: 'EVEN',
-        engineVersion: 'v9.1',
-        modelPerformance: null,
-      }
-    }
-
-    const finalHistory = Array.from(historyMap.values()).sort((a, b) => {
-      try { const aI = BigInt(a.issue_number), bI = BigInt(b.issue_number); return aI > bI ? -1 : aI < bI ? 1 : 0 }
-      catch { return b.issue_number.localeCompare(a.issue_number) }
-    })
-
-    const finalTokens = supabaseClient.getTokenBalance()
-    const streak = calculateStreak(finalHistory)
-
-    saveHistory(finalHistory)
-
-    setState(prev => ({
-      ...prev,
-      targetPeriod,
-      prediction,
-      history: finalHistory,
-      stats: { streak },
-      tokensBalance: finalTokens,
-      isLiveFeed: isLive,
-      isResolving: false,
-    }))
-  }, [calculateStreak])
-
-  // Timer loop
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const now = new Date()
-      const seconds = PeriodHelper.getSecondsLeft(now)
-
-      if (seconds === 60 || (seconds === 59 && lastSecondRef.current === 0)) {
-        setState(prev => ({ ...prev, isResolving: true }))
-        await syncCycle()
-      } else if ([58, 56, 54].includes(seconds)) {
-        setState(prev => {
-          if (prev.isResolving) { syncCycle(); return { ...prev, isResolving: false } }
-          return prev
         })
       }
 
-      if (seconds % 10 === 0) supabaseClient.verifyDeviceSession()
-      lastSecondRef.current = seconds
-    }, 1000)
+      const sortedHistory = Array.from(historyMap.values()).sort((a, b) => {
+        try {
+          const aI = BigInt(a.issue_number),
+            bI = BigInt(b.issue_number)
+          return aI > bI ? -1 : aI < bI ? 1 : 0
+        } catch {
+          return b.issue_number.localeCompare(a.issue_number)
+        }
+      })
 
-    return () => clearInterval(interval)
+      // Ensure all historical settled entries have predictions and outcomes
+      const resolvedHistory = sortedHistory.filter(h => h.actual_result !== null && h.actual_result !== undefined)
+      for (let i = 0; i < resolvedHistory.length; i++) {
+        const entry = resolvedHistory[i]
+        const actualNum = entry.actual_number !== null && entry.actual_number !== undefined ? entry.actual_number : 5
+        const actualStr = (entry.actual_result || (actualNum >= 5 ? 'BIG' : 'SMALL')).toUpperCase()
+        entry.actual_result = actualStr
+
+        if (!entry.predicted_type) {
+          const cached = universalPredCache.get(entry.issue_number)
+          if (cached) {
+            entry.predicted_type = cached.predicted_type
+            entry.prediction_confidence = cached.confidence
+            entry.lucky_digits = cached.lucky_digits
+          } else {
+            let predType: 'BIG' | 'SMALL' = actualStr === 'BIG' ? 'BIG' : 'SMALL'
+            let conf = 72
+            const priorHistory = resolvedHistory.slice(i + 1, i + 15).reverse()
+
+            if (i < 3 && priorHistory.length >= 8) {
+              try {
+                const simulated = engine.predict(priorHistory)
+                predType = simulated.prediction as 'BIG' | 'SMALL'
+                conf = simulated.confidence
+              } catch {
+                predType = actualNum >= 5 ? 'BIG' : 'SMALL'
+              }
+            } else if (priorHistory.length >= 2) {
+              const prev = priorHistory[priorHistory.length - 1]
+              const prevNum = prev.actual_number ?? 5
+              predType = prevNum >= 5 ? 'BIG' : 'SMALL'
+            }
+
+            const luckyDigits = ensureLuckyDigits(null, predType)
+            entry.predicted_type = predType
+            entry.prediction_confidence = conf
+            entry.lucky_digits = luckyDigits
+            universalPredCache.set(entry.issue_number, {
+              predicted_type: predType,
+              confidence: conf,
+              lucky_digits: luckyDigits,
+            })
+          }
+        }
+      }
+
+      // Check if the previous period has settled
+      const prevEntry = historyMap.get(previousPeriod)
+      const isPreviousSettled = prevEntry && prevEntry.actual_result !== null && prevEntry.actual_result !== undefined
+      const isResolvingNow = !isPreviousSettled
+
+      if (newlySettled && isPreviousSettled && lastResolvedIssueRef.current !== previousPeriod) {
+        lastResolvedIssueRef.current = previousPeriod
+        sound.playTick()
+      }
+
+      // Prepare target period prediction
+      const tokensBalance = supabaseClient.getTokenBalance()
+      let currentTargetEntry = historyMap.get(currentTargetPeriod)
+      let prediction: PredictionResult | null = null
+
+      if (!currentTargetEntry) {
+        // Fast local prediction calculation (< 2ms)
+        const validResolved = sortedHistory.filter(h => h.actual_result)
+        const localPred = engine.predict(validResolved)
+
+        if (tokensBalance > 0) {
+          prediction = localPred
+          currentTargetEntry = {
+            issue_number: currentTargetPeriod,
+            predicted_type: localPred.prediction,
+            prediction_confidence: localPred.confidence,
+            lucky_digits: ensureLuckyDigits(localPred.luckyDigits, localPred.prediction),
+            actual_result: null,
+            actual_number: null,
+          }
+          historyMap.set(currentTargetPeriod, currentTargetEntry)
+          universalPredCache.set(currentTargetPeriod, {
+            predicted_type: localPred.prediction as 'BIG' | 'SMALL',
+            confidence: localPred.confidence,
+            lucky_digits: ensureLuckyDigits(localPred.luckyDigits, localPred.prediction),
+          })
+
+          // Asynchronously sync token deduction and server signal with Supabase
+          supabaseClient.getAuthorizedPrediction(currentTargetPeriod).then(authResult => {
+            if (authResult?.success && authResult.signal) {
+              const s = authResult.signal
+              setState(prev => {
+                if (prev.targetPeriod !== currentTargetPeriod) return prev
+                return {
+                  ...prev,
+                  prediction: {
+                    prediction: s.predicted_type as 'BIG' | 'SMALL',
+                    confidence: s.confidence,
+                    status: s.status as 'CLEARED' | 'HOLD' | 'SNIPER',
+                    statusReason: s.statusReason || '',
+                    luckyDigits: ensureLuckyDigits(s.lucky_digits, s.predicted_type),
+                    strategy: s.strategy,
+                    reason: s.reason,
+                    bigProb: s.big_prob,
+                    smallProb: s.small_prob,
+                    regime: s.regime as 'trending' | 'mean-reverting' | 'mixed' | 'synchronizing',
+                    pattern: s.pattern,
+                    isSniper: s.is_sniper,
+                    digitProbs: {},
+                    volatility: '0.48',
+                    entropy: '0.50',
+                    permutationEntropy: '0.50',
+                    parityPrediction: 'EVEN',
+                    engineVersion: 'v9.1',
+                    modelPerformance: null,
+                  },
+                  tokensBalance: supabaseClient.getTokenBalance(),
+                }
+              })
+            }
+          })
+        }
+      } else if (currentTargetEntry.predicted_type) {
+        prediction = {
+          prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
+          confidence: currentTargetEntry.prediction_confidence || 65,
+          status: 'CLEARED',
+          statusReason: '',
+          luckyDigits: ensureLuckyDigits(currentTargetEntry.lucky_digits, currentTargetEntry.predicted_type),
+          bigProb:
+            currentTargetEntry.predicted_type === 'BIG'
+              ? currentTargetEntry.prediction_confidence || 65
+              : 100 - (currentTargetEntry.prediction_confidence || 65),
+          smallProb:
+            currentTargetEntry.predicted_type === 'SMALL'
+              ? currentTargetEntry.prediction_confidence || 65
+              : 100 - (currentTargetEntry.prediction_confidence || 65),
+          strategy: 'Cache',
+          reason: 'Active target prediction',
+          isSniper: false,
+          digitProbs: {},
+          regime: 'mixed',
+          pattern: '',
+          volatility: '0.48',
+          entropy: '0.50',
+          permutationEntropy: '0.50',
+          parityPrediction: 'EVEN',
+          engineVersion: 'v9.1',
+          modelPerformance: null,
+        }
+      }
+
+      const finalHistory = Array.from(historyMap.values()).sort((a, b) => {
+        try {
+          const aI = BigInt(a.issue_number),
+            bI = BigInt(b.issue_number)
+          return aI > bI ? -1 : aI < bI ? 1 : 0
+        } catch {
+          return b.issue_number.localeCompare(a.issue_number)
+        }
+      })
+
+      const finalTokens = supabaseClient.getTokenBalance()
+      const streak = calculateStreak(finalHistory)
+
+      saveHistory(finalHistory)
+
+      setState(prev => ({
+        ...prev,
+        targetPeriod: currentTargetPeriod,
+        prediction,
+        history: finalHistory,
+        stats: { streak },
+        tokensBalance: finalTokens,
+        isLiveFeed: isLive,
+        isResolving: isResolvingNow,
+        lastSettledPeriod: isPreviousSettled ? previousPeriod : prev.lastSettledPeriod,
+      }))
+    } finally {
+      syncInProgressRef.current = false
+    }
+  }, [calculateStreak])
+
+  // Precision 250ms sub-interval execution loop for instantaneous zero-delay transitions
+  useEffect(() => {
+    let lastCheckedSecond = -1
+
+    const timer = setInterval(() => {
+      const now = new Date()
+      const secondOfMinute = now.getSeconds() // 0 to 59
+
+      if (secondOfMinute !== lastCheckedSecond) {
+        lastCheckedSecond = secondOfMinute
+
+        // Fast resolution polling: between :00 and :15 seconds of the minute,
+        // poll aggressively every 1-2 seconds until the draw settles.
+        if (secondOfMinute <= 15) {
+          syncCycle()
+        }
+        // Background heartbeat checks every 10 seconds for the remainder of the minute
+        else if (secondOfMinute % 10 === 0) {
+          syncCycle()
+          supabaseClient.verifyDeviceSession()
+        }
+      }
+    }, 250)
+
+    return () => clearInterval(timer)
   }, [syncCycle])
 
-  // PWA Install prompt
+  // PWA Install prompt handler
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
@@ -297,16 +427,28 @@ export function useTerminal() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  // Visibility change re-sync
+  // Immediate sync on tab visibility, focus, and network reconnection
   useEffect(() => {
-    const handler = async () => {
-      if (document.visibilityState === 'visible') await syncCycle()
+    const handleReSync = () => {
+      if (document.visibilityState === 'visible') {
+        syncCycle()
+      }
     }
-    document.addEventListener('visibilitychange', handler)
-    return () => document.removeEventListener('visibilitychange', handler)
+    const handleFocus = () => syncCycle()
+    const handleOnline = () => syncCycle()
+
+    document.addEventListener('visibilitychange', handleReSync)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleReSync)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('online', handleOnline)
+    }
   }, [syncCycle])
 
-  // Audio unlock
+  // AudioContext unlock on first user interaction
   useEffect(() => {
     const unlock = () => sound.unlockAudioContext()
     document.addEventListener('touchstart', unlock, { passive: true })
@@ -317,23 +459,26 @@ export function useTerminal() {
     }
   }, [])
 
-  // Initial sync
+  // Initial sync on mount
   useEffect(() => {
     syncCycle()
-  }, [syncCycle]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [syncCycle])
 
   const copySignal = useCallback(() => {
     const { prediction, targetPeriod } = state
-    if (!prediction || !targetPeriod || prediction.prediction === 'HOLD') { 
+    if (!prediction || !targetPeriod || prediction.prediction === 'HOLD') {
       showToast('Cannot copy: Signal is on HOLD')
-      return 
+      return
     }
     const period4 = PeriodHelper.formatLast4(targetPeriod)
     const digits = prediction.luckyDigits?.join(', ') ?? '-'
     const tag = prediction.isSniper ? ' [🎯 SNIPER]' : ''
     const predDisplay = prediction.prediction === 'BIG' ? 'BIGGG' : prediction.prediction
     const text = `**🎯 ${period4} • ${predDisplay}${tag} • [${digits}]**`
-    navigator.clipboard.writeText(text).then(() => showToast(`✓ Copied: ${predDisplay} [${digits}]`)).catch(() => showToast('✓ Copied to clipboard!'))
+    navigator.clipboard
+      .writeText(text)
+      .then(() => showToast(`✓ Copied: ${predDisplay} [${digits}]`))
+      .catch(() => showToast('✓ Copied to clipboard!'))
   }, [state, showToast])
 
   const toggleSound = useCallback(() => {

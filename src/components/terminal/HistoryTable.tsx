@@ -41,9 +41,9 @@ function SignalBadge({ type }: { type: string | null }) {
 }
 
 export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryTableProps) {
-  const resolvedList = history.filter(h => h.actual_result !== null && h.actual_result !== undefined).slice(0, 30)
+  const resolvedList = history.filter(h => h.actual_result !== null && h.actual_result !== undefined)
   
-  const allCount = resolvedList.length
+  const allCount = history.length
   const winCount = resolvedList.filter(
     h => {
       const p = String(h.predicted_type || '').toUpperCase()
@@ -51,9 +51,9 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
       return p && a && p === a
     }
   ).length
-  const lossCount = allCount - winCount
+  const lossCount = resolvedList.length - winCount
 
-  let items = resolvedList
+  let items = history.slice(0, 30)
 
   if (activeFilter === 'WINS') {
     items = resolvedList.filter(
@@ -62,7 +62,7 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
         const a = String(h.actual_result || '').toUpperCase()
         return p && a && p === a
       }
-    )
+    ).slice(0, 30)
   } else if (activeFilter === 'LOSSES') {
     items = resolvedList.filter(
       h => {
@@ -70,7 +70,7 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
         const a = String(h.actual_result || '').toUpperCase()
         return !p || !a || p !== a
       }
-    )
+    ).slice(0, 30)
   }
 
   const emptyMsg =
@@ -136,7 +136,7 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
                 return (
                   <tr key={item.issue_number || idx} className={cn(isWin && 'row-win')}>
                     <td className="col-period">
-                      #{period4}
+                      {period4}
                     </td>
                     <td className="col-signal">
                       <SignalBadge type={item.predicted_type} />

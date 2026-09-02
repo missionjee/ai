@@ -353,7 +353,7 @@ create policy "Allow service update access to global_signals" on public.global_s
 -- Revoke direct anon select: Scrapers CANNOT read global_signals table directly via REST
 revoke select on public.global_signals from anon;
 
--- Auto-Pruning Trigger: Keeps table strictly at latest 2,000 rounds (FIFO Ring Buffer < 1 MB forever)
+-- Auto-Pruning Trigger: Keeps table strictly at latest 5,000 rounds (FIFO Ring Buffer < 2.5 MB forever)
 -- High-Performance Non-Blocking Pruning with Advisory Lock Protection
 create or replace function public.prune_global_signals()
 returns trigger

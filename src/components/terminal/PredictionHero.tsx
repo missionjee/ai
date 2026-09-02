@@ -98,11 +98,14 @@ export function PredictionHero({
             {!isLocked && prediction?.status === 'HOLD' && (
               <span>⚠️ {getShortHoldReason(prediction?.statusReason)}</span>
             )}
-            {!isLocked && prediction?.isSniper && (
-              <span>🎯 SNIPER SIGNAL</span>
+            {!isLocked && (prediction?.tier === 'SNIPER' || prediction?.isSniper) && (
+              <span>🎯 ULTRA-SNIPER [{prediction?.recommendedStake || '2U'}]</span>
             )}
-            {!isLocked && prediction?.status === 'CLEARED' && !prediction?.isSniper && (
-              <span>⚡ QUANTUM SIGNAL</span>
+            {!isLocked && prediction?.tier === 'SCOUT' && (
+              <span>🔭 SCOUT SIGNAL [{prediction?.recommendedStake || '½U'}]</span>
+            )}
+            {!isLocked && (prediction?.tier === 'STANDARD' || (prediction?.status === 'CLEARED' && !prediction?.isSniper && prediction?.tier !== 'SCOUT')) && (
+              <span>⚡ QUANTUM STANDARD [{prediction?.recommendedStake || '1U'}]</span>
             )}
             {!isLocked && !prediction && (
               <span>⚡ SYNCING FEED...</span>
@@ -119,7 +122,14 @@ export function PredictionHero({
             <div className="confidence-wrap">
               <div className="confidence-header">
                 <span>Quantitative Model Confidence</span>
-                <strong>{confidence}%</strong>
+                <div className="flex items-center gap-2">
+                  {prediction?.recommendedStake && prediction.status !== 'HOLD' && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00ffcc]/10 text-[#00ffcc] border border-[#00ffcc]/30">
+                      STAKE: {prediction.recommendedStake}
+                    </span>
+                  )}
+                  <strong>{confidence}%</strong>
+                </div>
               </div>
               <div className="confidence-track">
                 <div
@@ -157,8 +167,8 @@ export function PredictionHero({
               onClick={onUnlockTokens}
               className="w-full btn-copy-signal justify-center py-3 text-[13px] font-black tracking-[0.8px]"
             >
-              <span>⚡</span>
-              <span>REDEEM KEY / GET TOKENS</span>
+              <span>🔑</span>
+              <span>REDEEM ACCESS KEY</span>
             </button>
           </div>
         )}
