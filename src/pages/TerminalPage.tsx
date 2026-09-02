@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { cn } from '@/lib/utils'
 import { supabaseClient } from '@/services/supabase'
 import { useTerminal } from '@/hooks/useTerminal'
 import { useCountdown } from '@/hooks/useCountdown'
@@ -43,8 +44,20 @@ export function TerminalPage() {
   const { prediction, tokensBalance, history, stats, isLiveFeed, isResolving, targetPeriod, activeFilter } = state
   const periodLabel = PeriodHelper.formatLast4(targetPeriod)
 
+  const glowClass = !tokensBalance || tokensBalance <= 0
+    ? 'glow-LOCKED'
+    : prediction?.status === 'HOLD'
+    ? 'glow-HOLD'
+    : prediction?.isSniper
+    ? 'glow-SNIPER'
+    : prediction?.prediction === 'BIG'
+    ? 'glow-BIG'
+    : prediction?.prediction === 'SMALL'
+    ? 'glow-SMALL'
+    : ''
+
   return (
-    <div className="min-h-screen relative">
+    <div className={cn('min-h-screen relative terminal-viewport', glowClass)}>
       <div className="max-w-[740px] mx-auto px-3.5 py-4 pb-12 flex flex-col gap-3.5 relative z-10">
         {/* Header */}
         <Header

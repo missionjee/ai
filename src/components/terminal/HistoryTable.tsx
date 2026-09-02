@@ -79,7 +79,7 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
       {/* Header & Filter Pills */}
       <div className="history-header">
         <h2 className="history-title">Draw History</h2>
-        <div className="filter-pills">
+        <div className="filter-segmented-bar">
           <button
             onClick={() => onFilterChange('ALL')}
             className={cn('filter-pill', activeFilter === 'ALL' && 'active')}
@@ -127,9 +127,10 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
                   item.actual_number !== null && item.actual_number !== undefined
                     ? item.actual_number
                     : '-'
+                const isWin = item.predicted_type && item.actual_result && item.predicted_type.toUpperCase() === item.actual_result.toUpperCase()
 
                 return (
-                  <tr key={item.issue_number || idx}>
+                  <tr key={item.issue_number || idx} className={cn(isWin && 'row-win')}>
                     <td className="col-period">
                       #{period4}
                     </td>

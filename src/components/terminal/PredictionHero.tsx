@@ -3,6 +3,7 @@
  * Ported directly to match demo.html layout, typography, scanlines, and Sovereign Gold action button.
  */
 
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { PredictionResult } from '@/types'
 
@@ -23,9 +24,10 @@ export function PredictionHero({
   isUrgent,
   onCopy,
 }: PredictionHeroProps) {
+  const [isCopied, setIsCopied] = useState(false)
   const isLocked = tokensBalance <= 0
   const signalKey = isLocked ? 'LOCKED' : (prediction?.prediction || 'HOLD')
-  const signalText = isLocked ? 'LOCKED' : (prediction?.prediction || 'HOLD')
+  const signalText = isLocked ? 'LOCKED' : (prediction?.prediction === 'BIG' ? 'BIGGG' : (prediction?.prediction || 'HOLD'))
   
   const signalRange =
     signalKey === 'BIG'
@@ -45,6 +47,14 @@ export function PredictionHero({
 
   const luckyDigit1 = isLocked ? 'X' : (prediction ? resolvedDigits[0] : '-')
   const luckyDigit2 = isLocked ? 'X' : (prediction ? resolvedDigits[1] : '-')
+
+  const handleCopy = () => {
+    onCopy()
+    if (prediction && prediction.prediction !== 'HOLD') {
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2000)
+    }
+  }
 
   return (
     <main className="prediction-hero" id="predictionHero">
@@ -112,11 +122,11 @@ export function PredictionHero({
               </div>
 
               <button
-                onClick={onCopy}
-                className="btn-copy-signal"
+                onClick={handleCopy}
+                className={cn('btn-copy-signal', isCopied && 'copied')}
               >
-                <span>📋</span>
-                <span>Copy Signal</span>
+                <span>{isCopied ? '✓' : '📋'}</span>
+                <span>{isCopied ? 'COPIED!' : 'Copy Signal'}</span>
               </button>
             </div>
           </div>
