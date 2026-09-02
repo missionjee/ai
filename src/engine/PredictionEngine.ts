@@ -567,7 +567,7 @@ export class PredictionEngine {
     if (!Array.isArray(validHistory) || validHistory.length < 10) return 0
 
     let explicitMisses = 0
-    for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 6); i--) {
+    for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 15); i--) {
       const h = validHistory[i]
       const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null
       const a = h.actual_result ? String(h.actual_result).toUpperCase() : null
@@ -578,7 +578,7 @@ export class PredictionEngine {
     }
 
     let simulatedMisses = 0
-    const testDepth = Math.min(4, validHistory.length - 8)
+    const testDepth = Math.min(12, validHistory.length - 8)
     for (let k = 1; k <= testDepth; k++) {
       const targetIdx = validHistory.length - k
       const subHist = validHistory.slice(0, targetIdx)
@@ -953,22 +953,19 @@ export class PredictionEngine {
       statusReason = `🛡️ Anti-Drawdown Quarantine: ${consecutiveMisses} consecutive losses detected in ${regimeCheck.regimeName} (${dynamicQuarantineRounds}R lockout required). Halting executions until regime stabilizes.`
       confidence = Math.min(confidence, 50)
     } else if (consecutiveMisses >= 2) {
-      const allowFastExit = ((regimeCheck.hurstH >= 0.54 || curStreak >= 3) && agreementRate >= 0.75 && margin >= 0.10)
-      if (!allowFastExit) {
-        status = 'HOLD'
-        tier = 'HOLD'
-        recommendedStake = '0U [PASS]'
-        holdRegime = 'QUARANTINE'
-        statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses detected. Absorbing market regime shift.`
-        confidence = Math.min(confidence, 56)
-      }
-    } else if (consecutiveMisses === 1 && (margin < 0.08 || agreementRate < 0.70) && !isConfirmedRegimeMatch) {
       status = 'HOLD'
       tier = 'HOLD'
       recommendedStake = '0U [PASS]'
       holdRegime = 'QUARANTINE'
-      statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=70% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`
-      confidence = Math.min(confidence, 58)
+      statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses detected. Absorbing market regime shift [HOLD].`
+      confidence = Math.min(confidence, 52)
+    } else if (consecutiveMisses === 1 && (margin < 0.10 || agreementRate < 0.75)) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'QUARANTINE'
+      statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=75% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`
+      confidence = Math.min(confidence, 56)
     } else if (shannonEntropy > regimeEntropyThreshold) {
       status = 'HOLD'
       tier = 'HOLD'
@@ -976,6 +973,20 @@ export class PredictionEngine {
       holdRegime = 'CHOP_OSCILLATION'
       statusReason = `🛡️ Regime Entropy Gate: Shannon H=${shannonEntropy.toFixed(2)} exceeds ${regimeCheck.regimeName} threshold (${regimeEntropyThreshold.toFixed(2)}).`
       confidence = Math.min(confidence, 56)
+    } else if (curAlts >= 3) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'CHOP_OSCILLATION'
+      statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (Anti-Oscillation Trap) [HOLD].`
+      confidence = Math.min(confidence, 52)
+    } else if (brokenSymmetry.detected) {
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'BROKEN_SYMMETRY'
+      statusReason = `🛡️ Broken Symmetry Trap: ${brokenSymmetry.patternName} detected [HOLD].`
+      confidence = Math.min(confidence, 54)
     } else if (agreementRate < 0.50 && !isConfirmedRegimeMatch) {
       status = 'HOLD'
       tier = 'HOLD'
@@ -991,7 +1002,7 @@ export class PredictionEngine {
       statusReason = 'Streak boundary 2x transition zone [PASS]'
       confidence = Math.min(confidence, 60)
     } else if (curStreak === 4 || curStreak === 5) {
-      if (agreementRate < 0.75 || margin < 0.12) {
+      if (agreementRate < 0.78 || margin < 0.12) {
         status = 'HOLD'
         tier = 'HOLD'
         recommendedStake = '0U [PASS]'
@@ -999,13 +1010,13 @@ export class PredictionEngine {
         statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (65-67% historical loss trap). Capital protected.`
         confidence = Math.min(confidence, 54)
       }
-    } else if (curStreak === 6) {
+    } else if (curStreak >= 6) {
       status = 'HOLD'
       tier = 'HOLD'
       recommendedStake = '0U [PASS]'
       holdRegime = 'DRAGON_STREAK'
-      statusReason = `⏳ Dragon Reversal Pending: 6x streak reached. Awaiting secondary confirmation draw before firing.`
-      confidence = Math.min(confidence, 58)
+      statusReason = `⏳ Dragon Reversal Pending: ${curStreak}x streak reached. Awaiting secondary confirmation draw before firing.`
+      confidence = Math.min(confidence, 55)
     } else if (curStreak === 3 && agreementRate < 0.70 && margin < 0.10) {
       status = 'HOLD'
       tier = 'HOLD'
@@ -1013,19 +1024,12 @@ export class PredictionEngine {
       holdRegime = 'DRAGON_STREAK'
       statusReason = `🛡️ Dragon Momentum Gate: 3x streak requires >=70% confluence (current: ${Math.round(agreementRate * 100)}%).`
       confidence = Math.min(confidence, 56)
-    } else if (curAlts >= 3 && shannonEntropy > 0.84) {
-      status = 'HOLD'
-      tier = 'HOLD'
-      recommendedStake = '0U [PASS]'
-      holdRegime = 'CHOP_OSCILLATION'
-      statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (chop trap).`
-      confidence = Math.min(confidence, 52)
     } else if (curAlts === 2 && (shannonEntropy > 0.88 || regimeCheck.hurstH < 0.48) && !isConfirmedRegimeMatch) {
       status = 'HOLD'
       tier = 'HOLD'
       recommendedStake = '0U [PASS]'
       holdRegime = 'CHOP_OSCILLATION'
-      statusReason = `🛡️ Early Alternation Trap: 2 switches under elevated entropy (${shannonEntropy.toFixed(2)}).`
+      statusReason = `🛡️ Alternation Gating: 2x switch requires stable entropy/Hurst (current H=${shannonEntropy.toFixed(2)}).`
       confidence = Math.min(confidence, 54)
     } else if ((is22Pair || is22Alt) && agreementRate < 0.60 && margin < 0.08) {
       status = 'HOLD'

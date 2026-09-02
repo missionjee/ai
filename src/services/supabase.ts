@@ -39,7 +39,7 @@ const safeStorage = {
 export const SUPABASE_CONFIG = {
   API_URL: SUPABASE_URL || 'https://fvmbqikdomcjalladwmz.supabase.co',
   ANON_KEY: SUPABASE_ANON_KEY || 'sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c',
-  DEFAULT_TOKENS: 100,
+  DEFAULT_TOKENS: 0,
   STORAGE_SESSION_KEY: 'hiroto_signals_session',
   STORAGE_DEVICE_KEY: 'hiroto_device_id',
   STORAGE_TOKENS_KEY: 'hiroto_tokens_balance',
@@ -74,9 +74,14 @@ class SupabaseService {
 
   getTokenBalance(): number {
     const session = this.getSession()
-    if (session && typeof session.tokens_balance === 'number') return session.tokens_balance
+    if (session && session.key && typeof session.tokens_balance === 'number') {
+      return Math.max(0, session.tokens_balance)
+    }
     const cached = safeStorage.getItem(SUPABASE_CONFIG.STORAGE_TOKENS_KEY)
-    return cached !== null ? parseInt(cached, 10) : SUPABASE_CONFIG.DEFAULT_TOKENS
+    if (session && session.key && cached !== null) {
+      return Math.max(0, parseInt(cached, 10))
+    }
+    return 0
   }
 
   private _setTokenBalance(count: number): void {

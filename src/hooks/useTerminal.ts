@@ -268,7 +268,9 @@ export function useTerminal() {
       }
 
       // Prepare target period prediction
-      const tokensBalance = supabaseClient.getTokenBalance()
+      const session = supabaseClient.getSession()
+      const hasActiveSession = !!(session && session.key)
+      const tokensBalance = hasActiveSession ? supabaseClient.getTokenBalance() : 0
       let currentTargetEntry = historyMap.get(currentTargetPeriod)
       let prediction: PredictionResult | null = null
 
@@ -277,7 +279,7 @@ export function useTerminal() {
         const validResolved = sortedHistory.filter(h => h.actual_result)
         const localPred = engine.predict(validResolved)
 
-        if (tokensBalance > 0) {
+        if (tokensBalance > 0 && hasActiveSession) {
           prediction = localPred
           currentTargetEntry = {
             issue_number: currentTargetPeriod,
@@ -305,7 +307,7 @@ export function useTerminal() {
                   prediction: {
                     prediction: s.predicted_type as 'BIG' | 'SMALL',
                     confidence: s.confidence,
-                    status: s.status as 'CLEARED' | 'HOLD' | 'SNIPER',
+                    status: (s.status as any) || 'CLEARED',
                     statusReason: s.statusReason || '',
                     luckyDigits: ensureLuckyDigits(s.lucky_digits, s.predicted_type),
                     strategy: s.strategy,
@@ -329,7 +331,7 @@ export function useTerminal() {
             }
           })
         }
-      } else if (currentTargetEntry.predicted_type) {
+      } else if (currentTargetEntry.predicted_type && tokensBalance > 0 && hasActiveSession) {
         prediction = {
           prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
           confidence: currentTargetEntry.prediction_confidence || 65,
@@ -503,6 +505,9 @@ export function useTerminal() {
   }, [deferredPwaPrompt, showToast])
 
   const manualSync = useCallback(async () => {
+    const session = supabaseClient.getSession()
+    const bal = (session && session.key) ? supabaseClient.getTokenBalance() : 0
+    setState(prev => ({ ...prev, tokensBalance: bal }))
     showToast('Syncing latest results...')
     await syncCycle()
   }, [syncCycle, showToast])

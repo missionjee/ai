@@ -60,7 +60,7 @@ describe('PredictionEngine Safety Filters & Gating Matrix', () => {
 
         assert.equal(res.status, 'HOLD');
         assert.equal(res.isSniper, false);
-        assert.ok(res.statusReason.includes('2-2 Pattern') || res.statusReason.includes('discordance'));
+        assert.ok(res.statusReason.includes('2-2') || res.statusReason.includes('discordance') || res.statusReason.includes('Symmetry'));
     });
 
     it('5. Streak Boundary 2x Transition: prevents premature trend chasing', () => {
