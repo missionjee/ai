@@ -12,7 +12,12 @@ from ml_engine.models import (
     CatBoostPredictor,
     LightGBMPredictor,
     DeepSequenceAttention,
-    StackingMetaLearner
+    StackingMetaLearner,
+    OnlinePlattCalibrator,
+    ADWINDriftDetector,
+    EvidentialDeepLearner,
+    SparseMoERouter,
+    FailureAnalysisTrigger
 )
 
 
@@ -101,6 +106,11 @@ class QuantitativePipeline:
         self.lightgbm = LightGBMPredictor()
         self.attention = DeepSequenceAttention()
         self.ensemble = StackingMetaLearner()
+        self.calibrator = OnlinePlattCalibrator()
+        self.drift_detector = ADWINDriftDetector(delta=0.005)
+        self.evidential = EvidentialDeepLearner()
+        self.moe_router = SparseMoERouter()
+        self.failure_analyzer = FailureAnalysisTrigger(confidence_threshold=75)
 
     def run(self, history_records):
         """
@@ -144,6 +154,7 @@ class QuantitativePipeline:
         self.catboost.fit(X, y)
         self.lightgbm.fit(X, y)
         self.attention.fit(all_nums)
+        self.evidential.fit(all_nums)
         
         # Feature vector for upcoming target round (index = len(valid))
         target_features = extract_features_for_index(valid, len(valid), lookback=12)
@@ -153,6 +164,8 @@ class QuantitativePipeline:
         cat_dist = self.catboost.predict_distribution(target_features)
         lgb_dist = self.lightgbm.predict_distribution(target_features)
         deep_dist = self.attention.predict_distribution(all_nums)
+        evidential_info = self.evidential.predict_evidential(all_nums)
+
         # Regime determination
         h_s = entropy_metrics.get("shannon_entropy_10", 1.0)
         p_e = entropy_metrics.get("permutation_entropy", 1.0)
@@ -166,47 +179,76 @@ class QuantitativePipeline:
         else:
             regime = "alternating" if p_e < 0.80 else "mixed"
 
+        # Sparse MoE Routing across sub-expert specializations
+        moe_routing = self.moe_router.route_and_blend(
+            context={"hurst_exponent": hurst, "shannon_entropy": h_s, "cur_streak": 2, "is_alternating": (regime == "alternating")},
+            expert_distributions={
+                "streak_momentum": cat_dist,
+                "harmonic_oscillator": deep_dist,
+                "micro_anomaly": lgb_dist
+            }
+        )
+
         # Stacking ensemble with regime-adaptive weights
         ens = self.ensemble.ensemble_distribution(
             cat_dist, lgb_dist, deep_dist, reg_info,
             context={"regime": regime, "alt_rate": alt_rate}
         )
         
-        # Confluence & Sniper Detection
-        # Check alignment between continuous regressor, GBDT, and Attention
+        # Online SGD calibration step using recent valid history
+        recent_drift_state = {"drift_detected": False}
+        for r in valid[-20:]:
+            a_num = float(r.get("actual_number", 4.5))
+            a_bin = 1 if a_num >= 5.0 else 0
+            self.calibrator.update_step(ens["big_prob"] / 100.0, a_bin)
+            recent_drift_state = self.drift_detector.add_element(0.0 if ((ens["pred_type"] == "BIG" and a_bin == 1) or (ens["pred_type"] == "SMALL" and a_bin == 0)) else 1.0)
+
+        # Calibrate output probabilities
+        raw_big = ens["big_prob"] / 100.0
+        cal_big = self.calibrator.calibrate(raw_big)
+        cal_small = 1.0 - cal_big
+        dominant_p = max(cal_big, cal_small)
+        calibrated_conf = int(np.clip(52 + (dominant_p - 0.5) * 88, 52, 95))
+
+        # Confluence & Evidential Sniper Detection
         c_pred = reg_info["pred_type"]
         ens_pred = ens["pred_type"]
-        is_consensus = (c_pred == ens_pred) and (ens["confidence"] >= 72)
+        is_consensus = (c_pred == ens_pred) and (calibrated_conf >= 72)
         is_low_entropy = (h_s < 0.85)
+        is_evidential_valid = evidential_info.get("is_evidential_confident", True)
         
-        is_sniper = bool(is_consensus and is_low_entropy and regime != "mixed")
+        is_sniper = bool(is_consensus and is_low_entropy and regime != "mixed" and is_evidential_valid)
         
         status = "CLEARED"
-        status_reason = "Multi-model gradient confluence verified"
+        status_reason = f"Multi-model gradient confluence verified [{moe_routing['active_expert']} expert routed]"
         
         if is_sniper:
             status = "SNIPER"
-            status_reason = f"🎯 Sniper Confluence: CatBoost + LightGBM + Attention agree on {ens_pred} in {regime} regime"
-        elif ens["confidence"] < 62 or (regime == "mixed" and h_s > 0.93):
+            status_reason = f"🎯 Sniper Confluence: CatBoost + LightGBM + Attention agree on {ens_pred} in {regime} regime (Epistemic uncertainty {evidential_info['epistemic_uncertainty']})"
+        elif calibrated_conf < 62 or (regime == "mixed" and h_s > 0.93):
             status = "HOLD"
             status_reason = "Elevated informational entropy (chop zone). Edge diminished."
             
-        strategy = "Dual GBDT & Attention Ensemble"
-        reason = f"Continuous latent: {ens['continuous_val']} | CatBoost/LightGBM consensus {ens['big_prob']}% BIG vs {ens['small_prob']}% SMALL"
+        strategy = f"Dual GBDT & Attention MoE ({moe_routing['active_expert']})"
+        reason = f"Continuous latent: {ens['continuous_val']} | Calibrated {round(cal_big*100, 1)}% BIG vs {round(cal_small*100, 1)}% SMALL | Epistemic u={evidential_info['epistemic_uncertainty']}"
         
         return {
             "prediction": ens_pred,
-            "confidence": ens["confidence"],
+            "confidence": calibrated_conf,
             "status": status,
             "status_reason": status_reason,
             "lucky_digits": ens["lucky_digits"],
             "digit_probs": ens["digit_probs"],
-            "big_prob": int(round(ens["big_prob"])),
-            "small_prob": int(round(ens["small_prob"])),
+            "big_prob": int(round(cal_big * 100)),
+            "small_prob": int(round(cal_small * 100)),
             "strategy": strategy,
             "reason": reason,
             "continuous_val": ens["continuous_val"],
             "regime": regime,
             "is_sniper": is_sniper,
-            "entropy_metrics": entropy_metrics
+            "entropy_metrics": entropy_metrics,
+            "evidential_metrics": evidential_info,
+            "moe_routing": moe_routing,
+            "drift_state": recent_drift_state,
+            "calibration_params": {"a": self.calibrator.a, "b": self.calibrator.b}
         }

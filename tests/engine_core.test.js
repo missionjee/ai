@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { PredictionEngine } from '../engine.js';
+import { PredictionEngine, ConformalRiskGator } from '../engine.js';
 
 describe('PredictionEngine Core Submodels & Statistics', () => {
     const createHistory = (patterns, startPeriod = 20260901100010001n) => {
@@ -179,5 +179,33 @@ describe('PredictionEngine Core Submodels & Statistics', () => {
         const history = createHistory([8, 9, 7, 8, 9, 8, 9, 7, 8, 9, 1]);
         const sub = engine._computeRawSubmodels(history);
         assert.ok(sub.latentTrajectory.prob < 0.55, `Latent prob after sharp reversal should drop, got ${sub.latentTrajectory.prob}`);
+    });
+
+    it('12. Conformal Risk Gating: calculates dynamic quantile threshold tau and bounds risk', () => {
+        const gator = new ConformalRiskGator(0.12, 120);
+        // Record 40 settlements (mostly high accuracy)
+        for (let i = 0; i < 40; i++) {
+            gator.recordSettlement(0.85, i % 8 !== 0); // ~87.5% win rate
+        }
+
+        const tau = gator.computeThreshold();
+        assert.ok(tau > 0 && tau < 1.0, `Tau threshold should be in (0, 1), got ${tau}`);
+
+        // Evaluate high conviction signal under low entropy
+        const dec1 = gator.evaluateSignal(0.88, 0.72, 0.58);
+        assert.equal(dec1.isGated, true);
+        assert.equal(dec1.empiricalRiskBound, 0.12);
+
+        // Evaluate signal in white-noise regime
+        const decNoise = gator.evaluateSignal(0.88, 0.72, 0.50);
+        assert.equal(decNoise.isGated, false);
+        assert.match(decNoise.rejectionReason, /White noise/);
+
+        // Verify prediction integration
+        const engine = new PredictionEngine();
+        const history = createHistory([7, 8, 9, 8, 7, 8, 9, 8, 9, 8, 9, 8, 7, 8, 9, 8]);
+        const res = engine.predict(history);
+        assert.ok(res.conformalRisk !== undefined, 'predict() must return conformalRisk object');
+        assert.equal(typeof res.conformalRisk.isGated, 'boolean');
     });
 });

@@ -87,10 +87,6 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
     }
   }
 
-  const openPackagesWindow = () => {
-    window.open('/Neon%20Hiroto%20AI%20Token%20Packages.png', '_blank', 'noopener,noreferrer')
-  }
-
   const openTelegram = () => {
     window.open('https://t.me/hirotoaii', '_blank', 'noopener,noreferrer')
   }
@@ -101,20 +97,20 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
   const maxCount = 14
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       {/* Click Outside Backdrop */}
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal Dialog Card (Dark Tinted Glass Aesthetic) */}
       <div
-        className="relative z-10 w-full max-w-[460px] max-h-[94vh] overflow-y-auto rounded-[20px] p-4 sm:p-5 flex flex-col gap-3.5 text-white custom-scrollbar"
+        className="relative z-10 w-full max-w-[480px] max-h-[92vh] overflow-y-auto rounded-[20px] p-4 sm:p-5 flex flex-col gap-3.5 text-white custom-scrollbar"
         style={{
-          background: 'rgba(10, 14, 22, 0.88)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          background: 'rgba(10, 14, 22, 0.92)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.2)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.22)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
         }}
       >
         {/* Header with Title & Close Button */}
@@ -150,42 +146,31 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
           </span>
         </div>
 
-        {/* Compact AI Token Packages Image */}
+        {/* In-Modal Compressed AI Token Packages Display */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between text-[10.5px] font-extrabold uppercase tracking-wider text-[#cbd5e1]">
-            <span>Official Packages</span>
-            <button
-              onClick={openPackagesWindow}
-              className="text-[10px] font-bold text-[#38bdf8] hover:text-[#7dd3fc] flex items-center gap-1 underline underline-offset-2"
-            >
-              <span>↗ Expand in New Tab</span>
-            </button>
+            <span>⚡ Official Token Packages</span>
+            <span className="text-[9.5px] font-bold text-[#f59e0b] bg-[#f59e0b]/10 px-2 py-0.5 rounded-full border border-[#f59e0b]/20">
+              INSTANT ACTIVATION
+            </span>
           </div>
 
-          <div
-            onClick={openPackagesWindow}
-            className="relative rounded-xl overflow-hidden border border-white/[0.08] border-t-white/[0.16] shadow-[0_4px_14px_rgba(0,0,0,0.6)] cursor-pointer group transition-all duration-200 hover:border-[#f59e0b]/50 bg-black/50"
-          >
+          <div className="relative rounded-xl overflow-hidden border border-white/[0.1] bg-[#04060a] shadow-[0_4px_18px_rgba(0,0,0,0.7)] flex items-center justify-center p-1">
             <img
               src="/Neon%20Hiroto%20AI%20Token%20Packages.png"
               alt="Neon Hiroto AI Token Packages"
-              className="w-full h-auto object-cover max-h-[125px] sm:max-h-[135px] transition-transform duration-300 group-hover:scale-[1.01]"
+              className="w-full h-auto object-contain rounded-lg max-h-[220px] sm:max-h-[260px] select-none"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center p-2 opacity-80 group-hover:opacity-100 transition-opacity">
-              <span className="text-[9.5px] font-bold text-white bg-black/75 px-2.5 py-0.5 rounded-full border border-white/[0.1] backdrop-blur-sm flex items-center gap-1">
-                <span>🔍</span> Tap to view full size
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Simple Telegram Text Action Button */}
+        {/* Prominent Direct Telegram Redirect Button */}
         <button
           onClick={openTelegram}
-          className="w-full py-2.5 px-3 rounded-xl text-[12px] font-extrabold flex items-center justify-center gap-2 text-[#38bdf8] hover:text-white bg-[#38bdf8]/[0.08] hover:bg-[#38bdf8]/[0.18] border border-[#38bdf8]/[0.25] border-t-[#38bdf8]/[0.4] transition-all duration-150 active:translate-y-0.5"
+          className="w-full py-2.5 px-3 rounded-xl text-[12.5px] font-black flex items-center justify-center gap-2 text-white bg-gradient-to-r from-[#0088cc] via-[#24A1DE] to-[#0088cc] hover:from-[#0099e6] hover:to-[#0099e6] border border-[#38bdf8]/40 shadow-[0_0_16px_rgba(36,161,222,0.35)] transition-all duration-150 active:translate-y-0.5 hover:shadow-[0_0_24px_rgba(36,161,222,0.6)] cursor-pointer tracking-[0.5px]"
         >
-          <span>✈</span>
-          <span>Contact Telegram: @hirotoaii</span>
+          <span className="text-[14px]">✈</span>
+          <span>REDIRECT TO TELEGRAM (BUY TOKENS) ↗</span>
         </button>
 
         {/* Divider */}

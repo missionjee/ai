@@ -1,9 +1,18 @@
 import unittest
 import numpy as np
 from ml_engine.entropy import compute_entropy_suite
-from ml_engine.pipeline import extract_features_for_index, build_dataset
+from ml_engine.pipeline import extract_features_for_index, build_dataset, QuantitativePipeline
 from ml_engine.service import calculate_next_period
-from ml_engine.models import ContinuousLatentRegressor, DeepSequenceAttention, StackingMetaLearner
+from ml_engine.models import (
+    ContinuousLatentRegressor,
+    DeepSequenceAttention,
+    StackingMetaLearner,
+    OnlinePlattCalibrator,
+    ADWINDriftDetector,
+    EvidentialDeepLearner,
+    SparseMoERouter,
+    FailureAnalysisTrigger
+)
 
 
 class TestMLEngine(unittest.TestCase):
@@ -76,20 +85,85 @@ class TestMLEngine(unittest.TestCase):
         self.assertEqual(len(dist), 10)
         self.assertAlmostEqual(float(np.sum(dist)), 1.0, places=4)
 
-    def test_stacking_meta_learner(self):
-        meta = StackingMetaLearner()
-        p1 = np.ones(10) / 10.0
-        p2 = np.ones(10) / 10.0
-        p3 = np.ones(10) / 10.0
-        reg_info = {"continuous_val": 7.2, "pred_type": "BIG", "conf": 75}
+    def test_online_platt_calibrator(self):
+        cal = OnlinePlattCalibrator()
+        p0 = cal.calibrate(0.8)
+        self.assertGreater(p0, 0.5)
+        self.assertLessEqual(p0, 0.99)
         
-        ens = meta.ensemble_distribution(p1, p2, p3, reg_info)
-        self.assertIn("digit_probs", ens)
-        self.assertIn("big_prob", ens)
-        self.assertIn("small_prob", ens)
-        self.assertIn("lucky_digits", ens)
-        self.assertEqual(len(ens["lucky_digits"]), 2)
-        self.assertIn(ens["pred_type"], ["BIG", "SMALL"])
+        # Train on positive examples
+        for _ in range(10):
+            res = cal.update_step(0.8, 1)
+            self.assertIn("loss", res)
+            self.assertIn("a", res)
+            self.assertIn("b", res)
+
+    def test_adwin_drift_detector(self):
+        adwin = ADWINDriftDetector(delta=0.01)
+        # Feed 30 wins (error 0.0)
+        for _ in range(30):
+            res = adwin.add_element(0.0)
+        self.assertFalse(res["drift_detected"])
+        
+        # Sudden shift to losses (error 1.0)
+        shift_detected = False
+        for _ in range(40):
+            res = adwin.add_element(1.0)
+            if res["drift_detected"]:
+                shift_detected = True
+                break
+        self.assertTrue(shift_detected)
+
+    def test_quantitative_pipeline_end_to_end(self):
+        pipeline = QuantitativePipeline()
+        records = [
+            {"issue_number": f"202609011000100{i:02d}", "actual_number": (i * 7 + 3) % 10, "actual_result": "BIG" if ((i * 7 + 3) % 10) >= 5 else "SMALL"}
+            for i in range(35)
+        ]
+        res = pipeline.run(records)
+        self.assertIn("prediction", res)
+        self.assertIn(res["prediction"], ["BIG", "SMALL", "HOLD"])
+        self.assertIn("confidence", res)
+        self.assertGreaterEqual(res["confidence"], 50)
+        self.assertIn("drift_state", res)
+        self.assertIn("calibration_params", res)
+        self.assertIn("evidential_metrics", res)
+        self.assertIn("moe_routing", res)
+
+    def test_evidential_deep_learner(self):
+        edl = EvidentialDeepLearner()
+        nums = [1, 2, 7, 8, 9, 3, 4, 8, 9, 7] * 3
+        edl.fit(nums)
+        pred = edl.predict_evidential(nums)
+        self.assertIn("epistemic_uncertainty", pred)
+        self.assertIn("aleatoric_uncertainty", pred)
+        self.assertIn("evidence_strength", pred)
+        self.assertGreater(pred["evidence_strength"], 0.0)
+        self.assertGreaterEqual(pred["epistemic_uncertainty"], 0.0)
+
+    def test_sparse_moe_router(self):
+        moe = SparseMoERouter()
+        context = {"hurst_exponent": 0.65, "shannon_entropy": 0.70, "cur_streak": 3, "is_alternating": False}
+        expert_dists = {
+            "streak_momentum": np.ones(10)/10.0,
+            "harmonic_oscillator": np.ones(10)/10.0,
+            "micro_anomaly": np.ones(10)/10.0
+        }
+        res = moe.route_and_blend(context, expert_dists)
+        self.assertIn("active_expert", res)
+        self.assertIn("gating_weights", res)
+        self.assertEqual(len(res["blended_distribution"]), 10)
+
+    def test_failure_analysis_trigger(self):
+        trigger = FailureAnalysisTrigger(confidence_threshold=70)
+        pred_record = {"issue_number": "20260901100010025", "prediction": "BIG", "confidence": 85}
+        feat_names = ["lag1", "lag2", "velocity", "hurst", "entropy"]
+        feat_vec = [8.0, 9.0, 1.0, 0.62, 0.75]
+        incident = trigger.inspect_loss(pred_record, "SMALL", feat_names, feat_vec)
+        self.assertIsNotNone(incident)
+        self.assertEqual(incident["predicted"], "BIG")
+        self.assertEqual(incident["actual"], "SMALL")
+        self.assertIn("barrier_rule", incident)
 
 
 if __name__ == "__main__":

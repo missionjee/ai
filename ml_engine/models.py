@@ -302,3 +302,270 @@ class StackingMetaLearner:
             "confidence": confidence,
             "continuous_val": c_val
         }
+
+
+class OnlinePlattCalibrator:
+    """
+    Online Logistic Regression for Empirical Probability Calibration:
+    P_cal = 1 / (1 + exp(-(A * (raw_score - 0.5) + B)))
+    """
+    def __init__(
+        self,
+        initial_a: float = 2.40,
+        initial_b: float = -0.05,
+        learning_rate: float = 0.035,
+        l2_reg: float = 0.015,
+        momentum: float = 0.85
+    ) -> None:
+        self.a: float = initial_a
+        self.b: float = initial_b
+        self.lr: float = learning_rate
+        self.l2_reg: float = l2_reg
+        self.momentum: float = momentum
+        self.v_a: float = 0.0
+        self.v_b: float = 0.0
+        self.loss_history = []
+
+    def calibrate(self, raw_score: float) -> float:
+        """
+        Maps raw ensemble score in [0.0, 1.0] to calibrated empirical probability.
+        """
+        x = float(raw_score) - 0.50
+        z = self.a * x + self.b
+        z_clipped = max(-15.0, min(15.0, z))
+        p_cal = 1.0 / (1.0 + math.exp(-z_clipped))
+        return max(0.01, min(0.99, p_cal))
+
+    def update_step(self, raw_score: float, actual_label: int) -> dict:
+        """
+        Performs one online SGD gradient step with momentum.
+        @param raw_score: Raw model score in [0.0, 1.0]
+        @param actual_label: Binary ground truth (1 for BIG, 0 for SMALL)
+        """
+        x = float(raw_score) - 0.50
+        p = self.calibrate(raw_score)
+        y = float(actual_label)
+
+        # Cross-entropy log loss
+        eps = 1e-12
+        loss = -(y * math.log(max(eps, p)) + (1.0 - y) * math.log(max(eps, 1.0 - p)))
+        self.loss_history.append(loss)
+        if len(self.loss_history) > 500:
+            self.loss_history.pop(0)
+
+        # Analytical gradients
+        grad_error = p - y
+        grad_a = grad_error * x + self.l2_reg * (self.a - 2.0)
+        grad_b = grad_error + self.l2_reg * self.b
+
+        # Momentum velocity update
+        self.v_a = self.momentum * self.v_a - self.lr * grad_a
+        self.v_b = self.momentum * self.v_b - self.lr * grad_b
+
+        self.a += self.v_a
+        self.b += self.v_b
+
+        # Parameter bounding box
+        self.a = max(1.20, min(5.00, self.a))
+        self.b = max(-0.35, min(0.35, self.b))
+
+        return {
+            "loss": round(loss, 5),
+            "a": round(self.a, 4),
+            "b": round(self.b, 4),
+            "calibrated_prob": round(p, 4)
+        }
+
+
+class ADWINDriftDetector:
+    """
+    ADWIN (Adaptive Windowing) Concept Drift Detector Wrapper.
+    Monitors error distribution across dynamic sub-windows W0 and W1 using Hoeffding bounds.
+    """
+    def __init__(self, delta: float = 0.002, max_window: int = 500) -> None:
+        self.delta: float = delta
+        self.max_window: int = max_window
+        self.window = []
+
+    def add_element(self, value: float) -> dict:
+        """
+        Adds a new loss/error observation (0.0 for win, 1.0 for loss).
+        Returns drift detection state.
+        """
+        self.window.append(float(value))
+        n = len(self.window)
+        if n > self.max_window:
+            self.window.pop(0)
+
+        drift_detected = False
+        cut_point = -1
+
+        # Evaluate valid sub-window split points
+        if n >= 20:
+            for i in range(10, n - 10):
+                w0 = self.window[:i]
+                w1 = self.window[i:]
+                n0, n1 = len(w0), len(w1)
+                m0, m1 = float(np.mean(w0)), float(np.mean(w1))
+
+                m_harmonic = 1.0 / (1.0 / n0 + 1.0 / n1)
+                delta_prime = self.delta / math.log(n)
+                eps_cut = math.sqrt((1.0 / (2.0 * m_harmonic)) * math.log(4.0 / delta_prime))
+
+                if abs(m0 - m1) >= eps_cut:
+                    drift_detected = True
+                    cut_point = i
+                    # Shrink window to newest regime W1
+                    self.window = self.window[i:]
+                    break
+
+        mean_val = float(np.mean(self.window)) if self.window else 0.0
+        return {
+            "drift_detected": drift_detected,
+            "window_size": len(self.window),
+            "current_error_mean": round(mean_val, 4),
+            "cut_point": cut_point
+        }
+
+
+class EvidentialDeepLearner:
+    """
+    Evidential Deep Learning (Dirichlet Prior Network).
+    Quantifies Epistemic (model uncertainty) vs Aleatoric (data noise) uncertainty.
+    """
+    def __init__(self, num_classes: int = 10, prior_strength: float = 1.0):
+        self.num_classes = num_classes
+        self.prior_strength = prior_strength
+        self.alphas = np.ones(num_classes) * prior_strength
+
+    def fit(self, history_nums: list):
+        if len(history_nums) < 15:
+            return self
+        counts = np.zeros(self.num_classes)
+        for n in history_nums[-60:]:
+            idx = int(n) % 10
+            counts[idx] += 1.0
+        self.alphas = counts + self.prior_strength
+        return self
+
+    def predict_evidential(self, recent_nums: list) -> dict:
+        if len(recent_nums) < 5:
+            alphas = np.ones(self.num_classes) * self.prior_strength
+        else:
+            recent_counts = np.zeros(self.num_classes)
+            for n in recent_nums[-20:]:
+                recent_counts[int(n) % 10] += 1.0
+            alphas = recent_counts * 1.5 + self.prior_strength
+
+        S = float(np.sum(alphas))
+        probs = alphas / S
+        # Epistemic uncertainty u = K / S
+        epistemic_uncertainty = float(self.num_classes / S)
+        # Aleatoric uncertainty: entropy of expected categorical distribution
+        aleatoric_uncertainty = float(-np.sum([p * math.log2(max(1e-12, p)) for p in probs]) / math.log2(self.num_classes))
+        
+        big_prob = float(np.sum(probs[5:]))
+        small_prob = float(np.sum(probs[:5]))
+        
+        return {
+            "digit_probs": {int(d): round(float(probs[d]) * 100, 1) for d in range(self.num_classes)},
+            "big_prob": round(big_prob * 100, 1),
+            "small_prob": round(small_prob * 100, 1),
+            "epistemic_uncertainty": round(epistemic_uncertainty, 4),
+            "aleatoric_uncertainty": round(aleatoric_uncertainty, 4),
+            "evidence_strength": round(S, 2),
+            "is_evidential_confident": epistemic_uncertainty <= 0.35 and S >= 15.0
+        }
+
+
+class SparseMoERouter:
+    """
+    Sparse Mixture-of-Experts (MoE) Gating Router.
+    Routes inference to specialized sub-networks based on regime state, Hurst exponent, and entropy.
+    """
+    def __init__(self):
+        self.experts = ["streak_momentum", "harmonic_oscillator", "micro_anomaly"]
+
+    def route_and_blend(self, context: dict, expert_distributions: dict) -> dict:
+        """
+        Calculates soft gating weights over experts and returns the blended prediction.
+        """
+        hurst = context.get("hurst_exponent", 0.50)
+        entropy = context.get("shannon_entropy", 0.80)
+        streak = context.get("cur_streak", 1)
+        
+        # Softmax gating logits
+        g_streak = (hurst - 0.50) * 8.0 + (streak - 1) * 0.5
+        g_harmonic = (0.50 - hurst) * 8.0 + (1.0 if context.get("is_alternating") else 0.0)
+        g_anomaly = (0.85 - entropy) * 4.0
+
+        logits = np.array([g_streak, g_harmonic, g_anomaly])
+        exp_l = np.exp(logits - np.max(logits))
+        gating_weights = exp_l / np.sum(exp_l)
+        
+        top_expert_idx = int(np.argmax(gating_weights))
+        active_expert = self.experts[top_expert_idx]
+        
+        # Blend expert predictions
+        streak_p = expert_distributions.get("streak_momentum", np.ones(10)/10.0)
+        harm_p = expert_distributions.get("harmonic_oscillator", np.ones(10)/10.0)
+        anom_p = expert_distributions.get("micro_anomaly", np.ones(10)/10.0)
+        
+        blended_p = (
+            gating_weights[0] * np.array(streak_p) +
+            gating_weights[1] * np.array(harm_p) +
+            gating_weights[2] * np.array(anom_p)
+        )
+        blended_p /= np.sum(blended_p)
+        
+        return {
+            "active_expert": active_expert,
+            "gating_weights": {self.experts[i]: round(float(gating_weights[i]), 3) for i in range(3)},
+            "blended_distribution": blended_p
+        }
+
+
+class FailureAnalysisTrigger:
+    """
+    SHAP & Feature Attribution Post-Mortem Failure Analyzer.
+    Automatically diagnoses mispredicted high-confidence signals and generates anti-pattern barrier rules.
+    """
+    def __init__(self, confidence_threshold: int = 75):
+        self.conf_threshold = confidence_threshold
+        self.failure_log = []
+
+    def inspect_loss(self, prediction_record: dict, actual_result: str, feature_names: list, feature_vector: list) -> dict:
+        pred_type = str(prediction_record.get("prediction", "")).upper()
+        conf = int(prediction_record.get("confidence", 50))
+        act_type = str(actual_result).upper()
+        
+        is_miss = (pred_type in ["BIG", "SMALL"] and act_type in ["BIG", "SMALL"] and pred_type != act_type)
+        if not is_miss or conf < self.conf_threshold:
+            return None
+            
+        feat_arr = np.array(feature_vector, dtype=float) if len(feature_vector) > 0 else np.zeros(len(feature_names))
+        ranked_idx = np.argsort(np.abs(feat_arr))[::-1]
+        
+        top_culprits = []
+        for idx in ranked_idx[:3]:
+            f_name = feature_names[idx] if idx < len(feature_names) else f"feat_{idx}"
+            val = float(feat_arr[idx]) if idx < len(feat_arr) else 0.0
+            top_culprits.append({
+                "feature": f_name,
+                "value": round(val, 3)
+            })
+            
+        incident = {
+            "period": prediction_record.get("issue_number", "UNKNOWN"),
+            "predicted": pred_type,
+            "actual": act_type,
+            "confidence": conf,
+            "primary_culprits": top_culprits,
+            "barrier_rule": f"QUARANTINE_IF_{top_culprits[0]['feature']}_NEAR_{top_culprits[0]['value']}"
+        }
+        self.failure_log.append(incident)
+        if len(self.failure_log) > 200:
+            self.failure_log.pop(0)
+        return incident
+
+

@@ -32,6 +32,69 @@
  *    - Continuous statistical forensics monitoring for Linear Congruential Generator (LCG) recurrence.
  */
 
+export class ConformalRiskGator {
+    /**
+     * @param {number} targetErrorRate - Target maximum loss rate alpha (default: 0.12 for 88% selective precision)
+     * @param {number} windowSize - Rolling calibration memory window (default: 120 rounds)
+     */
+    constructor(targetErrorRate = 0.12, windowSize = 120) {
+        this.alpha = targetErrorRate;
+        this.windowSize = windowSize;
+        this.nonConformityScores = [];
+    }
+
+    recordSettlement(predictedProb, isWin) {
+        const score = isWin ? (1.0 - predictedProb) : predictedProb;
+        this.nonConformityScores.push(score);
+        if (this.nonConformityScores.length > this.windowSize) {
+            this.nonConformityScores.shift();
+        }
+    }
+
+    computeThreshold() {
+        const n = this.nonConformityScores.length;
+        if (n < 30) return 0.22; // Conservative fallback threshold during warm-up
+
+        const sorted = [...this.nonConformityScores].sort((a, b) => a - b);
+        const pIndex = Math.min(n - 1, Math.ceil((1.0 - this.alpha) * (n + 1)) - 1);
+        return sorted[Math.max(0, pIndex)];
+    }
+
+    evaluateSignal(calibratedProb, shannonEntropy, hurstExponent) {
+        const currentScore = 1.0 - calibratedProb;
+        const tau = this.computeThreshold();
+
+        if (shannonEntropy > 0.88) {
+            return {
+                isGated: false,
+                nonConformityScore: currentScore,
+                calibratedThreshold: tau,
+                empiricalRiskBound: this.alpha,
+                rejectionReason: `Elevated informational entropy (${shannonEntropy.toFixed(3)} > 0.88)`
+            };
+        }
+
+        if (hurstExponent >= 0.48 && hurstExponent <= 0.52) {
+            return {
+                isGated: false,
+                nonConformityScore: currentScore,
+                calibratedThreshold: tau,
+                empiricalRiskBound: this.alpha,
+                rejectionReason: `White noise regime (Hurst ${hurstExponent.toFixed(2)} in neutral band)`
+            };
+        }
+
+        const isGated = currentScore <= tau;
+        return {
+            isGated,
+            nonConformityScore: parseFloat(currentScore.toFixed(4)),
+            calibratedThreshold: parseFloat(tau.toFixed(4)),
+            empiricalRiskBound: this.alpha,
+            rejectionReason: isGated ? "CLEARED_SNIPER" : `Score ${currentScore.toFixed(3)} exceeds tau ${tau.toFixed(3)}`
+        };
+    }
+}
+
 export class PredictionEngine {
     constructor() {
         this.minConfidence = 52;
@@ -40,6 +103,7 @@ export class PredictionEngine {
         this.historyBuffer = new Map();
         this.plattA = 2.40;
         this.plattB = -0.05;
+        this.conformalGator = new ConformalRiskGator(0.12, 120);
         this.modelTrackers = {
             parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
             latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
@@ -942,8 +1006,10 @@ export class PredictionEngine {
             ? `${rawSub.dragonMomentum.reason} • [${rawSub.historicalPatternAssistance.pattern} assistance]`
             : rawSub.dragonMomentum.reason;
 
-        // Step 10: PRNG Forensics
+        // Step 10: PRNG Forensics & Conformal Risk Assessment
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
+        const dominantProb = Math.max(calibratedP, 1.0 - calibratedP);
+        const conformalDecision = this.conformalGator.evaluateSignal(dominantProb, shannonEntropy, regimeCheck.hurstH);
 
         return {
             prediction,
@@ -968,7 +1034,8 @@ export class PredictionEngine {
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
             engineVersion: "v9.1",
             modelPerformance: this.modelTrackers,
-            prngForensics: prngAudit
+            prngForensics: prngAudit,
+            conformalRisk: conformalDecision
         };
     }
 
