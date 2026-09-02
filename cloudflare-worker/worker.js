@@ -516,6 +516,76 @@ class PredictionEngine {
         };
     }
 
+    _detectBrokenSymmetryPattern(tokens) {
+        if (!tokens || tokens.length < 5) return { detected: false, patternName: "" };
+        const s5 = tokens.slice(-5).join("");
+        const s6 = tokens.slice(-6).join("");
+
+        // 2-1-2 Rhythm ("11011" or "00100")
+        if (s5 === "11011" || s5 === "00100") {
+            return { detected: true, patternName: "2-1-2 Rhythm" };
+        }
+        // 1-2-1 Broken Symmetry ("10010" or "01101")
+        if (s5 === "10010" || s5 === "01101") {
+            return { detected: true, patternName: "1-2-1 Broken Symmetry" };
+        }
+        // 2-2-2 Doublet Trap ("110011" or "001100")
+        if (s6 === "110011" || s6 === "001100") {
+            return { detected: true, patternName: "2-2-2 Doublet Oscillation" };
+        }
+        // 3-1-2 Asymmetric Pinch ("111011" or "000100")
+        if (s6 === "111011" || s6 === "000100") {
+            return { detected: true, patternName: "3-1-2 Asymmetric Pinch" };
+        }
+        return { detected: false, patternName: "" };
+    }
+
+    _computeWalkForwardConsecutiveMisses(validHistory) {
+        if (!Array.isArray(validHistory) || validHistory.length < 10) return 0;
+
+        // 1. Explicit consecutive misses recorded in history
+        let explicitMisses = 0;
+        for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 6); i--) {
+            const h = validHistory[i];
+            const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null;
+            const a = (h.actual_result || h.result_type) ? String(h.actual_result || h.result_type).toUpperCase() : null;
+            if (p && a && (p === "BIG" || p === "SMALL") && (a === "BIG" || a === "SMALL")) {
+                if (p !== a) explicitMisses++;
+                else break;
+            }
+        }
+
+        // 2. Simulated walk-forward backtest across recent rounds
+        let simulatedMisses = 0;
+        const testDepth = Math.min(4, validHistory.length - 8);
+        for (let k = 1; k <= testDepth; k++) {
+            const targetIdx = validHistory.length - k;
+            const subHist = validHistory.slice(0, targetIdx);
+            const actual = (validHistory[targetIdx].actual_result || validHistory[targetIdx].result_type || "").toUpperCase();
+            if (actual !== "BIG" && actual !== "SMALL") break;
+
+            const rawSub = this._computeRawSubmodels(subHist);
+            let weightedBase = 0, totalW = 0;
+            for (const [name, tr] of Object.entries(this.modelTrackers)) {
+                let p = rawSub[name].prob;
+                if (tr.inverted) p = 1.0 - p;
+                weightedBase += p * tr.weight;
+                totalW += tr.weight;
+            }
+            const rawScore = weightedBase / (totalW || 1.0);
+            const simP = this._plattCalibrate(rawScore);
+            const simPred = simP >= 0.50 ? "BIG" : "SMALL";
+
+            if (simPred !== actual) {
+                simulatedMisses++;
+            } else {
+                break;
+            }
+        }
+
+        return Math.max(explicitMisses, simulatedMisses);
+    }
+
     // ==============================================================================
     // PRIMARY PREDICTION INTERFACE
     // ==============================================================================
@@ -686,19 +756,11 @@ class PredictionEngine {
 
         let confidence = Math.min(this.maxConfidence, Math.max(this.minConfidence, Math.round(52 + margin * 88)));
 
-        // Step 7: Consecutive Miss Protection
-        let consecutiveMisses = 0;
-        for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 6); i--) {
-            const h = validHistory[i];
-            const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null;
-            const a = (h.actual_result || h.result_type) ? String(h.actual_result || h.result_type).toUpperCase() : null;
-            if (p && a && (p === "BIG" || p === "SMALL") && (a === "BIG" || a === "SMALL")) {
-                if (p !== a) consecutiveMisses++;
-                else break;
-            }
-        }
+        // Step 7: Consecutive Miss Protection (Anti-Drawdown Shield & Walk-Forward Backtest)
+        const consecutiveMisses = this._computeWalkForwardConsecutiveMisses(validHistory);
+        const brokenSymmetry = this._detectBrokenSymmetryPattern(tokens);
 
-        // Step 8: Execution Status & Ultra-SNIPER Gate
+        // Step 8: Execution Status & Multi-Tier Anti-Drawdown Safety Matrix
         let status = "CLEARED";
         let statusReason = `Multi-model confluence verified (Hurst H=${regimeCheck.hurstH})`;
 
@@ -706,9 +768,19 @@ class PredictionEngine {
             status = "HOLD";
             statusReason = `🛡️ White-Noise Filter: Hurst H=${regimeCheck.hurstH} indicates random walk. Capital preserved.`;
             confidence = Math.min(confidence, 55);
+        } else if (consecutiveMisses >= 3) {
+            // Anti-3rd+ Loss Barrier: Extended quarantine lock to eliminate 3+ losing streaks
+            status = "HOLD";
+            statusReason = `🛡️ Anti-Drawdown Quarantine: ${consecutiveMisses} consecutive losses detected. Halting executions until regime stabilizes.`;
+            confidence = Math.min(confidence, 50);
         } else if (consecutiveMisses >= 2) {
             status = "HOLD";
             statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses detected. Absorbing market regime shift.`;
+            confidence = Math.min(confidence, 56);
+        } else if (consecutiveMisses === 1 && (margin < 0.08 || agreementRate < 0.70)) {
+            // Post-Loss Filter: Tighten edge requirement to prevent 2nd/3rd consecutive loss
+            status = "HOLD";
+            statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=70% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`;
             confidence = Math.min(confidence, 58);
         } else if (shannonEntropy > 0.93) {
             status = "HOLD";
@@ -737,15 +809,25 @@ class PredictionEngine {
             status = "HOLD";
             statusReason = `🛡️ Asymmetric Dragon Guard: 3x SMALL continuation requires >=82% confluence (current: ${Math.round(agreementRate * 100)}%).`;
             confidence = Math.min(confidence, 56);
-        } else if (curAlts >= 4) {
-            // Fix 2: Alternation Ceiling (4+ switches)
+        } else if (curAlts >= 3) {
+            // Fix 2: Lowered Alternation Ceiling from 4 to 3 switches to prevent 3rd loss
             status = "HOLD";
-            statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (28-37% win rate trap).`;
+            statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (chop trap).`;
             confidence = Math.min(confidence, 52);
+        } else if (curAlts === 2 && (shannonEntropy > 0.88 || regimeCheck.hurstH < 0.48)) {
+            // Early Alternation Guard under elevated entropy
+            status = "HOLD";
+            statusReason = `🛡️ Early Alternation Trap: 2 switches under elevated entropy (${shannonEntropy.toFixed(2)}).`;
+            confidence = Math.min(confidence, 54);
         } else if (is22Pair || is22Alt) {
             // Fix 2: 2-2 Pattern (BB-SS pair or BS-BS alternation)
             status = "HOLD";
             statusReason = `🛡️ 2-2 Pattern Trap: ${is22Pair ? "Pair (2-2)" : "Alternation (2-2)"} detected in trailing 4 draws.`;
+            confidence = Math.min(confidence, 53);
+        } else if (brokenSymmetry.detected) {
+            // Fix 3: Broken Symmetry Rhythm Trap (2-1-2, 1-2-1, 2-2-2)
+            status = "HOLD";
+            statusReason = `🛡️ Broken Symmetry Trap: ${brokenSymmetry.patternName} detected in recent sequence.`;
             confidence = Math.min(confidence, 53);
         }
 

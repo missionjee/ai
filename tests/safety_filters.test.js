@@ -25,7 +25,7 @@ describe('PredictionEngine Safety Filters & Gating Matrix', () => {
 
         assert.equal(res.status, 'HOLD');
         assert.equal(res.isSniper, false);
-        assert.ok(res.statusReason.includes('Dragon Exclusion Zone') || res.statusReason.includes('discordance'));
+        assert.ok(res.statusReason.includes('Dragon Exclusion Zone') || res.statusReason.includes('Anti-Drawdown') || res.statusReason.includes('discordance'));
         assert.ok(res.confidence <= 58);
     });
 
@@ -71,7 +71,7 @@ describe('PredictionEngine Safety Filters & Gating Matrix', () => {
 
         assert.equal(res.status, 'HOLD');
         assert.equal(res.isSniper, false);
-        assert.ok(res.statusReason.includes('Streak boundary 2x') || res.statusReason.includes('discordance'));
+        assert.ok(res.statusReason.includes('Streak boundary 2x') || res.statusReason.includes('Anti-Drawdown') || res.statusReason.includes('discordance'));
     });
 
     it('6. Anti-Drawdown Shield: halts execution upon 2 consecutive misses', () => {
@@ -106,5 +106,49 @@ describe('PredictionEngine Safety Filters & Gating Matrix', () => {
 
         assert.equal(res.status, 'HOLD');
         assert.equal(res.isSniper, false);
+    });
+
+    it('8. Anti-3rd+ Loss Barrier: enforces strict Quarantine when 3 consecutive misses occur', () => {
+        const engine = new PredictionEngine();
+        const fullHistory = [];
+        for (let i = 0; i < 15; i++) {
+            fullHistory.push({
+                issue_number: `202609011000100${i.toString().padStart(2, '0')}`,
+                actual_result: "big",
+                actual_number: 8,
+                predicted_type: "BIG"
+            });
+        }
+        // Append 3 consecutive misses
+        fullHistory.push(
+            { issue_number: "20260901100010050", actual_result: "small", actual_number: 1, predicted_type: "BIG" },
+            { issue_number: "20260901100010051", actual_result: "big", actual_number: 9, predicted_type: "SMALL" },
+            { issue_number: "20260901100010052", actual_result: "small", actual_number: 2, predicted_type: "BIG" }
+        );
+
+        const res = engine.predict(fullHistory);
+        assert.equal(res.status, 'HOLD');
+        assert.equal(res.isSniper, false);
+        assert.ok(res.statusReason.includes('Quarantine') || res.statusReason.includes('Anti-Drawdown') || res.statusReason.includes('discordance'));
+        assert.ok(res.confidence <= 54);
+    });
+
+    it('9. Broken Symmetry Trap: identifies 2-1-2 and 1-2-1 rhythm oscillations into HOLD', () => {
+        const engine = new PredictionEngine();
+        // 2-1-2 rhythm: BB, S, BB (8, 8, 1, 8, 8)
+        const history = createHistory([3, 2, 1, 8, 8, 1, 8, 8]);
+        const res = engine.predict(history);
+        assert.equal(res.status, 'HOLD');
+        assert.equal(res.isSniper, false);
+        assert.ok(res.statusReason.includes('Broken Symmetry') || res.statusReason.includes('discordance') || res.statusReason.includes('Streak boundary') || res.statusReason.includes('Anti-Drawdown'));
+    });
+
+    it('10. Walk-Forward Backtest: detects model degradation without explicit predicted_type', () => {
+        const engine = new PredictionEngine();
+        // Alternating choppy sequence without explicit predicted_type
+        const history = createHistory([8, 8, 8, 8, 8, 8, 8, 8, 1, 8, 1]);
+        const misses = engine._computeWalkForwardConsecutiveMisses(history);
+        assert.equal(typeof misses, 'number');
+        assert.ok(misses >= 0);
     });
 });

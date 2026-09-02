@@ -461,6 +461,70 @@ export class PredictionEngine {
     return Math.max(0.0, Math.min(1.0, pe / Math.log2(6)))
   }
 
+  private _detectBrokenSymmetryPattern(tokens: number[]): { detected: boolean; patternName: string } {
+    if (!tokens || tokens.length < 5) return { detected: false, patternName: '' }
+    const s5 = tokens.slice(-5).join('')
+    const s6 = tokens.slice(-6).join('')
+
+    if (s5 === '11011' || s5 === '00100') {
+      return { detected: true, patternName: '2-1-2 Rhythm' }
+    }
+    if (s5 === '10010' || s5 === '01101') {
+      return { detected: true, patternName: '1-2-1 Broken Symmetry' }
+    }
+    if (s6 === '110011' || s6 === '001100') {
+      return { detected: true, patternName: '2-2-2 Doublet Oscillation' }
+    }
+    if (s6 === '111011' || s6 === '000100') {
+      return { detected: true, patternName: '3-1-2 Asymmetric Pinch' }
+    }
+    return { detected: false, patternName: '' }
+  }
+
+  private _computeWalkForwardConsecutiveMisses(validHistory: HistoryEntry[]): number {
+    if (!Array.isArray(validHistory) || validHistory.length < 10) return 0
+
+    let explicitMisses = 0
+    for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 6); i--) {
+      const h = validHistory[i]
+      const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null
+      const a = h.actual_result ? String(h.actual_result).toUpperCase() : null
+      if (p && a && (p === 'BIG' || p === 'SMALL') && (a === 'BIG' || a === 'SMALL')) {
+        if (p !== a) explicitMisses++
+        else break
+      }
+    }
+
+    let simulatedMisses = 0
+    const testDepth = Math.min(4, validHistory.length - 8)
+    for (let k = 1; k <= testDepth; k++) {
+      const targetIdx = validHistory.length - k
+      const subHist = validHistory.slice(0, targetIdx)
+      const actual = (validHistory[targetIdx].actual_result || '').toUpperCase()
+      if (actual !== 'BIG' && actual !== 'SMALL') break
+
+      const rawSub = this._computeRawSubmodels(subHist)
+      let weightedBase = 0, totalW = 0
+      for (const [name, tr] of Object.entries(this.modelTrackers) as [keyof ModelTrackers, { weight: number; inverted: boolean }][]) {
+        let p = rawSub[name].prob
+        if (tr.inverted) p = 1.0 - p
+        weightedBase += p * tr.weight
+        totalW += tr.weight
+      }
+      const rawScore = weightedBase / (totalW || 1.0)
+      const simP = this._plattCalibrate(rawScore)
+      const simPred = simP >= 0.50 ? 'BIG' : 'SMALL'
+
+      if (simPred !== actual) {
+        simulatedMisses++
+      } else {
+        break
+      }
+    }
+
+    return Math.max(explicitMisses, simulatedMisses)
+  }
+
   /**
    * Primary Prediction Interface
    */
@@ -592,23 +656,24 @@ export class PredictionEngine {
     const agreementRate = agreeingModels.length / subResults.length
     let confidence = Math.min(this.maxConfidence, Math.max(this.minConfidence, Math.round(52 + margin * 88)))
 
-    let consecutiveMisses = 0
-    for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 6); i--) {
-      const h = validHistory[i]
-      const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null
-      const a = h.actual_result ? String(h.actual_result).toUpperCase() : null
-      if (p && a && ['BIG', 'SMALL'].includes(p) && ['BIG', 'SMALL'].includes(a)) {
-        if (p !== a) consecutiveMisses++; else break
-      }
-    }
+    // Step 7: Consecutive Miss Protection (Anti-Drawdown Shield & Walk-Forward Backtest)
+    const consecutiveMisses = this._computeWalkForwardConsecutiveMisses(validHistory)
+    const brokenSymmetry = this._detectBrokenSymmetryPattern(tokens)
 
+    // Step 8: Execution Status & Multi-Tier Anti-Drawdown Safety Matrix
     let status: 'CLEARED' | 'HOLD' | 'SNIPER' = 'CLEARED'
     let statusReason = `Multi-model confluence verified (Hurst H=${regimeCheck.hurstH})`
 
     if (regimeCheck.isWhiteNoise && curStreak <= 2) {
       status = 'HOLD'; statusReason = `🛡️ White-Noise Filter: Hurst H=${regimeCheck.hurstH}. Capital preserved.`; confidence = Math.min(confidence, 55)
+    } else if (consecutiveMisses >= 3) {
+      // Anti-3rd+ Loss Barrier: Extended quarantine lock to eliminate 3+ losing streaks
+      status = 'HOLD'; statusReason = `🛡️ Anti-Drawdown Quarantine: ${consecutiveMisses} consecutive losses detected. Halting executions until regime stabilizes.`; confidence = Math.min(confidence, 50)
     } else if (consecutiveMisses >= 2) {
-      status = 'HOLD'; statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses.`; confidence = Math.min(confidence, 58)
+      status = 'HOLD'; statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses.`; confidence = Math.min(confidence, 56)
+    } else if (consecutiveMisses === 1 && (margin < 0.08 || agreementRate < 0.70)) {
+      // Post-Loss Filter: Tighten edge requirement to prevent 2nd/3rd consecutive loss
+      status = 'HOLD'; statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=70% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`; confidence = Math.min(confidence, 58)
     } else if (shannonEntropy > 0.93) {
       status = 'HOLD'; statusReason = 'Elevated informational entropy (chop zone).'; confidence = Math.min(confidence, 56)
     } else if (agreementRate < 0.60 || margin < 0.05) {
@@ -621,10 +686,15 @@ export class PredictionEngine {
       status = 'HOLD'; statusReason = `⏳ Dragon Reversal Pending: 6x streak. Awaiting confirmation.`; confidence = Math.min(confidence, 58)
     } else if (curStreak === 3 && lastToken === 0 && agreementRate < 0.82) {
       status = 'HOLD'; statusReason = `🛡️ Asymmetric Dragon Guard: 3x SMALL requires >=82% confluence.`; confidence = Math.min(confidence, 56)
-    } else if (curAlts >= 4) {
+    } else if (curAlts >= 3) {
+      // Lowered from 4 to 3 switches to intercept oscillation losses early
       status = 'HOLD'; statusReason = `🛡️ Alternation Ceiling: ${curAlts} switches.`; confidence = Math.min(confidence, 52)
+    } else if (curAlts === 2 && (shannonEntropy > 0.88 || regimeCheck.hurstH < 0.48)) {
+      status = 'HOLD'; statusReason = `🛡️ Early Alternation Trap: 2 switches under elevated entropy (${shannonEntropy.toFixed(2)}).`; confidence = Math.min(confidence, 54)
     } else if (is22Pair || is22Alt) {
       status = 'HOLD'; statusReason = `🛡️ 2-2 Pattern Trap detected.`; confidence = Math.min(confidence, 53)
+    } else if (brokenSymmetry.detected) {
+      status = 'HOLD'; statusReason = `🛡️ Broken Symmetry Trap: ${brokenSymmetry.patternName} detected.`; confidence = Math.min(confidence, 53)
     }
 
     const isSniper = (
