@@ -112,20 +112,21 @@
 
 @layer components {
   /* 1. Top Header */
+  /* 1. Dark Tinted Glass Top Header */
   .top-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 18px;
-    background: linear-gradient(180deg, rgba(15, 22, 34, 0.9) 0%, rgba(7, 10, 16, 0.98) 100%);
+    padding: 13px 18px;
+    background: rgba(10, 14, 22, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
-    border-bottom: 2px solid #000000;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 18px;
-    backdrop-filter: blur(20px);
     box-shadow: 
-      0 14px 34px rgba(0, 0, 0, 0.8),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      0 12px 30px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
     position: relative;
     overflow: hidden;
   }
@@ -137,61 +138,59 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(245, 158, 11, 0.6) 35%, rgba(56, 189, 248, 0.6) 65%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(245, 158, 11, 0.4) 35%, rgba(56, 189, 248, 0.4) 65%, transparent 100%);
     pointer-events: none;
   }
 
   .brand-logo-wrap {
-    width: 52px;
-    height: 52px;
-    min-width: 52px;
-    border-radius: 14px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 13px;
     overflow: hidden;
-    border: 1.5px solid var(--gold-primary);
+    border: 1px solid rgba(245, 158, 11, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.35);
     background: #000000;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 
-      0 6px 16px rgba(0, 0, 0, 0.8),
-      0 0 16px rgba(245, 158, 11, 0.28);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
     position: relative;
   }
 
-  /* Status Pill */
+  /* Refined Translucent Status Pill */
   .status-pill {
     display: inline-flex;
     align-items: center;
     gap: 6.5px;
-    padding: 6px 13px;
+    padding: 5px 12px;
     border-radius: 999px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
-    background: linear-gradient(180deg, #05261b 0%, #02120d 100%);
-    color: var(--emerald-bright);
-    border: 1px solid #065f46;
-    border-top: 1px solid #10b981;
-    border-bottom: 2px solid #000000;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 14px rgba(16, 185, 129, 0.15);
+    background: rgba(16, 185, 129, 0.08);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    border-top: 1px solid rgba(16, 185, 129, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     transition: all 0.2s ease;
     cursor: default;
   }
 
   .status-pill.syncing {
-    background: linear-gradient(180deg, #0c253d 0%, #041220 100%);
-    color: var(--cobalt-signal);
-    border: 1px solid #0284c7;
-    border-top: 1px solid #38bdf8;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 14px rgba(56, 189, 248, 0.15);
+    background: rgba(56, 189, 248, 0.08);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-top: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 
   .status-pill .pulse-dot {
-    width: 6.5px;
-    height: 6.5px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: currentColor;
-    box-shadow: 0 0 8px currentColor;
+    box-shadow: 0 0 6px currentColor;
     animation: beaconPulse 1.8s infinite;
   }
 
@@ -201,12 +200,13 @@
     100% { transform: scale(0.95); opacity: 0.8; }
   }
 
-  /* 2. Upgraded High-Contrast 3D Institutional Metric Boxes */
+  /* 2. Dark Tinted Glass Metric Boxes */
   .metric-box {
-    background: linear-gradient(180deg, #182438 0%, #0d1624 55%, #050912 100%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-top: 1.5px solid rgba(255, 255, 255, 0.32);
-    border-bottom: 4px solid #000000;
+    background: rgba(10, 14, 22, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 16px;
     padding: 13px 10px 11px;
     text-align: center;
@@ -217,31 +217,30 @@
     position: relative;
     overflow: hidden;
     box-shadow: 
-      0 12px 28px rgba(0, 0, 0, 0.85),
-      0 3px 6px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      0 10px 24px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .metric-box:hover {
-    transform: translateY(-2.5px);
-    border-color: rgba(255, 255, 255, 0.25);
-    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.95);
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.75);
   }
 
   .metric-box.metric-tokens {
-    border-top: 2px solid #f59e0b;
-    background: linear-gradient(180deg, rgba(38, 26, 10, 0.85) 0%, rgba(14, 18, 28, 0.98) 100%);
+    border-top: 1.5px solid rgba(245, 158, 11, 0.55);
+    background: rgba(14, 16, 22, 0.72);
   }
 
   .metric-box.metric-streak {
-    border-top: 2px solid #10b981;
-    background: linear-gradient(180deg, rgba(10, 36, 24, 0.85) 0%, rgba(14, 18, 28, 0.98) 100%);
+    border-top: 1.5px solid rgba(16, 185, 129, 0.55);
+    background: rgba(10, 16, 20, 0.72);
   }
 
   .metric-box.metric-consensus {
-    border-top: 2px solid #38bdf8;
-    background: linear-gradient(180deg, rgba(10, 28, 48, 0.85) 0%, rgba(14, 18, 28, 0.98) 100%);
+    border-top: 1.5px solid rgba(56, 189, 248, 0.55);
+    background: rgba(10, 16, 24, 0.72);
   }
 
   .metric-label {
@@ -255,40 +254,36 @@
   }
 
   .metric-value {
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8));
   }
 
   .metric-tokens .metric-value {
     color: #fbbf24;
-    text-shadow: 0 0 14px rgba(245, 158, 11, 0.45);
   }
 
   .metric-streak .metric-value {
     color: #34d399;
-    text-shadow: 0 0 14px rgba(16, 185, 129, 0.45);
   }
 
   .metric-consensus .metric-value {
     color: #38bdf8;
-    text-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
   }
 
-  /* 3. High-Contrast 3D Prediction Hero */
+  /* 3. Dark Tinted Glass Prediction Hero */
   .prediction-hero {
-    background: linear-gradient(180deg, #182438 0%, #0d1522 35%, #050810 100%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-top: 1.5px solid rgba(255, 255, 255, 0.32);
-    border-bottom: 5px solid #000000;
-    border-radius: 22px;
+    background: rgba(10, 14, 22, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 20px;
     padding: 18px 18px 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    backdrop-filter: blur(24px);
     box-shadow: 
-      0 24px 64px rgba(0, 0, 0, 0.95),
-      0 6px 18px rgba(0, 0, 0, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      0 18px 45px rgba(0, 0, 0, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
     position: relative;
   }
 
@@ -331,13 +326,12 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    background: linear-gradient(180deg, #090e17 0%, #030509 100%);
-    border: 1px solid #1c2738;
-    border-top: 1px solid #2d3e58;
-    border-bottom: 2px solid #000000;
-    border-radius: 14px;
-    padding: 6px 14px;
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.85);
+    background: rgba(5, 7, 11, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 5px 12px;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
   }
 
   .countdown-label {
@@ -550,38 +544,38 @@
     transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* Secondary Chassis Action Bar Row */
+  /* Dark Tinted Glass Action Bar Row */
   .action-bar-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    background: linear-gradient(180deg, #131c2d 0%, #090e18 100%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-top: 1.5px solid rgba(255, 255, 255, 0.25);
-    border-bottom: 3.5px solid #000000;
-    border-radius: 16px;
+    background: rgba(7, 10, 16, 0.72);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 15px;
     padding: 12px 14px;
     box-shadow: 
-      0 10px 24px rgba(0, 0, 0, 0.75),
-      0 2px 4px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 6px 18px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
-  /* Sunken Matte Lucky Digits Tray */
+  /* Recessed Dark Glass Lucky Digits Tray */
   .lucky-digits-box {
     display: flex;
     align-items: center;
     gap: 9px;
-    background: #020408;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-top: 1px solid rgba(0, 0, 0, 0.85);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 13px;
+    background: rgba(4, 6, 10, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid rgba(0, 0, 0, 0.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
     padding: 5px 10px;
     box-shadow: 
-      inset 0 3px 8px rgba(0, 0, 0, 0.95),
-      0 1px 0 rgba(255, 255, 255, 0.08);
+      inset 0 2px 6px rgba(0, 0, 0, 0.8),
+      0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .lucky-label {
@@ -645,7 +639,7 @@
     color: #000000;
     border: none;
     border-top: 1.5px solid #fffbeb;
-    border-bottom: 4px solid #78350f;
+    border-bottom: 3.5px solid #78350f;
     border-radius: 12px;
     font-family: var(--font-display);
     font-weight: 800;
@@ -657,8 +651,7 @@
     align-items: center;
     gap: 7px;
     box-shadow: 
-      0 8px 24px rgba(245, 158, 11, 0.4),
-      0 2px 6px rgba(0, 0, 0, 0.6),
+      0 6px 18px rgba(245, 158, 11, 0.35),
       inset 0 1px 0 rgba(255, 255, 255, 0.5);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
@@ -669,13 +662,13 @@
   .btn-copy-signal:hover {
     filter: brightness(1.12);
     transform: translateY(-1.5px);
-    box-shadow: 0 10px 28px rgba(245, 158, 11, 0.55);
+    box-shadow: 0 8px 22px rgba(245, 158, 11, 0.45);
   }
 
   .btn-copy-signal:active {
-    transform: translateY(2px);
-    border-bottom-width: 1.5px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    transform: translateY(1.5px);
+    border-bottom-width: 1px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
   }
 
   /* Inline Green Copied Morph State */
@@ -683,10 +676,9 @@
     background: linear-gradient(180deg, #34d399 0%, #059669 60%, #064e3b 100%);
     color: #ffffff;
     border-top: 1.5px solid #a7f3d0;
-    border-bottom: 4px solid #064e3b;
+    border-bottom: 3.5px solid #064e3b;
     box-shadow: 
-      0 8px 24px rgba(16, 185, 129, 0.45),
-      0 2px 6px rgba(0, 0, 0, 0.6),
+      0 6px 18px rgba(16, 185, 129, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.4);
     animation: springPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
@@ -697,22 +689,21 @@
     100% { transform: scale(1); }
   }
 
-  /* 4. High-Contrast 3D History Card */
+  /* 4. Dark Tinted Glass History Card */
   .history-card {
-    background: linear-gradient(180deg, #182438 0%, #0d1522 35%, #050810 100%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-top: 1.5px solid rgba(255, 255, 255, 0.32);
-    border-bottom: 5px solid #000000;
-    border-radius: 22px;
+    background: rgba(10, 14, 22, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 20px;
     padding: 18px 18px 20px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    backdrop-filter: blur(24px);
     box-shadow: 
-      0 24px 64px rgba(0, 0, 0, 0.95),
-      0 6px 18px rgba(0, 0, 0, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      0 18px 45px rgba(0, 0, 0, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .history-title::before {
@@ -723,24 +714,24 @@
     background: var(--gold-primary);
   }
 
-  /* Segmented AMOLED Filter Bar */
+  /* Segmented Dark Tinted Filter Bar */
   .filter-segmented-bar {
     display: inline-flex;
     align-items: center;
-    background: #060a12;
-    border: 1px solid #1a2538;
-    border-radius: 12px;
+    background: rgba(5, 7, 11, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 11px;
     padding: 3px;
     gap: 2px;
-    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
   }
 
   .filter-pill {
     background: transparent;
     border: 1px solid transparent;
     color: var(--text-secondary);
-    padding: 6px 14px;
-    border-radius: 9px;
+    padding: 5px 13px;
+    border-radius: 8px;
     font-size: 11.5px;
     font-weight: 700;
     cursor: pointer;
@@ -754,21 +745,18 @@
   }
 
   .filter-pill.active {
-    background: linear-gradient(180deg, #1e3a8a 0%, #172554 100%);
-    border: 1px solid #2563eb;
-    border-top: 1px solid #60a5fa;
-    border-bottom: 2px solid #000000;
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-top: 1px solid rgba(255, 255, 255, 0.28);
     color: #ffffff;
-    box-shadow: 
-      0 4px 14px rgba(37, 99, 235, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   }
 
   /* Table Container */
   .history-table-container {
-    border: 1px solid #1a2537;
+    border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 14px;
-    background: #04070d;
+    background: rgba(4, 7, 12, 0.85);
     overflow: hidden;
   }
 
