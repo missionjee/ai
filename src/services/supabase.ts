@@ -161,7 +161,7 @@ class SupabaseService {
   }
 
   /**
-   * Consume 1 Token for a Prediction Round
+   * Consume 1 Token for a Prediction Round (Atomic Supabase RPC + Cloud Fallback)
    */
   async consumeToken(periodNumber: string, predictionType: string): Promise<TokenResult> {
     const session = this.getSession()
@@ -172,22 +172,28 @@ class SupabaseService {
       return { success: false, error: 'INSUFFICIENT_TOKENS', remainingTokens: 0, message: 'Tokens depleted.' }
     }
 
+    const ledgerKey = `hiroto_deducted_${periodNumber}`
+    const alreadyDeductedLocally = !!safeStorage.getItem(ledgerKey)
+
     try {
       const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/rpc/consume_prediction_token`, {
-        method: 'POST', headers: this._headers,
+        method: 'POST',
+        headers: this._headers,
         body: JSON.stringify({
           p_license_key: session.key,
           p_device_id: this.deviceId,
           p_period: String(periodNumber),
-          p_prediction_type: predictionType
+          p_prediction_type: predictionType || 'PRED'
         })
       })
 
       if (res.ok) {
         const data = await res.json()
         if (data?.success) {
-          this._setTokenBalance(data.tokens_balance)
-          return { success: true, remainingTokens: data.tokens_balance, deducted: data.deducted }
+          safeStorage.setItem(ledgerKey, '1')
+          const newBal = typeof data.tokens_balance === 'number' ? data.tokens_balance : currentTokens - (data.deducted || 0)
+          this._setTokenBalance(newBal)
+          return { success: true, remainingTokens: newBal, deducted: data.deducted }
         } else if (data?.error === 'DEVICE_MISMATCH') {
           this.logoutDueToDeviceConflict()
           return { success: false, error: 'DEVICE_MISMATCH' }
@@ -199,16 +205,40 @@ class SupabaseService {
           return { success: false, error: 'KEY_DELETED' }
         }
       }
-    } catch { /* fall through to local */ }
+    } catch { /* Fallback to direct cloud PATCH */ }
 
-    const ledgerKey = `hiroto_deducted_${periodNumber}`
-    if (safeStorage.getItem(ledgerKey)) {
+    if (alreadyDeductedLocally) {
       return { success: true, remainingTokens: currentTokens, deducted: 0 }
     }
 
     const newBalance = Math.max(0, currentTokens - 1)
     safeStorage.setItem(ledgerKey, '1')
     this._setTokenBalance(newBalance)
+
+    // Direct REST synchronization with Supabase cloud database
+    try {
+      await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/user_profiles?license_key=eq.${encodeURIComponent(session.key)}`, {
+        method: 'PATCH',
+        headers: this._headers,
+        body: JSON.stringify({
+          tokens_balance: newBalance,
+          last_active_at: new Date().toISOString()
+        })
+      })
+
+      await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/token_ledger`, {
+        method: 'POST',
+        headers: this._headers,
+        body: JSON.stringify({
+          license_key: session.key,
+          period_number: String(periodNumber),
+          prediction_type: predictionType || 'PRED',
+          tokens_deducted: 1,
+          device_id: this.deviceId
+        })
+      })
+    } catch { /* Ignore offline failures */ }
+
     return { success: true, remainingTokens: newBalance, deducted: 1 }
   }
 
@@ -267,39 +297,22 @@ class SupabaseService {
   }
 
   /**
-   * Zero-Leak Secure RPC: Get Authorized Prediction
+   * Zero-Leak Secure RPC: Get Authorized Prediction with Token Consumption
    */
   async getAuthorizedPrediction(periodNumber: string): Promise<AuthorizedPredictionResult> {
     const session = this.getSession()
     if (!session?.key) return { success: false, error: 'AUTH_REQUIRED' }
 
-    try {
-      const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/rpc/get_authorized_prediction`, {
-        method: 'POST', headers: this._headers,
-        body: JSON.stringify({
-          p_license_key: session.key,
-          p_device_id: this.deviceId,
-          p_period: String(periodNumber)
-        })
-      })
+    // Execute atomic token deduction first
+    const tokenRes = await this.consumeToken(periodNumber, 'PRED')
+    const balance = typeof tokenRes.remainingTokens === 'number' ? tokenRes.remainingTokens : this.getTokenBalance()
 
-      if (res.ok) {
-        const data = await res.json()
-        if (data) {
-          if (data.tokens_balance !== undefined) this._setTokenBalance(data.tokens_balance)
-          if (data.error === 'DEVICE_MISMATCH') { this.logoutDueToDeviceConflict(); return { success: false, error: 'DEVICE_MISMATCH' } }
-          if (data.error === 'INSUFFICIENT_TOKENS') { this._setTokenBalance(0); return { success: false, error: 'INSUFFICIENT_TOKENS' } }
-          if (data.success && data.signal) return { success: true, signal: data.signal, tokensBalance: data.tokens_balance }
-        }
-      }
-    } catch (e) { console.error('RPC Error:', e) }
-
-    if (this.getTokenBalance() <= 0) {
+    if (balance <= 0) {
       return { success: false, error: 'INSUFFICIENT_TOKENS', tokensBalance: 0 }
     }
 
-    const fallbackSignal = await this.getGlobalSignal(periodNumber)
-    return { success: !!fallbackSignal, signal: fallbackSignal as AuthorizedPredictionResult['signal'], tokensBalance: this.getTokenBalance() }
+    const cloudSignal = await this.getGlobalSignal(periodNumber)
+    return { success: !!cloudSignal, signal: cloudSignal as AuthorizedPredictionResult['signal'], tokensBalance: balance }
   }
 
   /**

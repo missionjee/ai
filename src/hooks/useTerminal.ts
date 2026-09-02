@@ -296,33 +296,53 @@ export function useTerminal() {
             lucky_digits: ensureLuckyDigits(localPred.luckyDigits, localPred.prediction),
           })
 
-          // Asynchronously sync token deduction and server signal with Supabase
-          supabaseClient.getAuthorizedPrediction(currentTargetPeriod).then(authResult => {
-            if (authResult?.success && authResult.signal) {
-              const s = authResult.signal
+          // Deduct 1 token atomically for this period prediction
+          supabaseClient.consumeToken(currentTargetPeriod, localPred.prediction).then(tokenRes => {
+            if (tokenRes) {
+              if (tokenRes.error === 'DEVICE_MISMATCH') {
+                showToast('⚠️ Session conflict: key active on another device')
+              } else if (tokenRes.error === 'INSUFFICIENT_TOKENS' || (typeof tokenRes.remainingTokens === 'number' && tokenRes.remainingTokens <= 0)) {
+                setState(prev => ({ ...prev, tokensBalance: 0 }))
+                showToast('⚡ Token balance empty (0). Please recharge.')
+              } else if (typeof tokenRes.remainingTokens === 'number') {
+                const updatedBalance = tokenRes.remainingTokens
+                setState(prev => {
+                  if (prev.tokensBalance !== updatedBalance) {
+                    return { ...prev, tokensBalance: updatedBalance }
+                  }
+                  return prev
+                })
+              }
+            }
+          })
+
+          // Asynchronously sync server signal if available
+          supabaseClient.getGlobalSignal(currentTargetPeriod).then(cloudSignal => {
+            if (cloudSignal) {
+              const s = cloudSignal as any
               setState(prev => {
                 if (prev.targetPeriod !== currentTargetPeriod) return prev
                 return {
                   ...prev,
                   prediction: {
-                    prediction: s.predicted_type as 'BIG' | 'SMALL',
-                    confidence: s.confidence,
+                    prediction: (s.predicted_type as 'BIG' | 'SMALL') || localPred.prediction,
+                    confidence: s.confidence || localPred.confidence,
                     status: (s.status as any) || 'CLEARED',
-                    statusReason: s.statusReason || '',
-                    luckyDigits: ensureLuckyDigits(s.lucky_digits, s.predicted_type),
-                    strategy: s.strategy,
-                    reason: s.reason,
-                    bigProb: s.big_prob,
-                    smallProb: s.small_prob,
-                    regime: s.regime as 'trending' | 'mean-reverting' | 'mixed' | 'synchronizing',
-                    pattern: s.pattern,
-                    isSniper: s.is_sniper,
+                    statusReason: s.statusReason || localPred.statusReason || '',
+                    luckyDigits: ensureLuckyDigits(s.lucky_digits, s.predicted_type || localPred.prediction),
+                    strategy: s.strategy || localPred.strategy,
+                    reason: s.reason || localPred.reason,
+                    bigProb: s.big_prob || localPred.bigProb,
+                    smallProb: s.small_prob || localPred.smallProb,
+                    regime: (s.regime as 'trending' | 'mean-reverting' | 'mixed' | 'synchronizing') || localPred.regime,
+                    pattern: s.pattern || localPred.pattern,
+                    isSniper: s.is_sniper !== undefined ? s.is_sniper : localPred.isSniper,
                     digitProbs: {},
                     volatility: '0.48',
                     entropy: '0.50',
                     permutationEntropy: '0.50',
                     parityPrediction: 'EVEN',
-                    engineVersion: 'v9.1',
+                    engineVersion: 'v9.2',
                     modelPerformance: null,
                   },
                   tokensBalance: supabaseClient.getTokenBalance(),
@@ -332,6 +352,19 @@ export function useTerminal() {
           })
         }
       } else if (currentTargetEntry.predicted_type && tokensBalance > 0 && hasActiveSession) {
+        // Ensure token deduction is confirmed for current active target period
+        supabaseClient.consumeToken(currentTargetPeriod, currentTargetEntry.predicted_type).then(tokenRes => {
+          if (tokenRes && typeof tokenRes.remainingTokens === 'number') {
+            const updatedBalance = tokenRes.remainingTokens
+            setState(prev => {
+              if (prev.tokensBalance !== updatedBalance) {
+                return { ...prev, tokensBalance: updatedBalance }
+              }
+              return prev
+            })
+          }
+        })
+
         prediction = {
           prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
           confidence: currentTargetEntry.prediction_confidence || 65,
@@ -356,7 +389,7 @@ export function useTerminal() {
           entropy: '0.50',
           permutationEntropy: '0.50',
           parityPrediction: 'EVEN',
-          engineVersion: 'v9.1',
+          engineVersion: 'v9.2',
           modelPerformance: null,
         }
       }
