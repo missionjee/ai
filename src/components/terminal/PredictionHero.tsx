@@ -126,7 +126,7 @@ export function PredictionHero({
                 className={cn('btn-copy-signal', isCopied && 'copied')}
               >
                 <span>{isCopied ? '✓' : '📋'}</span>
-                <span>{isCopied ? 'COPIED!' : 'Copy Signal'}</span>
+                <span>{isCopied ? 'COPIED!' : 'Copy'}</span>
               </button>
             </div>
           </div>

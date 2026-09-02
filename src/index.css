@@ -201,14 +201,14 @@
     100% { transform: scale(0.95); opacity: 0.8; }
   }
 
-  /* 2. Metric Boxes */
+  /* 2. Upgraded Institutional Metric Boxes */
   .metric-box {
-    background: linear-gradient(180deg, rgba(16, 24, 38, 0.88) 0%, rgba(7, 10, 16, 0.98) 100%);
+    background: linear-gradient(180deg, rgba(16, 24, 38, 0.92) 0%, rgba(6, 10, 18, 0.98) 100%);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-top: 1px solid rgba(255, 255, 255, 0.18);
-    border-bottom: 3px solid #000000;
+    border-bottom: 3.5px solid #000000;
     border-radius: 16px;
-    padding: 14px 10px;
+    padding: 13px 10px 11px;
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -218,24 +218,58 @@
     overflow: hidden;
     box-shadow: 
       0 10px 24px rgba(0, 0, 0, 0.65),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .metric-box:hover {
     transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.16);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.75);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.8);
   }
 
-  .metric-box::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 15%;
-    right: 15%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  .metric-box.metric-tokens {
+    border-top: 1.5px solid rgba(245, 158, 11, 0.5);
+    background: linear-gradient(180deg, rgba(28, 20, 10, 0.7) 0%, rgba(8, 11, 18, 0.98) 100%);
+  }
+
+  .metric-box.metric-streak {
+    border-top: 1.5px solid rgba(16, 185, 129, 0.5);
+    background: linear-gradient(180deg, rgba(8, 28, 20, 0.7) 0%, rgba(8, 11, 18, 0.98) 100%);
+  }
+
+  .metric-box.metric-consensus {
+    border-top: 1.5px solid rgba(56, 189, 248, 0.5);
+    background: linear-gradient(180deg, rgba(8, 22, 38, 0.7) 0%, rgba(8, 11, 18, 0.98) 100%);
+  }
+
+  .metric-label {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+    display: block;
+  }
+
+  .metric-value {
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+  }
+
+  .metric-tokens .metric-value {
+    color: #fbbf24;
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+  }
+
+  .metric-streak .metric-value {
+    color: #34d399;
+    text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+  }
+
+  .metric-consensus .metric-value {
+    color: #38bdf8;
+    text-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
   }
 
   /* 3. Prediction Hero */
@@ -531,21 +565,26 @@
   .lucky-digits-box {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
+    background: rgba(4, 7, 13, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 13px;
+    padding: 5px 10px;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.65);
   }
 
   .lucky-label {
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     color: var(--text-muted);
   }
 
   .digits-group {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
   }
 
   /* Laser-Carved Chamfered Lucky Digit Hologram Chips */
@@ -557,7 +596,7 @@
     align-items: center;
     justify-content: center;
     font-family: var(--font-mono);
-    font-size: 16px;
+    font-size: 16.5px;
     font-weight: 900;
     font-variant-numeric: tabular-nums;
     user-select: none;
@@ -570,23 +609,23 @@
   }
 
   .digit-chip.primary {
-    background: linear-gradient(180deg, #92400e 0%, #451a03 55%, #1e0902 100%);
+    background: linear-gradient(180deg, #b45309 0%, #78350f 45%, #2a0e02 100%);
     color: #fef08a;
-    border: 1px solid #b45309;
+    border: 1px solid #d97706;
     box-shadow: 
       0 4px 12px rgba(0, 0, 0, 0.7),
-      0 0 14px rgba(245, 158, 11, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      0 0 14px rgba(245, 158, 11, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
   }
 
   .digit-chip.secondary {
-    background: linear-gradient(180deg, #075985 0%, #032b43 55%, #011420 100%);
-    color: #bae6fd;
-    border: 1px solid #0284c7;
+    background: linear-gradient(180deg, #0284c7 0%, #075985 45%, #021a29 100%);
+    color: #e0f2fe;
+    border: 1px solid #38bdf8;
     box-shadow: 
       0 4px 12px rgba(0, 0, 0, 0.7),
-      0 0 14px rgba(56, 189, 248, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      0 0 14px rgba(56, 189, 248, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
   }
 
   /* Sovereign Gold 3D Tactile Action Button */
@@ -921,13 +960,9 @@
       radial-gradient(ellipse 70% 50% at 50% 18%, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
   }
 
-  /* Winning Row Highlight Effect */
+  /* Winning Row Highlight Effect (Clean Subtle Tint without Side Border) */
   .history-table tbody tr.row-win td {
-    background: rgba(16, 185, 129, 0.035);
-  }
-
-  .history-table tbody tr.row-win td:first-child {
-    border-left: 2.5px solid #10b981;
+    background: rgba(16, 185, 129, 0.04);
   }
 }
 

@@ -36,8 +36,8 @@ export function Header({
             <h1 className="font-display font-black text-[20px] sm:text-[22px] text-white tracking-[1.2px] leading-none">
               HIROTO
             </h1>
-            <span className="font-mono text-[10px] font-bold text-[#38bdf8] bg-[#38bdf8]/[0.12] border border-[#38bdf8]/[0.28] px-1.5 py-0.5 rounded">
-              v9.1 PRO
+            <span className="font-mono text-[9px] font-semibold text-[#64748b] bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 rounded tracking-wider">
+              v9.1
             </span>
           </div>
           <span className="text-[10px] sm:text-[10.5px] font-extrabold tracking-[1.6px] uppercase bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] bg-clip-text text-transparent leading-tight">

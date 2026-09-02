@@ -41,17 +41,17 @@ function SignalBadge({ type }: { type: string | null }) {
 }
 
 export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryTableProps) {
-  const userTaken = history.filter(h => h.predicted_type !== null && h.predicted_type !== undefined)
+  const resolvedList = history.filter(h => h.actual_result !== null && h.actual_result !== undefined)
   
-  const allCount = userTaken.length
-  const winCount = userTaken.filter(
+  const allCount = resolvedList.length
+  const winCount = resolvedList.filter(
     h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() === h.actual_result.toUpperCase()
   ).length
-  const lossCount = userTaken.filter(
+  const lossCount = resolvedList.filter(
     h => h.predicted_type && h.actual_result && h.predicted_type.toUpperCase() !== h.actual_result.toUpperCase()
   ).length
 
-  let items = userTaken.slice(0, 30)
+  let items = resolvedList.slice(0, 30)
 
   if (activeFilter === 'WINS') {
     items = items.filter(
@@ -71,8 +71,8 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
 
   const emptyMsg =
     activeFilter === 'ALL'
-      ? 'No taken predictions yet. Your unlocked signals will appear here.'
-      : `No ${activeFilter.toLowerCase()} recorded in your taken history.`
+      ? 'No draw history recorded yet.'
+      : `No ${activeFilter.toLowerCase()} recorded in draw history.`
 
   return (
     <section className="history-card">
