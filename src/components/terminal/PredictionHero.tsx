@@ -43,9 +43,28 @@ export function PredictionHero({
   const confidence = isLocked ? 0 : (prediction?.confidence || 0)
   const defaultLuckyBig = [7, 8]
   const defaultLuckySmall = [2, 3]
-  const resolvedDigits = (Array.isArray(prediction?.luckyDigits) && prediction.luckyDigits.length >= 2 && prediction.luckyDigits[0] !== undefined && prediction.luckyDigits[1] !== undefined)
-    ? prediction.luckyDigits
-    : (prediction?.prediction === 'BIG' ? defaultLuckyBig : defaultLuckySmall)
+  let parsedRawDigits: [number, number] | null = null
+  let candidateDigits: any = prediction?.luckyDigits || (prediction as any)?.lucky_digits
+  if (typeof candidateDigits === 'string') {
+    try {
+      const p = JSON.parse(candidateDigits.replace(/^{/, '[').replace(/}$/, ']'))
+      if (Array.isArray(p)) candidateDigits = p
+    } catch {
+      const match = candidateDigits.match(/\d+/g)
+      if (match && match.length >= 2) candidateDigits = [match[0], match[1]]
+    }
+  }
+  if (Array.isArray(candidateDigits) && candidateDigits.length >= 2 && candidateDigits[0] !== undefined && candidateDigits[1] !== undefined) {
+    const d0 = Number(candidateDigits[0])
+    const d1 = Number(candidateDigits[1])
+    if (!isNaN(d0) && !isNaN(d1) && !(d0 === 0 && d1 === 0)) {
+      parsedRawDigits = [d0, d1]
+    }
+  }
+
+  const resolvedDigits: [number, number] = parsedRawDigits
+    ? parsedRawDigits
+    : (prediction?.prediction === 'BIG' ? defaultLuckyBig as [number, number] : defaultLuckySmall as [number, number])
 
   const luckyDigit1 = isLocked ? 'X' : (prediction ? resolvedDigits[0] : '-')
   const luckyDigit2 = isLocked ? 'X' : (prediction ? resolvedDigits[1] : '-')

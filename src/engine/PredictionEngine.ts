@@ -141,55 +141,28 @@ interface RegimeCheck {
 export class PredictionEngine {
   private readonly minConfidence = 52
   private readonly maxConfidence = 95
-  private readonly storageKey = 'hiroto_engine_memory_v8'
-  private historyBuffer = new Map<string, HistoryEntry>()
-  private plattA = 2.40
-  private plattB = -0.05
-  public conformalGator = new ConformalRiskGator(0.12, 120)
-  public modelTrackers: ModelTrackers = {
-    parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
-    latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
-    contextAttention: { hits: 14, total: 25, accuracy: 56, weight: 1.80, inverted: false },
-    kneserNeyLM: { hits: 13, total: 25, accuracy: 52, weight: 1.20, inverted: false },
-    dragonMomentum: { hits: 13, total: 25, accuracy: 52, weight: 1.00, inverted: false },
-    historicalPatternAssistance: { hits: 12, total: 25, accuracy: 48, weight: 0.30, inverted: false },
-    empiricalMarkov: { hits: 11, total: 25, accuracy: 44, weight: 0.20, inverted: false },
+  private modelTrackers: ModelTrackers
+  private plattA: number = 2.40
+  private plattB: number = -0.05
+  private conformalGator: ConformalRiskGator = new ConformalRiskGator(0.12, 120)
+
+  private defaultModelTrackers(): ModelTrackers {
+    return {
+      parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
+      latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
+      contextAttention: { hits: 14, total: 25, accuracy: 56, weight: 1.80, inverted: false },
+      kneserNeyLM: { hits: 13, total: 25, accuracy: 52, weight: 1.20, inverted: false },
+      dragonMomentum: { hits: 13, total: 25, accuracy: 52, weight: 1.00, inverted: false },
+      historicalPatternAssistance: { hits: 12, total: 25, accuracy: 48, weight: 0.30, inverted: false },
+      empiricalMarkov: { hits: 11, total: 25, accuracy: 44, weight: 0.20, inverted: false },
+    }
   }
 
   constructor() {
-    this._loadPersistentBuffer()
+    this.modelTrackers = this.defaultModelTrackers()
   }
 
-  private _loadPersistentBuffer(): void {
-    try {
-      const raw = localStorage.getItem(this.storageKey)
-      if (raw) {
-        const arr = JSON.parse(raw) as HistoryEntry[]
-        if (Array.isArray(arr)) {
-          arr.forEach(item => {
-            if (item?.issue_number) this.historyBuffer.set(String(item.issue_number), item)
-          })
-        }
-      }
-    } catch { /* noop */ }
-  }
 
-  private _savePersistentBuffer(): void {
-    try {
-      let arr = Array.from(this.historyBuffer.values())
-      if (arr.length > 5000) {
-        arr = arr.sort((a, b) => {
-          try {
-            const aI = BigInt(a.issue_number), bI = BigInt(b.issue_number)
-            return aI > bI ? 1 : aI < bI ? -1 : 0
-          } catch { return a.issue_number.localeCompare(b.issue_number) }
-        }).slice(-5000)
-        this.historyBuffer.clear()
-        arr.forEach(item => this.historyBuffer.set(String(item.issue_number), item))
-      }
-      localStorage.setItem(this.storageKey, JSON.stringify(arr))
-    } catch { /* noop */ }
-  }
 
   private _computeHurstExponent(series: number[]): number {
     const n = series.length
@@ -563,27 +536,17 @@ export class PredictionEngine {
     return { detected: false, patternName: '' }
   }
 
-  private _computeWalkForwardConsecutiveMisses(validHistory: HistoryEntry[]): number {
-    if (!Array.isArray(validHistory) || validHistory.length < 10) return 0
-
-    let explicitMisses = 0
-    for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 15); i--) {
-      const h = validHistory[i]
-      const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null
-      const a = h.actual_result ? String(h.actual_result).toUpperCase() : null
-      if (p && a && (p === 'BIG' || p === 'SMALL') && (a === 'BIG' || a === 'SMALL')) {
-        if (p !== a) explicitMisses++
-        else break
-      }
+  _computePaperTradeValidation(validHistory: HistoryEntry[]): { paperTradeWins: number; totalEvaluated: number; canReenter: boolean } {
+    if (!Array.isArray(validHistory) || validHistory.length < 4) {
+      return { paperTradeWins: 0, totalEvaluated: 0, canReenter: false }
     }
-
-    let simulatedMisses = 0
-    const testDepth = Math.min(12, validHistory.length - 8)
-    for (let k = 1; k <= testDepth; k++) {
+    const evalDepth = Math.min(3, validHistory.length - 1)
+    let paperWins = 0
+    for (let k = 1; k <= evalDepth; k++) {
       const targetIdx = validHistory.length - k
       const subHist = validHistory.slice(0, targetIdx)
       const actual = (validHistory[targetIdx].actual_result || '').toUpperCase()
-      if (actual !== 'BIG' && actual !== 'SMALL') break
+      if (actual !== 'BIG' && actual !== 'SMALL') continue
 
       const rawSub = this._computeRawSubmodels(subHist)
       let weightedBase = 0, totalW = 0
@@ -596,15 +559,90 @@ export class PredictionEngine {
       const rawScore = weightedBase / (totalW || 1.0)
       const simP = this._plattCalibrate(rawScore)
       const simPred = simP >= 0.50 ? 'BIG' : 'SMALL'
+      if (simPred === actual) {
+        paperWins++
+      }
+    }
+    return {
+      paperTradeWins: paperWins,
+      totalEvaluated: evalDepth,
+      canReenter: paperWins >= 2
+    }
+  }
+
+  _computeWalkForwardLossScore(validHistory: HistoryEntry[]): { lossScore: number; explicitScore: number; simulatedScore: number } {
+    if (!Array.isArray(validHistory) || validHistory.length < 10) {
+      return { lossScore: 0, explicitScore: 0, simulatedScore: 0 }
+    }
+
+    const lossWeights: Record<string, number> = { SNIPER: 1.0, STANDARD: 1.0, SCOUT: 0.5, HOLD: 0.0 }
+
+    // 1. Explicit consecutive loss score from history
+    let explicitScore = 0
+    for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 15); i--) {
+      const h = validHistory[i]
+      const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null
+      const a = h.actual_result ? String(h.actual_result).toUpperCase() : null
+      const tier = h.tier ? String(h.tier).toUpperCase() : 'STANDARD'
+
+      if (p && a && (p === 'BIG' || p === 'SMALL') && (a === 'BIG' || a === 'SMALL')) {
+        if (p !== a) {
+          const w = lossWeights[tier] !== undefined ? lossWeights[tier] : 1.0
+          explicitScore += w
+        } else {
+          break
+        }
+      }
+    }
+
+    // 2. Simulated walk-forward backtest across recent rounds
+    let simulatedScore = 0
+    const testDepth = Math.min(12, validHistory.length - 8)
+    for (let k = 1; k <= testDepth; k++) {
+      const targetIdx = validHistory.length - k
+      const subHist = validHistory.slice(0, targetIdx)
+      const actual = (validHistory[targetIdx].actual_result || '').toUpperCase()
+      if (actual !== 'BIG' && actual !== 'SMALL') break
+
+      const rawSub = this._computeRawSubmodels(subHist)
+      let weightedBase = 0, totalW = 0
+      let agreeingCount = 0
+      for (const [name, tr] of Object.entries(this.modelTrackers) as [keyof ModelTrackers, { weight: number; inverted: boolean }][]) {
+        let p = rawSub[name].prob
+        if (tr.inverted) p = 1.0 - p
+        weightedBase += p * tr.weight
+        totalW += tr.weight
+      }
+      const rawScore = weightedBase / (totalW || 1.0)
+      const simP = this._plattCalibrate(rawScore)
+      const simPred = simP >= 0.50 ? 'BIG' : 'SMALL'
+
+      for (const [name, tr] of Object.entries(this.modelTrackers) as [keyof ModelTrackers, { weight: number; inverted: boolean }][]) {
+        let p = rawSub[name].prob
+        if (tr.inverted) p = 1.0 - p
+        const pred = p >= 0.50 ? 'BIG' : 'SMALL'
+        if (pred === simPred) agreeingCount++
+      }
+
+      const tierWeight = (agreeingCount <= 2) ? 0.5 : 1.0
 
       if (simPred !== actual) {
-        simulatedMisses++
+        simulatedScore += tierWeight
       } else {
         break
       }
     }
 
-    return Math.max(explicitMisses, simulatedMisses)
+    const lossScore = Math.max(explicitScore, simulatedScore)
+    return {
+      lossScore,
+      explicitScore,
+      simulatedScore
+    }
+  }
+
+  _computeWalkForwardConsecutiveMisses(validHistory: HistoryEntry[]): number {
+    return this._computeWalkForwardLossScore(validHistory).lossScore
   }
 
   _getRegimeEntropyThreshold(
@@ -781,36 +819,48 @@ export class PredictionEngine {
    * Primary Prediction Interface
    */
   predict(history: HistoryEntry[]): PredictionResult {
-    if (Array.isArray(history)) {
+    // Reset trackers and calibration parameters to default baseline for 100% deterministic parity across devices
+    this.modelTrackers = this.defaultModelTrackers()
+    this.plattA = 2.40
+    this.plattB = -0.05
+
+    let validHistory: HistoryEntry[] = []
+
+    if (Array.isArray(history) && history.length > 0) {
+      const historyMap = new Map<string, HistoryEntry>()
       history.forEach(item => {
-        if (item?.issue_number && (item.actual_result)) {
-          const k = String(item.issue_number)
-          const res = item.actual_result.toLowerCase()
-          const num = item.actual_number !== undefined && item.actual_number !== null && !isNaN(item.actual_number)
-            ? item.actual_number : null
-          this.historyBuffer.set(k, {
+        if (item?.issue_number && (item.actual_result || (item as any).result_type)) {
+          const k = String(item.issue_number).trim()
+          const res = (item.actual_result || (item as any).result_type).toLowerCase()
+          const num = item.actual_number !== undefined && item.actual_number !== null && !isNaN(Number(item.actual_number))
+            ? Number(item.actual_number)
+            : null
+          historyMap.set(k, {
             issue_number: k,
             actual_result: res,
             actual_number: num,
             predicted_type: item.predicted_type || null,
             prediction_confidence: null,
-            lucky_digits: null
+            lucky_digits: null,
+            tier: (item as any).tier || (item as any).status || null,
+            status: item.status || null
           })
         }
       })
-      this._savePersistentBuffer()
+
+      // Sort in strict chronological order (oldest to newest)
+      const sorted = Array.from(historyMap.values()).sort((a, b) => {
+        try {
+          const aI = BigInt(a.issue_number), bI = BigInt(b.issue_number)
+          return aI > bI ? 1 : aI < bI ? -1 : 0
+        } catch { return a.issue_number.localeCompare(b.issue_number) }
+      })
+
+      // Standardize to the most recent window (up to 40 rounds) so all devices evaluate the exact same depth
+      validHistory = sorted.slice(-40)
     }
 
-    const combined = Array.from(this.historyBuffer.values()).sort((a, b) => {
-      try {
-        const aI = BigInt(a.issue_number), bI = BigInt(b.issue_number)
-        return aI > bI ? 1 : aI < bI ? -1 : 0
-      } catch { return a.issue_number.localeCompare(b.issue_number) }
-    })
-
-    const validHistory = combined.filter(h => h.actual_result)
-
-    if (validHistory.length < 8) {
+    if (validHistory.length < 5) {
       return {
         prediction: 'HOLD' as const, confidence: 50, status: 'HOLD' as const,
         tier: 'HOLD' as const,
@@ -829,6 +879,7 @@ export class PredictionEngine {
         isSniper: false, pattern: 'Buffering', parityPrediction: 'EVEN', engineVersion: 'v9.1', modelPerformance: null
       }
     }
+
 
     const tokens = validHistory.map(d => d.actual_result!.toLowerCase() === 'big' ? 1 : 0)
     const numSeq = validHistory.map(h => h.actual_number).filter((n): n is number => n !== null && !isNaN(n))
@@ -870,12 +921,13 @@ export class PredictionEngine {
       })
     }
 
-    const initialWeightMass = Object.values(this.modelTrackers).reduce((s, tr) => s + tr.weight, 0)
+    const initialWeightMass = (Object.values(this.modelTrackers) as { weight: number }[]).reduce((s, tr) => s + tr.weight, 0)
     const currentWeightMass = subResults.reduce((s, r) => s + r.weight, 0)
     if (currentWeightMass > 0 && initialWeightMass > 0) {
       const normScale = initialWeightMass / currentWeightMass
       subResults.forEach(s => { s.weight = parseFloat((s.weight * normScale).toFixed(3)) })
     }
+
 
     let curStreak = 1
     const lastToken = tokens[tokens.length - 1]
@@ -917,7 +969,10 @@ export class PredictionEngine {
     let confidence = Math.min(this.maxConfidence, Math.max(this.minConfidence, Math.round(52 + margin * 88)))
 
     // Step 7: Consecutive Miss Protection & Rhythm Analysis
-    const consecutiveMisses = this._computeWalkForwardConsecutiveMisses(validHistory)
+    const lossInfo = this._computeWalkForwardLossScore(validHistory)
+    const consecutiveLossScore = lossInfo.lossScore
+    const consecutiveMisses = Math.ceil(consecutiveLossScore)
+    const paperTradeVal = this._computePaperTradeValidation(validHistory)
     const brokenSymmetry = this._detectBrokenSymmetryPattern(tokens)
 
     // Step 8: Execution Status & Multi-Tier Anti-Drawdown Safety Matrix
@@ -928,6 +983,7 @@ export class PredictionEngine {
     let tier: SignalTier = 'STANDARD'
     let recommendedStake = '1U'
     let statusReason = `Multi-model confluence verified (Hurst H=${regimeCheck.hurstH})`
+    let earlyChopDowngradeToScout = false
 
     const isConfirmedRegimeMatch = (
       (curStreak >= 3 && agreementRate >= 0.50) ||
@@ -945,26 +1001,26 @@ export class PredictionEngine {
       holdRegime = 'WHITE_NOISE'
       statusReason = `🛡️ White-Noise Filter: Hurst H=${regimeCheck.hurstH}. Capital preserved.`
       confidence = Math.min(confidence, 55)
-    } else if (consecutiveMisses >= 3) {
+    } else if (consecutiveLossScore >= 3.0) {
       status = 'HOLD'
       tier = 'HOLD'
       recommendedStake = '0U [PASS]'
       holdRegime = 'QUARANTINE'
-      statusReason = `🛡️ Anti-Drawdown Quarantine: ${consecutiveMisses} consecutive losses detected in ${regimeCheck.regimeName} (${dynamicQuarantineRounds}R lockout required). Halting executions until regime stabilizes.`
+      statusReason = `🛡️ Anti-Drawdown Quarantine: Loss score ${consecutiveLossScore.toFixed(1)} requires ${dynamicQuarantineRounds}R lockout & paper recovery (${paperTradeVal.paperTradeWins}/3 wins, H=${shannonEntropy.toFixed(2)}).`
       confidence = Math.min(confidence, 50)
-    } else if (consecutiveMisses >= 2) {
+    } else if (consecutiveLossScore >= 2.0) {
       status = 'HOLD'
       tier = 'HOLD'
       recommendedStake = '0U [PASS]'
       holdRegime = 'QUARANTINE'
-      statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses detected. Absorbing market regime shift [HOLD].`
+      statusReason = `🛡️ Anti-Drawdown Shield: Loss score ${consecutiveLossScore.toFixed(1)} detected. Absorbing market regime shift (${paperTradeVal.paperTradeWins}/3 paper wins) [HOLD].`
       confidence = Math.min(confidence, 52)
-    } else if (consecutiveMisses === 1 && (margin < 0.10 || agreementRate < 0.75)) {
+    } else if (consecutiveLossScore >= 1.0 && (margin < 0.10 || agreementRate < 0.75)) {
       status = 'HOLD'
       tier = 'HOLD'
       recommendedStake = '0U [PASS]'
       holdRegime = 'QUARANTINE'
-      statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=75% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`
+      statusReason = `🛡️ Post-Loss Edge Gate: Loss score ${consecutiveLossScore.toFixed(1)} requires >=75% agreement (current: ${Math.round(agreementRate * 100)}%).`
       confidence = Math.min(confidence, 56)
     } else if (shannonEntropy > regimeEntropyThreshold) {
       status = 'HOLD'
@@ -979,6 +1035,14 @@ export class PredictionEngine {
       recommendedStake = '0U [PASS]'
       holdRegime = 'CHOP_OSCILLATION'
       statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (Anti-Oscillation Trap) [HOLD].`
+      confidence = Math.min(confidence, 52)
+    } else if (curAlts === 2 && shannonEntropy > 0.84) {
+      // Fix 3: Early chop halt at switch 2 with elevated entropy
+      status = 'HOLD'
+      tier = 'HOLD'
+      recommendedStake = '0U [PASS]'
+      holdRegime = 'CHOP_OSCILLATION'
+      statusReason = `🛡️ Early Alternation Gating: 2x switch in elevated entropy (Shannon H=${shannonEntropy.toFixed(2)} > 0.84) [HOLD].`
       confidence = Math.min(confidence, 52)
     } else if (brokenSymmetry.detected) {
       status = 'HOLD'
@@ -1001,22 +1065,34 @@ export class PredictionEngine {
       holdRegime = 'DRAGON_STREAK'
       statusReason = 'Streak boundary 2x transition zone [PASS]'
       confidence = Math.min(confidence, 60)
-    } else if (curStreak === 4 || curStreak === 5) {
-      if (agreementRate < 0.78 || margin < 0.12) {
-        status = 'HOLD'
-        tier = 'HOLD'
-        recommendedStake = '0U [PASS]'
-        holdRegime = 'DRAGON_STREAK'
-        statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (65-67% historical loss trap). Capital protected.`
-        confidence = Math.min(confidence, 54)
-      }
     } else if (curStreak >= 6) {
+      // Fix 2: Graduated Streak Exhaustion Penalty
       status = 'HOLD'
       tier = 'HOLD'
       recommendedStake = '0U [PASS]'
       holdRegime = 'DRAGON_STREAK'
       statusReason = `⏳ Dragon Reversal Pending: ${curStreak}x streak reached. Awaiting secondary confirmation draw before firing.`
       confidence = Math.min(confidence, 55)
+    } else if (curStreak === 5) {
+      // Fix 2: Streak 5 requires >=90% consensus & >=0.14 margin
+      if (agreementRate < 0.90 || margin < 0.14) {
+        status = 'HOLD'
+        tier = 'HOLD'
+        recommendedStake = '0U [PASS]'
+        holdRegime = 'DRAGON_STREAK'
+        statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (Requires >=90% consensus & margin >=0.14). Capital protected.`
+        confidence = Math.min(confidence, 54)
+      }
+    } else if (curStreak === 4) {
+      // Fix 2: Streak 4 requires >=85% consensus & >=0.12 margin
+      if (agreementRate < 0.85 || margin < 0.12) {
+        status = 'HOLD'
+        tier = 'HOLD'
+        recommendedStake = '0U [PASS]'
+        holdRegime = 'DRAGON_STREAK'
+        statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (Requires >=85% consensus & margin >=0.12). Capital protected.`
+        confidence = Math.min(confidence, 54)
+      }
     } else if (curStreak === 3 && agreementRate < 0.70 && margin < 0.10) {
       status = 'HOLD'
       tier = 'HOLD'
@@ -1047,17 +1123,32 @@ export class PredictionEngine {
       confidence = Math.min(confidence, 53)
     }
 
+    // Fix 3: Early chop detection at Switch 1 with elevated entropy -> downgrade to Scout
+    if (curAlts === 1 && shannonEntropy > 0.84) {
+      earlyChopDowngradeToScout = true
+    }
+
+    // Tier classification & Conformal Risk Verification
+    // Fix 2: Never allow 2U Sniper on streak >= 4 (stake reduction cap)
     const isSniper = (
       (calibratedP >= 0.70 || calibratedP <= 0.30) &&
       agreeingModels.length >= 4 &&
       shannonEntropy < 0.86 &&
       regimeCheck.hurstH >= 0.50 &&
       margin >= 0.10 &&
-      status !== 'HOLD'
+      status !== 'HOLD' &&
+      curStreak < 4
     )
 
     if (status !== 'HOLD') {
-      if (isSniper) {
+      if (earlyChopDowngradeToScout) {
+        // Fix 3: Early chop downgrade to Scout (max 0.5U)
+        status = 'SCOUT'
+        tier = 'SCOUT'
+        recommendedStake = '0.5U'
+        statusReason = `🔭 Early Chop Gating (Switch 1): Downgraded to Scout (½U) due to elevated entropy (H=${shannonEntropy.toFixed(2)} > 0.84).`
+        confidence = Math.min(confidence, 58)
+      } else if (isSniper) {
         status = 'SNIPER'
         tier = 'SNIPER'
         recommendedStake = '2U'

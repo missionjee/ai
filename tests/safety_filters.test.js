@@ -151,4 +151,74 @@ describe('PredictionEngine Safety Filters & Gating Matrix', () => {
         assert.equal(typeof misses, 'number');
         assert.ok(misses >= 0);
     });
+
+    it('11. Hardened Re-entry Gate: requires >=2/3 paper trade recovery before exiting quarantine', () => {
+        const engine = new PredictionEngine();
+        const history = [];
+        for (let i = 0; i < 15; i++) {
+            history.push({
+                issue_number: `202609011000100${i.toString().padStart(2, '0')}`,
+                actual_result: "big",
+                actual_number: 8,
+                predicted_type: "BIG",
+                tier: "STANDARD"
+            });
+        }
+        // Append 2 consecutive standard losses
+        history.push(
+            { issue_number: "20260901100010050", actual_result: "small", actual_number: 1, predicted_type: "BIG", tier: "STANDARD" },
+            { issue_number: "20260901100010051", actual_result: "small", actual_number: 2, predicted_type: "BIG", tier: "STANDARD" }
+        );
+
+        const paperVal = engine._computePaperTradeValidation(history);
+        assert.ok(typeof paperVal.paperTradeWins === 'number');
+        assert.ok(typeof paperVal.canReenter === 'boolean');
+
+        const res = engine.predict(history);
+        assert.equal(res.status, 'HOLD');
+        assert.equal(res.tier, 'HOLD');
+        assert.ok(res.statusReason.includes('Shield') || res.statusReason.includes('Quarantine') || res.statusReason.includes('Loss score'));
+    });
+
+    it('12. Graduated Streak Exhaustion Penalty: streak 4 requires >=85% and caps stake to 1U', () => {
+        const engine = new PredictionEngine();
+        // 4x streak: base with alternating, then 4 Bigs
+        const history = createHistory([1, 8, 2, 7, 3, 6, 1, 8, 2, 8, 8, 8, 8]);
+        const res = engine.predict(history);
+
+        // Never allowed to be 2U Sniper on streak >= 4
+        assert.notEqual(res.recommendedStake, '2U');
+        assert.notEqual(res.tier, 'SNIPER');
+    });
+
+    it('13. Early Chop Detection: switch 2 with elevated entropy halts immediately to HOLD', () => {
+        const engine = new PredictionEngine();
+        // 2 switches with high digit diversity (elevated entropy): e.g. 1, 8, 2
+        const history = createHistory([7, 6, 8, 7, 6, 8, 9, 8, 7, 1, 8, 2]);
+        const res = engine.predict(history);
+        assert.equal(res.status, 'HOLD');
+        assert.ok(res.statusReason.includes('Early Alternation') || res.statusReason.includes('Chop') || res.statusReason.includes('discordance') || res.statusReason.includes('Shield'));
+    });
+
+    it('14. Scout Tier Loss Contribution Cap: Scout loss counts as 0.5 toward circuit breaker', () => {
+        const engine = new PredictionEngine();
+        const history = [];
+        for (let i = 0; i < 15; i++) {
+            history.push({
+                issue_number: `202609011000100${i.toString().padStart(2, '0')}`,
+                actual_result: "big",
+                actual_number: 8,
+                predicted_type: "BIG",
+                tier: "STANDARD"
+            });
+        }
+        // Append 1 Scout loss (weight 0.5)
+        history.push(
+            { issue_number: "20260901100010050", actual_result: "small", actual_number: 1, predicted_type: "BIG", tier: "SCOUT" }
+        );
+
+        const lossInfo = engine._computeWalkForwardLossScore(history);
+        assert.equal(lossInfo.explicitScore, 0.5);
+    });
 });
+

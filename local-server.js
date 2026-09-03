@@ -5,11 +5,19 @@
  * - Supports @supabase/server & @supabase/supabase-js
  */
 
-import "dotenv/config";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+// Load .env safely if present
+try {
+  if (typeof process.loadEnvFile === "function" && fs.existsSync(".env")) {
+    process.loadEnvFile(".env");
+  }
+} catch (e) {}
+
+import { executeSyncCycle } from "./cloudflare-worker/worker.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +49,24 @@ const server = http.createServer(async (req, res) => {
       supabaseUrl: process.env.SUPABASE_URL || "https://fvmbqikdomcjalladwmz.supabase.co",
       publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || "sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c"
     }));
+    return;
+  }
+
+  // API Route: Manual / Webhook Sync Trigger
+  if (reqPath === "/api/sync" || reqPath === "/api/signal") {
+    try {
+      const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+      const period = urlObj.searchParams.get("period");
+      const syncResult = await executeSyncCycle(period);
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      });
+      res.end(JSON.stringify({ success: true, data: syncResult }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
     return;
   }
 
@@ -76,5 +102,12 @@ server.listen(PORT, () => {
   console.log(`⚡ Supabase URL: ${process.env.SUPABASE_URL || "https://fvmbqikdomcjalladwmz.supabase.co"}`);
   console.log(`🔑 Publishable Key Active: ${(process.env.SUPABASE_PUBLISHABLE_KEY || "").slice(0, 16)}...`);
   console.log(`🗄️ PostgreSQL Database: ${process.env.DATABASE_HOST || "db.fvmbqikdomcjalladwmz.supabase.co"}:${process.env.DATABASE_PORT || 5432}`);
+  console.log(`🔄 24/7 Supabase Prediction Engine: Active (60s loop)`);
   console.log(`======================================================\n`);
+
+  // Initial Sync & start 60s background daemon
+  executeSyncCycle().catch(() => {});
+  setInterval(() => {
+    executeSyncCycle().catch(() => {});
+  }, 60000);
 });

@@ -6,6 +6,8 @@
  * - Adds institutional version badge and gold subline.
  */
 
+import { useState, useEffect } from 'react'
+
 interface HeaderProps {
   isLiveFeed: boolean
   isResolving: boolean
@@ -24,6 +26,31 @@ export function Header({
   const statusLabel = isResolving ? 'SYNCING' : isLiveFeed ? 'LIVE' : 'LOCAL'
   const isGreen = !isResolving && isLiveFeed
 
+  const [isWhiteTheme, setIsWhiteTheme] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hiroto_theme') === 'white'
+    }
+    return false
+  })
+
+  useEffect(() => {
+    if (isWhiteTheme) {
+      document.documentElement.classList.add('theme-white')
+      document.documentElement.setAttribute('data-theme', 'white')
+      document.body.classList.add('theme-white')
+      localStorage.setItem('hiroto_theme', 'white')
+    } else {
+      document.documentElement.classList.remove('theme-white')
+      document.documentElement.setAttribute('data-theme', 'dark')
+      document.body.classList.remove('theme-white')
+      localStorage.setItem('hiroto_theme', 'dark')
+    }
+  }, [isWhiteTheme])
+
+  const toggleTheme = () => {
+    setIsWhiteTheme(prev => !prev)
+  }
+
   return (
     <header className="top-header">
       {/* Brand Area */}
@@ -33,10 +60,10 @@ export function Header({
         </div>
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
-            <h1 className="font-display font-black text-[20px] sm:text-[22px] text-white tracking-[1.2px] leading-none">
+            <h1 className="font-display font-black text-[20px] sm:text-[22px] tracking-[1.2px] leading-none brand-title">
               HIROTO
             </h1>
-            <span className="font-mono text-[9px] font-semibold text-[#64748b] bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 rounded tracking-wider">
+            <span className="font-mono text-[9px] font-semibold text-[#64748b] bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 rounded tracking-wider version-badge">
               v9.1
             </span>
           </div>
@@ -46,8 +73,17 @@ export function Header({
         </div>
       </div>
 
-      {/* Header Controls — Status Pill ONLY (sign out, speaker, and reload buttons removed) */}
-      <div className="flex items-center">
+      {/* Header Controls */}
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="theme-toggle-btn"
+          title={isWhiteTheme ? 'Switch to AMOLED Dark Theme' : 'Switch to White Theme'}
+          aria-label="Toggle White Theme"
+        >
+          {isWhiteTheme ? '🌙' : '☀️'}
+        </button>
         <div className={`status-pill ${isGreen ? '' : 'syncing'}`}>
           <span className="pulse-dot" />
           <span>{statusLabel}</span>

@@ -3,7 +3,7 @@
  * Network-First strategy ensures laptops and phones always load latest updates
  */
 
-const CACHE_NAME = "hiroto-pwa-v4";
+const CACHE_NAME = "hiroto-pwa-v5";
 const ASSETS_TO_CACHE = [
   "/",
   "/d.html",
@@ -40,6 +40,7 @@ self.addEventListener("fetch", (event) => {
   // Always bypass cache for real-time external APIs
   if (event.request.url.includes("tirangaprediction.ai") || 
       event.request.url.includes("supabase.co") ||
+      event.request.url.includes("workers.dev") ||
       event.request.url.includes("allorigins") ||
       event.request.url.includes("corsproxy")) {
     return;

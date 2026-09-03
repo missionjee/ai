@@ -46,6 +46,16 @@
     }
   </style>
 
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem('hiroto_theme') === 'white') {
+          document.documentElement.classList.add('theme-white');
+          document.documentElement.setAttribute('data-theme', 'white');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -65,6 +75,9 @@
       </div>
 
       <div class="header-controls">
+        <button class="theme-toggle-btn" id="themeToggleBtn" type="button" title="Toggle Theme" aria-label="Toggle Theme">
+          <span id="themeToggleIcon">☀️</span>
+        </button>
         <div class="status-pill" id="statusPill">
           <span class="pulse-dot"></span>
           <span id="statusText">LIVE</span>
@@ -190,6 +203,6 @@
   <div class="toast-msg" id="toastMsg">✓ Notification</div>
 
   <!-- Core Script -->
-  <script type="module" src="terminal.js"></script>
+  <script type="module" src="terminal.js?v=9.3.0"></script>
 </body>
 </html>

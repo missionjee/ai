@@ -158,6 +158,36 @@
     position: relative;
   }
 
+  /* Refined Theme Toggle Button */
+  .theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+    color: #f8fafc;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    user-select: none;
+  }
+
+  .theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(245, 158, 11, 0.45);
+    transform: scale(1.05);
+  }
+
+  .theme-toggle-btn:active {
+    transform: scale(0.95);
+  }
+
   /* Refined Translucent Status Pill */
   .status-pill {
     display: inline-flex;
@@ -966,10 +996,200 @@
   .history-table tbody tr.row-win td {
     background: rgba(16, 185, 129, 0.04);
   }
+
+  /* ==========================================================================
+     WHITE THEME INSTITUTIONAL OVERRIDES
+     ========================================================================== */
+  html.theme-white,
+  body.theme-white {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+  }
+
+  body.theme-white::before {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.12) 0%, transparent 55%),
+      radial-gradient(circle at 15% 35%, rgba(245, 158, 11, 0.08) 0%, transparent 45%),
+      radial-gradient(circle at 85% 65%, rgba(225, 29, 72, 0.08) 0%, transparent 50%),
+      linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  }
+
+  body.theme-white::after {
+    background-image: 
+      linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px) !important;
+  }
+
+  .theme-white .top-header {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.09) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.14) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .theme-white .top-header .brand-title {
+    color: #0f172a !important;
+  }
+
+  .theme-white .top-header .version-badge {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .theme-white .theme-toggle-btn {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.18) !important;
+    color: #0f172a !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .theme-white .theme-toggle-btn:hover {
+    background: #ffffff !important;
+    border-color: #f59e0b !important;
+  }
+
+  .theme-white .metric-box {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-top: 2px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .theme-white .metric-box.metric-tokens {
+    border-top: 2.5px solid #f59e0b !important;
+  }
+
+  .theme-white .metric-box.metric-streak {
+    border-top: 2.5px solid #10b981 !important;
+  }
+
+  .theme-white .metric-box.metric-consensus {
+    border-top: 2.5px solid #0284c7 !important;
+  }
+
+  .theme-white .metric-label {
+    color: #64748b !important;
+  }
+
+  .theme-white .prediction-hero {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.09) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .theme-white .period-title {
+    color: #64748b !important;
+  }
+
+  .theme-white .period-num {
+    color: #0f172a !important;
+  }
+
+  .theme-white .countdown-box {
+    background: #f1f5f9 !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .theme-white .countdown-label {
+    color: #64748b !important;
+  }
+
+  .theme-white .countdown-timer {
+    color: #0f172a !important;
+  }
+
+  .theme-white .hero-grid-sub {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .theme-white .sub-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.07) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  .theme-white .sub-card-label {
+    color: #64748b !important;
+  }
+
+  .theme-white .sub-card-val {
+    color: #0f172a !important;
+  }
+
+  .theme-white .hero-footer {
+    background: #f8fafc !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .theme-white .intel-tag {
+    color: #64748b !important;
+  }
+
+  .theme-white .intel-value {
+    color: #0f172a !important;
+  }
+
+  .theme-white .history-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.09) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .theme-white .history-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .theme-white .history-title {
+    color: #0f172a !important;
+  }
+
+  .theme-white .filter-tab {
+    background: #f1f5f9 !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #64748b !important;
+  }
+
+  .theme-white .filter-tab.active {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    border-color: #0f172a !important;
+  }
+
+  .theme-white .history-table th {
+    background: #f8fafc !important;
+    color: #64748b !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .theme-white .history-table td {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    color: #334155 !important;
+  }
+
+  .theme-white .history-row:hover {
+    background: #f8fafc !important;
+  }
+
+  .theme-white .history-period {
+    color: #0f172a !important;
+  }
+
+  .theme-white .token-modal {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+    color: #0f172a !important;
+  }
 }
 
 @layer utilities {
   .bg-amoled { background-color: #020509; }
+  .theme-white .bg-amoled { background-color: #f1f5f9; }
   
   /* 120Hz Hardware Acceleration */
   .metric-box,
@@ -990,5 +1210,8 @@
   ::-webkit-scrollbar-track { background: #070b12; }
   ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
   ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+  .theme-white ::-webkit-scrollbar-track { background: #e2e8f0; }
+  .theme-white ::-webkit-scrollbar-thumb { background: #94a3b8; }
 }
 

@@ -298,22 +298,78 @@ class SupabaseService {
 
   /**
    * Zero-Leak Secure RPC: Get Authorized Prediction with Token Consumption
+   * 1. Consumes token via atomic RPC and verifies device validity
+   * 2. Fetches authoritative central signal from Supabase global_signals
+   * 3. If edge cron was delayed, triggers Cloudflare Worker /signal directly to ensure 100% deterministic parity across all devices
    */
   async getAuthorizedPrediction(periodNumber: string): Promise<AuthorizedPredictionResult> {
     const session = this.getSession()
     if (!session?.key) return { success: false, error: 'AUTH_REQUIRED' }
 
-    // Execute atomic token deduction first
-    const tokenRes = await this.consumeToken(periodNumber, 'PRED')
-    const balance = typeof tokenRes.remainingTokens === 'number' ? tokenRes.remainingTokens : this.getTokenBalance()
-
-    if (balance <= 0) {
-      return { success: false, error: 'INSUFFICIENT_TOKENS', tokensBalance: 0 }
+    // 1. Consume 1 token via atomic Supabase RPC
+    const tokenResult = await this.consumeToken(periodNumber, 'PRED')
+    if (!tokenResult.success) {
+      if (tokenResult.error === 'DEVICE_MISMATCH') {
+        return { success: false, error: 'DEVICE_MISMATCH' }
+      }
+      if (tokenResult.error === 'INSUFFICIENT_TOKENS') {
+        return { success: false, error: 'INSUFFICIENT_TOKENS', tokensBalance: 0 }
+      }
     }
 
-    const cloudSignal = await this.getGlobalSignal(periodNumber)
-    return { success: !!cloudSignal, signal: cloudSignal as AuthorizedPredictionResult['signal'], tokensBalance: balance }
+    // 2. Fetch Central Signal from Supabase
+    let cloudSignal = await this.getGlobalSignal(periodNumber)
+
+    // 3. If signal not yet in Supabase, query 24/7 Cloudflare Edge Worker directly
+    if (!cloudSignal || !cloudSignal.predicted_type) {
+      try {
+        const workerController = new AbortController()
+        const workerTimeout = setTimeout(() => workerController.abort(), 6000)
+        const workerRes = await fetch(`https://hiroto-engine-worker.diveshsah2.workers.dev/signal?period=${encodeURIComponent(periodNumber)}`, {
+          signal: workerController.signal,
+          cache: 'no-store'
+        })
+        clearTimeout(workerTimeout)
+        if (workerRes.ok) {
+          const workerJson = await workerRes.json()
+          if (workerJson?.data?.prediction) {
+            const d = workerJson.data
+            cloudSignal = {
+              issue_number: d.period || periodNumber,
+              predicted_type: d.prediction,
+              confidence: d.confidence || 55,
+              status: d.status || 'CLEARED',
+              lucky_digits: d.luckyDigits || d.lucky_digits || [7, 8],
+              stake_units: d.recommendedStake || '1U',
+              strategy: d.strategy || 'Autonomous Meta-Learner',
+              reason: d.reason || 'Edge Ensemble Convergence',
+              big_prob: d.bigProb || 50,
+              small_prob: d.smallProb || 50,
+              regime: d.regime || 'trending',
+              pattern: d.pattern || 'Standard',
+              is_sniper: !!d.isSniper,
+              engine_version: d.engine_version || 'v9.1',
+              created_at: new Date().toISOString()
+            }
+          }
+        }
+      } catch (e) {
+        // Edge worker unreachable, proceed to local fallback
+      }
+    }
+
+    // Re-check Supabase if worker just populated it
+    if (!cloudSignal) {
+      cloudSignal = await this.getGlobalSignal(periodNumber)
+    }
+
+    return {
+      success: !!cloudSignal,
+      signal: cloudSignal as AuthorizedPredictionResult['signal'],
+      tokensBalance: this.getTokenBalance()
+    }
   }
+
 
   /**
    * Fetch user's taken predictions history from Supabase token_ledger
@@ -480,17 +536,19 @@ class SupabaseService {
   }
 
   /**
-   * Fetch recent global signals with win/loss calculations
+   * Fetch recent global signals with win/loss calculations (strictly filtered to lottery periods)
    */
-  async getRecentGlobalSignals(limit = 40): Promise<GlobalSignal[]> {
+  async getRecentGlobalSignals(limit = 60): Promise<GlobalSignal[]> {
     try {
       const res = await fetch(
-        `${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?select=*&order=issue_number.desc&limit=${limit}`,
+        `${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?issue_number=like.20*&order=issue_number.desc&limit=${limit}`,
         { headers: this._headers }
       )
       if (res.ok) {
         const rows = await res.json()
-        if (Array.isArray(rows)) return rows as GlobalSignal[]
+        if (Array.isArray(rows)) {
+          return rows.filter(r => r.issue_number && String(r.issue_number).startsWith('20')) as GlobalSignal[]
+        }
       }
     } catch { /* noop */ }
     return []

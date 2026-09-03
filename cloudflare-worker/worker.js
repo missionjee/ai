@@ -112,7 +112,7 @@ class PredictionEngine {
         this.plattA = 2.40;
         this.plattB = -0.05;
         this.conformalGator = new ConformalRiskGator(0.12, 120);
-        this.modelTrackers = {
+        this.defaultModelTrackers = () => ({
             parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
             latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
             contextAttention: { hits: 14, total: 25, accuracy: 56, weight: 1.80, inverted: false },
@@ -120,8 +120,11 @@ class PredictionEngine {
             dragonMomentum: { hits: 13, total: 25, accuracy: 52, weight: 1.00, inverted: false },
             historicalPatternAssistance: { hits: 12, total: 25, accuracy: 48, weight: 0.30, inverted: false },
             empiricalMarkov: { hits: 11, total: 25, accuracy: 44, weight: 0.20, inverted: false }
-        };
+        });
+        this.modelTrackers = this.defaultModelTrackers();
     }
+
+
 
     _isContiguous(issueNewer, issueOlder) {
         if (!issueNewer || !issueOlder) return false;
@@ -607,29 +610,17 @@ class PredictionEngine {
         return { detected: false, patternName: "" };
     }
 
-    _computeWalkForwardConsecutiveMisses(validHistory) {
-        if (!Array.isArray(validHistory) || validHistory.length < 10) return 0;
-
-        // 1. Explicit consecutive misses recorded in history
-        let explicitMisses = 0;
-        for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 15); i--) {
-            const h = validHistory[i];
-            const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null;
-            const a = (h.actual_result || h.result_type) ? String(h.actual_result || h.result_type).toUpperCase() : null;
-            if (p && a && (p === "BIG" || p === "SMALL") && (a === "BIG" || a === "SMALL")) {
-                if (p !== a) explicitMisses++;
-                else break;
-            }
+    _computePaperTradeValidation(validHistory) {
+        if (!Array.isArray(validHistory) || validHistory.length < 4) {
+            return { paperTradeWins: 0, totalEvaluated: 0, canReenter: false };
         }
-
-        // 2. Simulated walk-forward backtest across recent rounds
-        let simulatedMisses = 0;
-        const testDepth = Math.min(12, validHistory.length - 8);
-        for (let k = 1; k <= testDepth; k++) {
+        const evalDepth = Math.min(3, validHistory.length - 1);
+        let paperWins = 0;
+        for (let k = 1; k <= evalDepth; k++) {
             const targetIdx = validHistory.length - k;
             const subHist = validHistory.slice(0, targetIdx);
             const actual = (validHistory[targetIdx].actual_result || validHistory[targetIdx].result_type || "").toUpperCase();
-            if (actual !== "BIG" && actual !== "SMALL") break;
+            if (actual !== "BIG" && actual !== "SMALL") continue;
 
             const rawSub = this._computeRawSubmodels(subHist);
             let weightedBase = 0, totalW = 0;
@@ -642,15 +633,90 @@ class PredictionEngine {
             const rawScore = weightedBase / (totalW || 1.0);
             const simP = this._plattCalibrate(rawScore);
             const simPred = simP >= 0.50 ? "BIG" : "SMALL";
+            if (simPred === actual) {
+                paperWins++;
+            }
+        }
+        return {
+            paperTradeWins: paperWins,
+            totalEvaluated: evalDepth,
+            canReenter: paperWins >= 2
+        };
+    }
+
+    _computeWalkForwardLossScore(validHistory) {
+        if (!Array.isArray(validHistory) || validHistory.length < 10) {
+            return { lossScore: 0, explicitScore: 0, simulatedScore: 0 };
+        }
+
+        const lossWeights = { SNIPER: 1.0, STANDARD: 1.0, SCOUT: 0.5, HOLD: 0.0 };
+
+        // 1. Explicit consecutive loss score from history
+        let explicitScore = 0;
+        for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 15); i--) {
+            const h = validHistory[i];
+            const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null;
+            const a = (h.actual_result || h.result_type) ? String(h.actual_result || h.result_type).toUpperCase() : null;
+            const tier = h.tier ? String(h.tier).toUpperCase() : (h.status ? String(h.status).toUpperCase() : 'STANDARD');
+
+            if (p && a && (p === 'BIG' || p === 'SMALL') && (a === 'BIG' || a === 'SMALL')) {
+                if (p !== a) {
+                    const w = lossWeights[tier] !== undefined ? lossWeights[tier] : 1.0;
+                    explicitScore += w;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // 2. Simulated walk-forward backtest across recent rounds
+        let simulatedScore = 0;
+        const testDepth = Math.min(12, validHistory.length - 8);
+        for (let k = 1; k <= testDepth; k++) {
+            const targetIdx = validHistory.length - k;
+            const subHist = validHistory.slice(0, targetIdx);
+            const actual = (validHistory[targetIdx].actual_result || validHistory[targetIdx].result_type || '').toUpperCase();
+            if (actual !== 'BIG' && actual !== 'SMALL') break;
+
+            const rawSub = this._computeRawSubmodels(subHist);
+            let weightedBase = 0, totalW = 0;
+            let agreeingCount = 0;
+            for (const [name, tr] of Object.entries(this.modelTrackers)) {
+                let p = rawSub[name].prob;
+                if (tr.inverted) p = 1.0 - p;
+                weightedBase += p * tr.weight;
+                totalW += tr.weight;
+            }
+            const rawScore = weightedBase / (totalW || 1.0);
+            const simP = this._plattCalibrate(rawScore);
+            const simPred = simP >= 0.50 ? 'BIG' : 'SMALL';
+
+            for (const [name, tr] of Object.entries(this.modelTrackers)) {
+                let p = rawSub[name].prob;
+                if (tr.inverted) p = 1.0 - p;
+                const pred = p >= 0.50 ? 'BIG' : 'SMALL';
+                if (pred === simPred) agreeingCount++;
+            }
+
+            const tierWeight = (agreeingCount <= 2) ? 0.5 : 1.0;
 
             if (simPred !== actual) {
-                simulatedMisses++;
+                simulatedScore += tierWeight;
             } else {
                 break;
             }
         }
 
-        return Math.max(explicitMisses, simulatedMisses);
+        const lossScore = Math.max(explicitScore, simulatedScore);
+        return {
+            lossScore,
+            explicitScore,
+            simulatedScore
+        };
+    }
+
+    _computeWalkForwardConsecutiveMisses(validHistory) {
+        return this._computeWalkForwardLossScore(validHistory).lossScore;
     }
 
     _getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, brokenSymmetry) {
@@ -798,15 +864,17 @@ class PredictionEngine {
         };
     }
 
-    // ==============================================================================
-    // PRIMARY PREDICTION INTERFACE
-    // ==============================================================================
     predict(history) {
-        if (Array.isArray(history)) {
+        this.modelTrackers = this.defaultModelTrackers();
+        this.plattA = 2.40;
+        this.plattB = -0.05;
+
+        let validHistory = [];
+        if (Array.isArray(history) && history.length > 0) {
             history.forEach(item => {
-                if (item && item.issue_number && (item.actual_result || item.result_type)) {
-                    const k = String(item.issue_number);
-                    const res = (item.actual_result || item.result_type).toLowerCase();
+                if (item && item.issue_number && (item.actual_result || item.result_type || (item.actual_number !== undefined && item.actual_number !== null))) {
+                    const k = String(item.issue_number).trim();
+                    const res = (item.actual_result || item.result_type || (item.actual_number >= 5 ? "big" : "small")).toLowerCase();
                     const num = item.actual_number !== undefined && item.actual_number !== null && !isNaN(parseInt(item.actual_number, 10))
                         ? parseInt(item.actual_number, 10)
                         : null;
@@ -815,25 +883,35 @@ class PredictionEngine {
                         issue_number: k,
                         actual_result: res,
                         actual_number: num,
-                        predicted_type: item.predicted_type || item.predictedType || null
+                        predicted_type: item.predicted_type || item.predictedType || null,
+                        tier: item.tier || item.status || null
                     });
                 }
             });
+
+            // Maintain FIFO ring buffer under 5,000 items
+            if (this.historyBuffer.size > 5000) {
+                const keys = Array.from(this.historyBuffer.keys());
+                const excess = this.historyBuffer.size - 5000;
+                for (let i = 0; i < excess; i++) {
+                    this.historyBuffer.delete(keys[i]);
+                }
+            }
+
+            const sorted = Array.from(this.historyBuffer.values()).sort((a, b) => {
+                try {
+                    const aI = BigInt(a.issue_number);
+                    const bI = BigInt(b.issue_number);
+                    return aI > bI ? 1 : (aI < bI ? -1 : 0);
+                } catch (e) {
+                    return String(a.issue_number).localeCompare(String(b.issue_number));
+                }
+            });
+
+            validHistory = sorted.slice(-40);
         }
 
-        const combined = Array.from(this.historyBuffer.values()).sort((a, b) => {
-            try {
-                const bI = BigInt(b.issue_number);
-                const aI = BigInt(a.issue_number);
-                return aI > bI ? 1 : (aI < bI ? -1 : 0);
-            } catch (e) {
-                return String(a.issue_number).localeCompare(String(b.issue_number));
-            }
-        });
-
-        const validHistory = combined.filter(h => (h.actual_result || h.result_type));
-
-        if (validHistory.length < 8) {
+        if (validHistory.length < 5) {
             return {
                 prediction: "HOLD",
                 confidence: 50,
@@ -864,6 +942,7 @@ class PredictionEngine {
                 modelPerformance: null
             };
         }
+
 
         const tokens = validHistory.map(d => {
             const r = (d.actual_result || d.result_type).toLowerCase();
@@ -981,7 +1060,10 @@ class PredictionEngine {
         let confidence = Math.min(this.maxConfidence, Math.max(this.minConfidence, Math.round(52 + margin * 88)));
 
         // Step 7: Consecutive Miss Protection & Rhythm Analysis
-        const consecutiveMisses = this._computeWalkForwardConsecutiveMisses(validHistory);
+        const lossInfo = this._computeWalkForwardLossScore(validHistory);
+        const consecutiveLossScore = lossInfo.lossScore;
+        const consecutiveMisses = Math.ceil(consecutiveLossScore);
+        const paperTradeVal = this._computePaperTradeValidation(validHistory);
         const brokenSymmetry = this._detectBrokenSymmetryPattern(tokens);
 
         // Step 8: Execution Status & Multi-Tier Anti-Drawdown Safety Matrix
@@ -992,6 +1074,7 @@ class PredictionEngine {
         let tier = "STANDARD";
         let recommendedStake = "1U";
         let statusReason = `Multi-model confluence verified (Hurst H=${regimeCheck.hurstH})`;
+        let earlyChopDowngradeToScout = false;
 
         const isConfirmedRegimeMatch = (
             (curStreak >= 3 && agreementRate >= 0.50) ||
@@ -1009,26 +1092,26 @@ class PredictionEngine {
             holdRegime = "WHITE_NOISE";
             statusReason = `🛡️ White-Noise Filter: Hurst H=${regimeCheck.hurstH} indicates random walk. Capital preserved.`;
             confidence = Math.min(confidence, 55);
-        } else if (consecutiveMisses >= 3) {
+        } else if (consecutiveLossScore >= 3.0) {
             status = "HOLD";
             tier = "HOLD";
             recommendedStake = "0U [PASS]";
             holdRegime = "QUARANTINE";
-            statusReason = `🛡️ Anti-Drawdown Quarantine: ${consecutiveMisses} consecutive losses detected in ${regimeCheck.regimeName} (${dynamicQuarantineRounds}R lockout required). Halting executions until regime stabilizes.`;
+            statusReason = `🛡️ Anti-Drawdown Quarantine: Loss score ${consecutiveLossScore.toFixed(1)} requires ${dynamicQuarantineRounds}R lockout & paper recovery (${paperTradeVal.paperTradeWins}/3 wins, H=${shannonEntropy.toFixed(2)}).`;
             confidence = Math.min(confidence, 50);
-        } else if (consecutiveMisses >= 2) {
+        } else if (consecutiveLossScore >= 2.0) {
             status = "HOLD";
             tier = "HOLD";
             recommendedStake = "0U [PASS]";
             holdRegime = "QUARANTINE";
-            statusReason = `🛡️ Anti-Drawdown Shield: ${consecutiveMisses} consecutive misses detected. Absorbing market regime shift [HOLD].`;
+            statusReason = `🛡️ Anti-Drawdown Shield: Loss score ${consecutiveLossScore.toFixed(1)} detected. Absorbing market regime shift (${paperTradeVal.paperTradeWins}/3 paper wins) [HOLD].`;
             confidence = Math.min(confidence, 52);
-        } else if (consecutiveMisses === 1 && (margin < 0.10 || agreementRate < 0.75)) {
+        } else if (consecutiveLossScore >= 1.0 && (margin < 0.10 || agreementRate < 0.75)) {
             status = "HOLD";
             tier = "HOLD";
             recommendedStake = "0U [PASS]";
             holdRegime = "QUARANTINE";
-            statusReason = `🛡️ Post-Loss Edge Gate: Requiring >=75% model agreement after a miss (current: ${Math.round(agreementRate * 100)}%).`;
+            statusReason = `🛡️ Post-Loss Edge Gate: Loss score ${consecutiveLossScore.toFixed(1)} requires >=75% agreement (current: ${Math.round(agreementRate * 100)}%).`;
             confidence = Math.min(confidence, 56);
         } else if (shannonEntropy > regimeEntropyThreshold) {
             status = "HOLD";
@@ -1043,6 +1126,14 @@ class PredictionEngine {
             recommendedStake = "0U [PASS]";
             holdRegime = "CHOP_OSCILLATION";
             statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (Anti-Oscillation Trap) [HOLD].`;
+            confidence = Math.min(confidence, 52);
+        } else if (curAlts === 2 && shannonEntropy > 0.84) {
+            // Fix 3: Early chop halt at switch 2 with elevated entropy
+            status = "HOLD";
+            tier = "HOLD";
+            recommendedStake = "0U [PASS]";
+            holdRegime = "CHOP_OSCILLATION";
+            statusReason = `🛡️ Early Alternation Gating: 2x switch in elevated entropy (Shannon H=${shannonEntropy.toFixed(2)} > 0.84) [HOLD].`;
             confidence = Math.min(confidence, 52);
         } else if (brokenSymmetry.detected) {
             status = "HOLD";
@@ -1065,22 +1156,34 @@ class PredictionEngine {
             holdRegime = "DRAGON_STREAK";
             statusReason = "Streak boundary 2x transition zone [PASS]";
             confidence = Math.min(confidence, 60);
-        } else if (curStreak === 4 || curStreak === 5) {
-            if (agreementRate < 0.78 || margin < 0.12) {
-                status = "HOLD";
-                tier = "HOLD";
-                recommendedStake = "0U [PASS]";
-                holdRegime = "DRAGON_STREAK";
-                statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (65-67% historical loss trap). Capital protected.`;
-                confidence = Math.min(confidence, 54);
-            }
         } else if (curStreak >= 6) {
+            // Fix 2: Graduated Streak Exhaustion Penalty
             status = "HOLD";
             tier = "HOLD";
             recommendedStake = "0U [PASS]";
             holdRegime = "DRAGON_STREAK";
             statusReason = `⏳ Dragon Reversal Pending: ${curStreak}x streak reached. Awaiting secondary confirmation draw before firing.`;
             confidence = Math.min(confidence, 55);
+        } else if (curStreak === 5) {
+            // Fix 2: Streak 5 requires >=90% consensus & >=0.14 margin
+            if (agreementRate < 0.90 || margin < 0.14) {
+                status = "HOLD";
+                tier = "HOLD";
+                recommendedStake = "0U [PASS]";
+                holdRegime = "DRAGON_STREAK";
+                statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (Requires >=90% consensus & margin >=0.14). Capital protected.`;
+                confidence = Math.min(confidence, 54);
+            }
+        } else if (curStreak === 4) {
+            // Fix 2: Streak 4 requires >=85% consensus & >=0.12 margin
+            if (agreementRate < 0.85 || margin < 0.12) {
+                status = "HOLD";
+                tier = "HOLD";
+                recommendedStake = "0U [PASS]";
+                holdRegime = "DRAGON_STREAK";
+                statusReason = `🛡️ Dragon Exclusion Zone: ${curStreak}x streak detected (Requires >=85% consensus & margin >=0.12). Capital protected.`;
+                confidence = Math.min(confidence, 54);
+            }
         } else if (curStreak === 3 && agreementRate < 0.70 && margin < 0.10) {
             status = "HOLD";
             tier = "HOLD";
@@ -1111,17 +1214,32 @@ class PredictionEngine {
             confidence = Math.min(confidence, 53);
         }
 
+        // Fix 3: Early chop detection at Switch 1 with elevated entropy -> downgrade to Scout
+        if (curAlts === 1 && shannonEntropy > 0.84) {
+            earlyChopDowngradeToScout = true;
+        }
+
+        // Tier classification & Conformal Risk Verification
+        // Fix 2: Never allow 2U Sniper on streak >= 4 (stake reduction cap)
         const isSniper = (
             (calibratedP >= 0.70 || calibratedP <= 0.30) &&
             agreeingModels.length >= 4 &&
             shannonEntropy < 0.86 &&
             regimeCheck.hurstH >= 0.50 &&
             margin >= 0.10 &&
-            status !== "HOLD"
+            status !== "HOLD" &&
+            curStreak < 4
         );
 
         if (status !== "HOLD") {
-            if (isSniper) {
+            if (earlyChopDowngradeToScout) {
+                // Fix 3: Early chop downgrade to Scout (max 0.5U)
+                status = "SCOUT";
+                tier = "SCOUT";
+                recommendedStake = "0.5U";
+                statusReason = `🔭 Early Chop Gating (Switch 1): Downgraded to Scout (½U) due to elevated entropy (H=${shannonEntropy.toFixed(2)} > 0.84).`;
+                confidence = Math.min(confidence, 58);
+            } else if (isSniper) {
                 status = "SNIPER";
                 tier = "SNIPER";
                 recommendedStake = "2U";
@@ -1284,7 +1402,8 @@ class PredictionEngine {
                 inverted: tr.inverted
             };
         }
-        const validHistory = Array.from(this.historyBuffer.values()).filter(h => h.actual_result || h.result_type);
+        const hist = (this.historyBuffer && this.historyBuffer.size > 0) ? Array.from(this.historyBuffer.values()) : [];
+        const validHistory = hist.filter(h => h.actual_result || h.result_type);
         const tokens = validHistory.map(h => (h.actual_result || h.result_type || "").toLowerCase() === "big" ? 1 : 0);
         const digits = validHistory.map(h => h.actual_number !== null && h.actual_number !== undefined ? parseInt(h.actual_number, 10) : 4);
         const regime = this._regimeValidityCheck(tokens, digits);
@@ -1294,8 +1413,9 @@ class PredictionEngine {
             status: "ONLINE",
             engine_version: "v9.1 Autonomous Meta-Learner Enterprise",
             timestamp: new Date().toISOString(),
-            historical_rounds_buffered: this.historyBuffer.size,
+            historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
+
             active_regime: {
                 regimeName: regime.regimeName,
                 hurstExponent: regime.hurstH,
@@ -1365,41 +1485,238 @@ function calculateNextPeriod(latestIssueStr) {
     return `${datePart}${gameCode}${String(nextIdx).padStart(4, "0")}`;
 }
 
-async function fetchWithTriProxy(url, timeoutMs = 4000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+function getUtcCurrentPeriod(date = new Date()) {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(date.getUTCDate()).padStart(2, "0");
+    const minuteOfDay = date.getUTCHours() * 60 + date.getUTCMinutes() + 1;
+    const periodIdx = Math.min(1440, Math.max(1, minuteOfDay));
+    return `${y}${m}${d}10001${String(periodIdx).padStart(4, "0")}`;
+}
+
+async function fetchWithTriProxy(url, timeoutMs = 6000) {
+    const proxies = [
+        url,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`
+    ];
+
+    for (const target of proxies) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(target, {
+                signal: controller.signal,
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Accept": "application/json"
+                }
+            });
+            clearTimeout(timer);
+            if (res.ok) {
+                const text = await res.text();
+                try {
+                    const parsed = JSON.parse(text);
+                    const list = Array.isArray(parsed) ? parsed : (parsed?.data || []);
+                    if (Array.isArray(list) && list.length > 0) {
+                        return list;
+                    }
+                } catch (e) {}
+            }
+        } catch (e) {
+            clearTimeout(timer);
+        }
+    }
+    return null;
+}
+
+async function hydrateHistoryFromSupabase(limit = 40) {
     try {
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timer);
-        return res;
-    } catch (e) {
-        clearTimeout(timer);
-        throw e;
+        const res = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?select=issue_number,actual_result,actual_number,predicted_type&order=issue_number.desc&limit=${limit}`, {
+            headers: {
+                "apikey": CONFIG.SUPABASE_KEY,
+                "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
+            }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                return data;
+            }
+        }
+    } catch (e) {}
+    return [];
+}
+
+async function settlePastDrawsInSupabase(draws) {
+    if (!Array.isArray(draws) || draws.length === 0) return;
+    for (const draw of draws.slice(0, 10)) {
+        const issue = draw.issue_number;
+        if (!issue) continue;
+        const resType = (draw.actual_result || draw.result_type || (draw.actual_number >= 5 ? "big" : "small") || "").toLowerCase();
+        const resNum = draw.actual_number !== undefined && draw.actual_number !== null ? parseInt(draw.actual_number, 10) : null;
+        if (!resType) continue;
+
+        try {
+            await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?issue_number=eq.${encodeURIComponent(issue)}`, {
+                method: "PATCH",
+                headers: {
+                    "apikey": CONFIG.SUPABASE_KEY,
+                    "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    actual_result: resType,
+                    actual_number: resNum
+                })
+            });
+        } catch (e) {}
     }
 }
 
-async function executeSyncCycle() {
-    let history = [];
+const publishedSignalsCache = new Map();
+
+async function executeSyncCycle(requestedPeriod = null) {
+    // 1. If a specific period was requested and is already cached in memory, return it instantly
+    if (requestedPeriod && publishedSignalsCache.has(requestedPeriod)) {
+        return publishedSignalsCache.get(requestedPeriod);
+    }
+
+    // 2. If a specific period was requested, check if Supabase already has the official signal
+    if (requestedPeriod) {
+        try {
+            const checkRes = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?issue_number=eq.${encodeURIComponent(requestedPeriod)}&select=*`, {
+                headers: {
+                    "apikey": CONFIG.SUPABASE_KEY,
+                    "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
+                }
+            });
+            if (checkRes.ok) {
+                const rows = await checkRes.json();
+                if (Array.isArray(rows) && rows.length > 0 && rows[0].predicted_type) {
+                    const row = rows[0];
+                    const cached = {
+                        success: true,
+                        period: row.issue_number,
+                        prediction: row.predicted_type,
+                        confidence: row.confidence,
+                        status: row.status,
+                        tier: row.is_sniper ? "SNIPER" : "STANDARD",
+                        recommendedStake: row.stake_units || "1U",
+                        pattern: row.pattern,
+                        strategy: row.strategy,
+                        reason: row.reason,
+                        luckyDigits: row.lucky_digits,
+                        bigProb: row.big_prob,
+                        smallProb: row.small_prob,
+                        regime: row.regime
+                    };
+                    publishedSignalsCache.set(row.issue_number, cached);
+                    return cached;
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 3. Fetch upstream live draws with fallback proxies
+    let upstreamHistory = await fetchWithTriProxy(CONFIG.LOTTERY_API, 6000);
+    const supabaseHistory = await hydrateHistoryFromSupabase(40);
+
+    // 4. Merge, deduplicate, and sort all draws descending by issue_number
+    const historyMap = new Map();
+    if (Array.isArray(supabaseHistory)) {
+        supabaseHistory.forEach(h => {
+            if (h && h.issue_number) historyMap.set(String(h.issue_number), h);
+        });
+    }
+    if (Array.isArray(upstreamHistory)) {
+        upstreamHistory.forEach(h => {
+            if (h && h.issue_number) {
+                const k = String(h.issue_number);
+                const existing = historyMap.get(k);
+                if (existing) {
+                    existing.actual_result = h.actual_result || existing.actual_result;
+                    existing.actual_number = h.actual_number !== undefined ? h.actual_number : existing.actual_number;
+                } else {
+                    historyMap.set(k, h);
+                }
+            }
+        });
+    }
+
+    let mergedHistory = Array.from(historyMap.values()).sort((a, b) => {
+        try { return BigInt(b.issue_number) > BigInt(a.issue_number) ? 1 : -1; }
+        catch (e) { return String(b.issue_number).localeCompare(String(a.issue_number)); }
+    });
+
+    // 5. Settle past resolved draw outcomes in Supabase
+    if (mergedHistory && mergedHistory.length > 0) {
+        await settlePastDrawsInSupabase(mergedHistory);
+    }
+
+    const latestSettled = mergedHistory.find(h => h.actual_result !== null && h.actual_result !== undefined);
+    const latestIssue = latestSettled ? latestSettled.issue_number : (mergedHistory.length > 0 ? mergedHistory[0].issue_number : "");
+    let nextPeriod = requestedPeriod || (latestIssue ? calculateNextPeriod(latestIssue) : getUtcCurrentPeriod());
+    if (!nextPeriod) {
+        nextPeriod = getUtcCurrentPeriod();
+    }
+
+    // 6. If nextPeriod is already cached or stored in Supabase, return it without re-predicting
+    if (publishedSignalsCache.has(nextPeriod)) {
+        return publishedSignalsCache.get(nextPeriod);
+    }
+
     try {
-        const res = await fetchWithTriProxy(`${CONFIG.SUPABASE_URL}/rest/v1/game_history?select=*&order=issue_number.desc&limit=5000`, 3500);
-        if (res.ok) {
-            history = await res.json();
+        const checkExisting = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?issue_number=eq.${encodeURIComponent(nextPeriod)}&select=*`, {
+            headers: {
+                "apikey": CONFIG.SUPABASE_KEY,
+                "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
+            }
+        });
+        if (checkExisting.ok) {
+            const rows = await checkExisting.json();
+            if (Array.isArray(rows) && rows.length > 0 && rows[0].predicted_type) {
+                const row = rows[0];
+                const cached = {
+                    success: true,
+                    period: row.issue_number,
+                    prediction: row.predicted_type,
+                    confidence: row.confidence,
+                    status: row.status,
+                    tier: row.is_sniper ? "SNIPER" : "STANDARD",
+                    recommendedStake: row.stake_units || "1U",
+                    pattern: row.pattern,
+                    strategy: row.strategy,
+                    reason: row.reason,
+                    luckyDigits: row.lucky_digits,
+                    bigProb: row.big_prob,
+                    smallProb: row.small_prob,
+                    regime: row.regime
+                };
+                publishedSignalsCache.set(row.issue_number, cached);
+                return cached;
+            }
         }
     } catch (e) {}
 
-    const pred = engine.predict(history);
-    const latestIssue = history.length > 0 ? history[0].issue_number : "";
-    const nextPeriod = calculateNextPeriod(latestIssue);
+    // 7. Canonical slice: Strictly take the top 30 standardized records for deterministic inference
+    const canonicalHistory = mergedHistory.filter(h => h.actual_result !== null && h.actual_result !== undefined).slice(0, 30);
+    const pred = engine.predict(canonicalHistory);
 
     const payload = {
         issue_number: nextPeriod,
         predicted_type: pred.prediction,
-        prediction_confidence: pred.confidence,
-        prediction_status: pred.status,
-        strategy_used: pred.strategy,
+        confidence: pred.confidence,
+        status: pred.status,
         lucky_digits: pred.luckyDigits,
-        hurst_exponent: pred.hurstExponent,
-        calibrated_prob: pred.calibratedP,
+        stake_units: pred.recommendedStake || "1U",
+        strategy: pred.strategy,
+        reason: pred.reason,
+        big_prob: pred.bigProb,
+        small_prob: pred.smallProb,
+        regime: pred.regime,
+        pattern: pred.pattern,
+        is_sniper: pred.isSniper,
         engine_version: "v9.1"
     };
 
@@ -1416,25 +1733,35 @@ async function executeSyncCycle() {
         });
 
         if (!insertRes.ok) {
-            const errJson = await insertRes.json().catch(() => null);
-            if (errJson && errJson.code === "PGRST204" && errJson.message && errJson.message.includes("engine_version")) {
-                const legacyPayload = { ...payload };
-                delete legacyPayload.engine_version;
-                await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals`, {
-                    method: "POST",
-                    headers: {
-                        "apikey": CONFIG.SUPABASE_KEY,
-                        "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`,
-                        "Content-Type": "application/json",
-                        "Prefer": "resolution=merge-duplicates"
-                    },
-                    body: JSON.stringify(legacyPayload)
-                });
-            }
+            const safePayload = {
+                issue_number: nextPeriod,
+                predicted_type: pred.prediction,
+                confidence: pred.confidence,
+                status: pred.status,
+                lucky_digits: pred.luckyDigits,
+                stake_units: pred.recommendedStake || "1U",
+                strategy: pred.strategy,
+                reason: pred.reason,
+                big_prob: pred.bigProb,
+                small_prob: pred.smallProb,
+                regime: pred.regime,
+                pattern: pred.pattern,
+                is_sniper: pred.isSniper
+            };
+            await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals`, {
+                method: "POST",
+                headers: {
+                    "apikey": CONFIG.SUPABASE_KEY,
+                    "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`,
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates"
+                },
+                body: JSON.stringify(safePayload)
+            });
         }
     } catch (e) {}
 
-    return {
+    const result = {
         success: true,
         period: nextPeriod,
         prediction: pred.prediction,
@@ -1450,6 +1777,9 @@ async function executeSyncCycle() {
         calibratedP: pred.calibratedP,
         prngForensics: pred.prngForensics
     };
+
+    publishedSignalsCache.set(nextPeriod, result);
+    return result;
 }
 
 // ==============================================================================
@@ -1457,7 +1787,13 @@ async function executeSyncCycle() {
 // ==============================================================================
 const workerHandler = {
     async scheduled(event, env, ctx) {
-        ctx.waitUntil(executeSyncCycle());
+        if (ctx && typeof ctx.waitUntil === "function") {
+            ctx.waitUntil(executeSyncCycle());
+        } else if (event && typeof event.waitUntil === "function") {
+            event.waitUntil(executeSyncCycle());
+        } else {
+            await executeSyncCycle();
+        }
     },
 
     async fetch(request, env, ctx) {
@@ -1467,7 +1803,7 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v9.1 Autonomous Meta-Learner Enterprise (Exp3 Dynamic Weights + Symmetric Platt Logistic + 5k Auto-Pruning)",
+                engine: "v9.1 Autonomous Meta-Learner Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
                 engine_version: "v9.1",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
@@ -1484,12 +1820,13 @@ const workerHandler = {
             });
         }
 
-        if (url.pathname === "/signal" || url.pathname === "/run") {
-            const syncResult = await executeSyncCycle();
+        if (url.pathname === "/signal" || url.pathname === "/run" || url.pathname === "/sync" || url.pathname === "/cron") {
+            const requestedPeriod = url.searchParams.get("period");
+            const syncResult = await executeSyncCycle(requestedPeriod);
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v9.1 Autonomous Meta-Learner Enterprise (3-Tier Signal Routing + 5k Hold Audit + Dynamic Quarantine)",
+                engine: "v9.1 Autonomous Meta-Learner Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
                 engine_version: "v9.1",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 diagnostics_url: "/report",
@@ -1544,5 +1881,5 @@ const workerHandler = {
     }
 };
 
-export { PredictionEngine, calculateNextPeriod, CONFIG, fetchWithTriProxy, executeSyncCycle };
+export { PredictionEngine, calculateNextPeriod, getUtcCurrentPeriod, CONFIG, fetchWithTriProxy, executeSyncCycle };
 export default workerHandler;

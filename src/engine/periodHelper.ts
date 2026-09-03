@@ -66,7 +66,15 @@ export const PeriodHelper = {
     return '#' + (clean.length >= 4 ? clean.slice(-4) : clean)
   },
 
+  getTargetPeriodFromLatestIssue(latestIssue?: string | null, date: Date = new Date()): string {
+    if (latestIssue) {
+      return this.getNextPeriod(latestIssue)
+    }
+    return this.getCurrentPeriod(date)
+  },
+
   getSecondsLeft(date: Date = new Date()): number {
     return 60 - (date.getSeconds() % 60)
   }
 }
+

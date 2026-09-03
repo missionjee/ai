@@ -346,55 +346,96 @@ class SupabaseService {
     }
 
     /**
+     * Fetch recent global signals strictly filtered to lottery periods (like.20*)
+     */
+    async getRecentGlobalSignals(limit = 60) {
+        try {
+            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?issue_number=like.20*&order=issue_number.desc&limit=${limit}`, {
+                headers: {
+                    "apikey": SUPABASE_CONFIG.ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`
+                }
+            });
+            if (res.ok) {
+                const rows = await res.json();
+                if (Array.isArray(rows)) {
+                    return rows.filter(r => r.issue_number && String(r.issue_number).startsWith("20"));
+                }
+            }
+        } catch (e) {}
+        return [];
+    }
+
+    /**
      * Zero-Leak Secure RPC: Get Authorized Prediction
-     * Validates license key, verifies single-device lock, checks tokens,
-     * deducts 1 token atomically, and returns the signal.
+     * 1. Consumes token via atomic RPC and verifies device validity
+     * 2. Fetches authoritative central signal from Supabase global_signals
+     * 3. If edge cron was delayed, triggers Cloudflare Worker /signal directly to ensure 100% deterministic parity across all devices
      */
     async getAuthorizedPrediction(periodNumber) {
         const session = this.getSession();
         if (!session || !session.key) return { success: false, error: "AUTH_REQUIRED" };
 
-        try {
-            const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/rpc/get_authorized_prediction`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "apikey": SUPABASE_CONFIG.ANON_KEY,
-                    "Authorization": `Bearer ${SUPABASE_CONFIG.ANON_KEY}`
-                },
-                body: JSON.stringify({
-                    p_license_key: session.key,
-                    p_device_id: this.deviceId,
-                    p_period: String(periodNumber)
-                })
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data) {
-                    if (data.tokens_balance !== undefined) {
-                        this._setTokenBalance(data.tokens_balance);
-                    }
-                    if (data.error === "DEVICE_MISMATCH") {
-                        this.logoutDueToDeviceConflict();
-                        return { success: false, error: "DEVICE_MISMATCH" };
-                    }
-                    if (data.error === "INSUFFICIENT_TOKENS") {
-                        this._setTokenBalance(0);
-                        return { success: false, error: "INSUFFICIENT_TOKENS" };
-                    }
-                    if (data.success && data.signal) {
-                        return { success: true, signal: data.signal, tokensBalance: data.tokens_balance };
-                    }
-                }
+        // 1. Consume token atomically
+        const tokenResult = await this.consumeToken(periodNumber, "PRED");
+        if (!tokenResult.success) {
+            if (tokenResult.error === "DEVICE_MISMATCH") {
+                return { success: false, error: "DEVICE_MISMATCH" };
             }
-        } catch (e) {
-            console.error("RPC Error:", e);
+            if (tokenResult.error === "INSUFFICIENT_TOKENS") {
+                return { success: false, error: "INSUFFICIENT_TOKENS", tokensBalance: 0 };
+            }
         }
 
-        // Graceful fallback during migration
-        const fallbackSignal = await this.getGlobalSignal(periodNumber);
-        return { success: !!fallbackSignal, signal: fallbackSignal, tokensBalance: this.getTokenBalance() };
+        // 2. Fetch Central Signal from Supabase
+        let cloudSignal = await this.getGlobalSignal(periodNumber);
+
+        // 3. If signal not yet in Supabase, query 24/7 Cloudflare Edge Worker directly
+        if (!cloudSignal || !cloudSignal.predicted_type) {
+            try {
+                const workerController = new AbortController();
+                const workerTimeout = setTimeout(() => workerController.abort(), 6000);
+                const workerRes = await fetch(`https://hiroto-engine-worker.diveshsah2.workers.dev/signal?period=${encodeURIComponent(periodNumber)}`, {
+                    signal: workerController.signal,
+                    cache: "no-store"
+                });
+                clearTimeout(workerTimeout);
+                if (workerRes.ok) {
+                    const workerJson = await workerRes.json();
+                    if (workerJson && workerJson.data && workerJson.data.prediction) {
+                        const d = workerJson.data;
+                        cloudSignal = {
+                            issue_number: d.period || periodNumber,
+                            predicted_type: d.prediction,
+                            confidence: d.confidence || 55,
+                            status: d.status || "CLEARED",
+                            lucky_digits: d.luckyDigits || d.lucky_digits || [7, 8],
+                            stake_units: d.recommendedStake || "1U",
+                            strategy: d.strategy || "Autonomous Meta-Learner",
+                            reason: d.reason || "Edge Ensemble Convergence",
+                            big_prob: d.bigProb || 50,
+                            small_prob: d.smallProb || 50,
+                            regime: d.regime || "trending",
+                            pattern: d.pattern || "Standard",
+                            is_sniper: !!d.isSniper,
+                            engine_version: d.engine_version || "v9.1",
+                            created_at: new Date().toISOString()
+                        };
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // Re-check Supabase if worker just populated it
+        if (!cloudSignal) {
+            cloudSignal = await this.getGlobalSignal(periodNumber);
+        }
+
+        return {
+            success: !!cloudSignal,
+            signal: cloudSignal,
+            tokensBalance: this.getTokenBalance()
+        };
     }
 
     /**

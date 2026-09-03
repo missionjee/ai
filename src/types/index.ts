@@ -126,6 +126,8 @@ export interface HistoryEntry {
   predicted_type: string | null
   prediction_confidence: number | null
   lucky_digits: number[] | null
+  tier?: string | null
+  status?: string | null
 }
 
 // Supabase user profile
@@ -202,11 +204,12 @@ export interface AuthorizedPredictionResult {
 export interface GlobalSignal {
   issue_number: string
   predicted_type: string
-  actual_result: string | null
-  actual_number: number | null
+  actual_result?: string | null
+  actual_number?: number | null
   confidence: number
   status: string
   lucky_digits: number[]
+  stake_units?: string
   strategy: string
   reason: string
   big_prob: number
@@ -214,6 +217,8 @@ export interface GlobalSignal {
   regime: string
   pattern: string
   is_sniper: boolean
+  engine_version?: string
+  created_at?: string
 }
 
 // Token ledger entry
