@@ -128,6 +128,8 @@ export interface HistoryEntry {
   lucky_digits: number[] | null
   tier?: string | null
   status?: string | null
+  strategy?: string | null
+  reason?: string | null
 }
 
 // Supabase user profile
@@ -183,6 +185,7 @@ export interface TokenResult {
 export interface AuthorizedPredictionResult {
   success: boolean
   signal?: {
+    issue_number?: string
     predicted_type: string
     confidence: number
     status: string
@@ -195,6 +198,8 @@ export interface AuthorizedPredictionResult {
     regime: string
     pattern: string
     is_sniper: boolean
+    stake_units?: string
+    tier?: string
   }
   tokensBalance?: number
   error?: string

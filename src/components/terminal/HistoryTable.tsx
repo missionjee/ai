@@ -41,25 +41,42 @@ function SignalBadge({ type }: { type: string | null }) {
 }
 
 export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryTableProps) {
-  const resolvedList = history.filter(h => h.actual_result !== null && h.actual_result !== undefined)
+  // Helper: Canonicalize actual type strictly from actual_number (0-4: SMALL, 5-9: BIG)
+  const getCanonicalType = (item: HistoryEntry): 'BIG' | 'SMALL' | '' => {
+    if (item.actual_number !== null && item.actual_number !== undefined && !isNaN(Number(item.actual_number))) {
+      return Number(item.actual_number) >= 5 ? 'BIG' : 'SMALL'
+    }
+    if (item.actual_result) {
+      const u = String(item.actual_result).trim().toUpperCase()
+      if (u === 'BIG' || u === 'SMALL') return u
+    }
+    return ''
+  }
+
+  // Strictly completed draws only (must have settled number or result)
+  const resolvedList = history.filter(h => {
+    const hasNum = h.actual_number !== null && h.actual_number !== undefined
+    const hasRes = h.actual_result !== null && h.actual_result !== undefined && String(h.actual_result).toLowerCase() !== 'waiting'
+    return hasNum || hasRes
+  })
   
-  const allCount = history.length
+  const allCount = resolvedList.length
   const winCount = resolvedList.filter(
     h => {
       const p = String(h.predicted_type || '').toUpperCase()
-      const a = String(h.actual_result || '').toUpperCase()
+      const a = getCanonicalType(h)
       return p && a && p === a
     }
   ).length
-  const lossCount = resolvedList.length - winCount
+  const lossCount = allCount - winCount
 
-  let items = history.slice(0, 30)
+  let items = resolvedList.slice(0, 30)
 
   if (activeFilter === 'WINS') {
     items = resolvedList.filter(
       h => {
         const p = String(h.predicted_type || '').toUpperCase()
-        const a = String(h.actual_result || '').toUpperCase()
+        const a = getCanonicalType(h)
         return p && a && p === a
       }
     ).slice(0, 30)
@@ -67,7 +84,7 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
     items = resolvedList.filter(
       h => {
         const p = String(h.predicted_type || '').toUpperCase()
-        const a = String(h.actual_result || '').toUpperCase()
+        const a = getCanonicalType(h)
         return !p || !a || p !== a
       }
     ).slice(0, 30)
@@ -126,12 +143,13 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
             ) : (
               items.map((item, idx) => {
                 const period4 = PeriodHelper.formatLast4(item.issue_number)
-                const actualType = (item.actual_result || '').toUpperCase()
+                const actualType = getCanonicalType(item)
                 const actualNum =
                   item.actual_number !== null && item.actual_number !== undefined
                     ? item.actual_number
                     : '-'
-                const isWin = item.predicted_type && item.actual_result && item.predicted_type.toUpperCase() === item.actual_result.toUpperCase()
+                const predType = item.predicted_type ? String(item.predicted_type).toUpperCase() : null
+                const isWin = predType && actualType && predType === actualType
 
                 return (
                   <tr key={item.issue_number || idx} className={cn(isWin && 'row-win')}>
@@ -162,7 +180,7 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
                     <td className="col-outcome">
                       <OutcomeBadge
                         predicted={item.predicted_type}
-                        actual={item.actual_result}
+                        actual={actualType}
                       />
                     </td>
                   </tr>

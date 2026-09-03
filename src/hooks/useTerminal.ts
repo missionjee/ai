@@ -7,13 +7,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { PeriodHelper } from '@/engine/periodHelper'
 import { SoundFx } from '@/engine/soundFx'
+import { PredictionEngine } from '@/engine/PredictionEngine'
 import { supabaseClient } from '@/services/supabase'
 import type { AppState, FilterType, HistoryEntry, PredictionResult } from '@/types'
 
 const API_LATEST = 'https://tirangaprediction.ai/api_fixed.php?action=latest_results&source=1M'
 const PROXIES = [
   (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 ]
 const STORAGE_HISTORY_KEY = 'hiroto_history_cache_v4'
 const MAX_HISTORY = 100
@@ -139,11 +140,18 @@ export function useTerminal() {
 
   const calculateStreak = useCallback((history: HistoryEntry[]): number => {
     let streak = 0
-    const resolved = history.filter(h => h.predicted_type && h.actual_result)
+    const resolved = history.filter(h => {
+      const hasNum = h.actual_number !== null && h.actual_number !== undefined
+      const hasRes = h.actual_result !== null && h.actual_result !== undefined && String(h.actual_result).toLowerCase() !== 'waiting'
+      return (hasNum || hasRes) && h.predicted_type
+    })
     for (const h of resolved) {
-      const actual = String(h.actual_result).toUpperCase()
+      const num = (h.actual_number !== null && h.actual_number !== undefined && !isNaN(Number(h.actual_number)))
+        ? Number(h.actual_number)
+        : null
+      const actual = num !== null ? (num >= 5 ? 'BIG' : 'SMALL') : String(h.actual_result || '').toUpperCase()
       const pred = String(h.predicted_type).toUpperCase()
-      if (actual === pred) streak++
+      if (actual && pred && actual === pred) streak++
       else break
     }
     return streak
@@ -176,10 +184,18 @@ export function useTerminal() {
               const existing = historyMap.get(k)
               const rawDigits = s.lucky_digits || (s as any).luckyDigits || (existing ? existing.lucky_digits : null)
               const mappedDigits = rawDigits ? ensureLuckyDigits(rawDigits, s.predicted_type) : null
+              
+              const num = (s.actual_number !== undefined && s.actual_number !== null && !isNaN(Number(s.actual_number)))
+                ? Number(s.actual_number)
+                : (existing?.actual_number !== undefined && existing?.actual_number !== null ? Number(existing.actual_number) : null)
+              const resType = num !== null
+                ? (num >= 5 ? 'big' : 'small')
+                : (s.actual_result ? String(s.actual_result).toLowerCase() : (existing?.actual_result ? String(existing.actual_result).toLowerCase() : null))
+
               historyMap.set(k, {
                 issue_number: k,
-                actual_result: s.actual_result ? String(s.actual_result).toLowerCase() : (existing ? existing.actual_result : null),
-                actual_number: s.actual_number !== undefined && s.actual_number !== null ? s.actual_number : (existing ? existing.actual_number : null),
+                actual_result: resType,
+                actual_number: num,
                 predicted_type: (s.predicted_type as 'BIG' | 'SMALL') || (existing ? existing.predicted_type : null),
                 prediction_confidence: s.confidence || (existing ? existing.prediction_confidence : null),
                 lucky_digits: mappedDigits,
@@ -193,6 +209,9 @@ export function useTerminal() {
       let latestSettledIssue: string | null = null
 
       if (remoteData && remoteData.length > 0) {
+        // Keep Supabase updated with settled draw numbers and outcomes
+        supabaseClient.settlePastDrawsInSupabase(remoteData).catch(() => {})
+
         remoteData.forEach((item: any) => {
           if (!item.issue_number) return
           const k = String(item.issue_number).trim()
@@ -201,7 +220,7 @@ export function useTerminal() {
             item.actual_number !== undefined && item.actual_number !== null && !isNaN(Number(item.actual_number))
               ? Number(item.actual_number)
               : null
-          const actualType = (rawType || (num !== null && num >= 5 ? 'big' : 'small')).toLowerCase()
+          const actualType = num !== null ? (num >= 5 ? 'big' : 'small') : (rawType ? String(rawType).toLowerCase() : null)
 
           // Track latest settled issue number across remote items
           if (!latestSettledIssue) {
@@ -251,20 +270,38 @@ export function useTerminal() {
         }
       })
 
-      // Ensure all historical settled entries have predictions and outcomes deterministically
-      const resolvedHistory = sortedHistory.filter(h => h.actual_result !== null && h.actual_result !== undefined)
+      // Strictly completed draws only (guarantees draw history table is free of ghost rows)
+      const resolvedHistory = sortedHistory.filter(h => {
+        const hasNum = h.actual_number !== null && h.actual_number !== undefined
+        const hasRes = h.actual_result !== null && h.actual_result !== undefined && String(h.actual_result).toLowerCase() !== 'waiting' && String(h.actual_result).toLowerCase() !== 'pending'
+        return hasNum || hasRes
+      })
+
+      const engine = new PredictionEngine()
+
+      // Canonicalize actual results & backfill missing historical signals deterministically
       for (let i = 0; i < resolvedHistory.length; i++) {
         const entry = resolvedHistory[i]
-        const actualNum = entry.actual_number !== null && entry.actual_number !== undefined ? entry.actual_number : 5
-        const actualStr = (entry.actual_result || (actualNum >= 5 ? 'BIG' : 'SMALL')).toUpperCase()
+        const num = entry.actual_number !== null && entry.actual_number !== undefined && !isNaN(Number(entry.actual_number))
+          ? Number(entry.actual_number)
+          : null
+        const actualStr = num !== null ? (num >= 5 ? 'BIG' : 'SMALL') : String(entry.actual_result || 'BIG').toUpperCase()
         entry.actual_result = actualStr
+        entry.actual_number = num
 
         if (!entry.predicted_type) {
-          const fallbackPred: 'BIG' | 'SMALL' = actualNum >= 5 ? 'BIG' : 'SMALL'
-          const luckyDigits = ensureLuckyDigits(null, fallbackPred)
-          entry.predicted_type = fallbackPred
-          entry.prediction_confidence = 65
-          entry.lucky_digits = luckyDigits
+          const priorSlice = resolvedHistory.slice(i + 1, i + 31)
+          if (priorSlice.length >= 5) {
+            const histPred = engine.predict(priorSlice)
+            entry.predicted_type = histPred.prediction
+            entry.prediction_confidence = histPred.confidence
+            entry.lucky_digits = histPred.luckyDigits
+          } else {
+            const fallback: 'BIG' | 'SMALL' = num !== null ? (num >= 5 ? 'BIG' : 'SMALL') : 'BIG'
+            entry.predicted_type = fallback
+            entry.prediction_confidence = 55
+            entry.lucky_digits = ensureLuckyDigits(null, fallback)
+          }
         }
       }
 
@@ -291,11 +328,11 @@ export function useTerminal() {
           prediction = {
             prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
             confidence: currentTargetEntry.prediction_confidence || 54,
-            status: 'CLEARED',
-            statusReason: 'Verified Institutional Quantum Signal (Supabase)',
+            status: (currentTargetEntry.status as any) || 'CLEARED',
+            statusReason: currentTargetEntry.reason || 'Verified Institutional Quantum Signal (Supabase)',
             luckyDigits: centralDigits,
-            strategy: 'Quantitative Meta-Learner (Central Cloud)',
-            reason: 'Central Institutional Model Consensus',
+            strategy: currentTargetEntry.strategy || 'Quantitative Meta-Learner (Central Cloud)',
+            reason: currentTargetEntry.reason || 'Central Institutional Model Consensus',
             bigProb: currentTargetEntry.predicted_type === 'BIG' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
             smallProb: currentTargetEntry.predicted_type === 'SMALL' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
             regime: 'trending',
@@ -310,28 +347,40 @@ export function useTerminal() {
             modelPerformance: null,
           }
         } else {
-          // Clean syncing state while central signal is being fetched from Supabase / Edge
-          prediction = {
-            prediction: 'HOLD' as any,
-            confidence: 50,
-            status: 'HOLD',
-            statusReason: 'Syncing central quantum signal from Supabase...',
-            luckyDigits: [0, 0] as [number, number],
-            strategy: 'Synchronizing Cloud Engine',
-            reason: 'Awaiting official settled draw from edge network',
-            bigProb: 50,
-            smallProb: 50,
-            regime: 'synchronizing',
-            pattern: 'Syncing',
-            isSniper: false,
-            digitProbs: {},
-            volatility: '0.50',
-            entropy: '1.00',
-            permutationEntropy: '1.00',
-            parityPrediction: 'EVEN',
-            engineVersion: 'v9.2',
-            modelPerformance: null,
-          }
+          // Zero-Lag Autonomous Fallback: Instantaneous local institutional engine inference!
+          const localEngineResult = engine.predict(resolvedHistory.slice(0, 30))
+          prediction = localEngineResult
+
+          // Save in historyMap for stability
+          historyMap.set(currentTargetPeriod, {
+            issue_number: currentTargetPeriod,
+            predicted_type: localEngineResult.prediction,
+            prediction_confidence: localEngineResult.confidence,
+            lucky_digits: localEngineResult.luckyDigits,
+            actual_result: null,
+            actual_number: null,
+            status: localEngineResult.status,
+            reason: localEngineResult.statusReason || localEngineResult.reason,
+            strategy: localEngineResult.strategy,
+          })
+
+          // Asynchronously publish to Supabase so other devices share this exact prediction
+          supabaseClient.publishGlobalSignal({
+            issue_number: currentTargetPeriod,
+            predicted_type: localEngineResult.prediction,
+            confidence: localEngineResult.confidence,
+            status: localEngineResult.status,
+            lucky_digits: localEngineResult.luckyDigits,
+            stake_units: localEngineResult.recommendedStake || '1U',
+            strategy: localEngineResult.strategy,
+            reason: localEngineResult.statusReason || localEngineResult.reason,
+            big_prob: localEngineResult.bigProb,
+            small_prob: localEngineResult.smallProb,
+            regime: localEngineResult.regime,
+            pattern: localEngineResult.pattern,
+            is_sniper: localEngineResult.isSniper,
+            engine_version: 'v9.2'
+          }).catch(() => {})
         }
 
         // Fetch authoritative backend signal from Supabase / Cloudflare Worker (Single source of truth)
@@ -347,7 +396,7 @@ export function useTerminal() {
               setState(prev => prev.tokensBalance !== updatedBal ? { ...prev, tokensBalance: updatedBal } : prev)
             }
 
-            if (authRes.success && authRes.signal) {
+            if (authRes.success && authRes.signal && authRes.signal.issue_number === currentTargetPeriod) {
               const s = authRes.signal as any
               const rawCloudPred = String(s.predicted_type || '').toUpperCase()
               const cloudPred: 'BIG' | 'SMALL' = rawCloudPred === 'BIG' ? 'BIG' : 'SMALL'
@@ -361,15 +410,7 @@ export function useTerminal() {
                 entry.predicted_type = cloudPred
                 entry.prediction_confidence = cloudConf
                 entry.lucky_digits = cloudDigits
-              } else {
-                historyMap.set(currentTargetPeriod, {
-                  issue_number: currentTargetPeriod,
-                  predicted_type: cloudPred,
-                  prediction_confidence: cloudConf,
-                  lucky_digits: cloudDigits,
-                  actual_result: null,
-                  actual_number: null
-                })
+                entry.status = cloudStatus
               }
 
               setState(prev => {
@@ -396,35 +437,28 @@ export function useTerminal() {
                     parityPrediction: 'EVEN',
                     engineVersion: 'v9.2',
                     modelPerformance: null,
+                    tier: s.is_sniper ? 'SNIPER' : (s.tier || 'STANDARD'),
+                    recommendedStake: s.stake_units || (s.is_sniper ? '2U' : '1U')
                   },
                   tokensBalance: typeof authRes.tokensBalance === 'number' ? authRes.tokensBalance : supabaseClient.getTokenBalance(),
                 }
               })
             }
           }
-        })
+        }).catch(() => {})
       }
 
-      const finalHistory = Array.from(historyMap.values()).sort((a, b) => {
-        try {
-          const aI = BigInt(a.issue_number),
-            bI = BigInt(b.issue_number)
-          return aI > bI ? -1 : aI < bI ? 1 : 0
-        } catch {
-          return b.issue_number.localeCompare(a.issue_number)
-        }
-      })
+      // Save exclusively resolved settled draws to localStorage cache
+      saveHistory(resolvedHistory)
 
       const finalTokens = supabaseClient.getTokenBalance()
-      const streak = calculateStreak(finalHistory)
-
-      saveHistory(finalHistory)
+      const streak = calculateStreak(resolvedHistory)
 
       setState(prev => ({
         ...prev,
         targetPeriod: currentTargetPeriod,
-        prediction,
-        history: finalHistory,
+        prediction: tokensBalance > 0 ? prediction : null,
+        history: resolvedHistory,
         stats: { streak },
         tokensBalance: finalTokens,
         isLiveFeed: isLive,

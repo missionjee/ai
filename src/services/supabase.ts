@@ -332,7 +332,7 @@ class SupabaseService {
         clearTimeout(workerTimeout)
         if (workerRes.ok) {
           const workerJson = await workerRes.json()
-          if (workerJson?.data?.prediction) {
+          if (workerJson?.data?.prediction && workerJson?.data?.period === periodNumber) {
             const d = workerJson.data
             cloudSignal = {
               issue_number: d.period || periodNumber,
@@ -364,9 +364,76 @@ class SupabaseService {
     }
 
     return {
-      success: !!cloudSignal,
+      success: !!cloudSignal && cloudSignal.issue_number === periodNumber,
       signal: cloudSignal as AuthorizedPredictionResult['signal'],
       tokensBalance: this.getTokenBalance()
+    }
+  }
+
+  /**
+   * Publish institutional prediction to Supabase global_signals for cross-device parity
+   */
+  async publishGlobalSignal(signal: {
+    issue_number: string
+    predicted_type: string
+    confidence: number
+    status: string
+    lucky_digits: [number, number] | number[]
+    stake_units?: string
+    strategy?: string
+    reason?: string
+    big_prob?: number
+    small_prob?: number
+    regime?: string
+    pattern?: string
+    is_sniper?: boolean
+    engine_version?: string
+  }): Promise<boolean> {
+    try {
+      const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals`, {
+        method: 'POST',
+        headers: {
+          ...this._headers,
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          ...signal,
+          engine_version: signal.engine_version || 'v9.2',
+          created_at: new Date().toISOString()
+        })
+      })
+      return res.ok || res.status === 201
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Settle past resolved draw outcomes in Supabase global_signals
+   */
+  async settlePastDrawsInSupabase(draws: Array<{ issue_number: string; actual_number?: number | null; actual_result?: string | null; result_type?: string | null }>): Promise<void> {
+    if (!Array.isArray(draws) || draws.length === 0) return
+    for (const draw of draws.slice(0, 8)) {
+      const issue = draw.issue_number
+      if (!issue) continue
+      const num = draw.actual_number !== undefined && draw.actual_number !== null && !isNaN(Number(draw.actual_number))
+        ? Number(draw.actual_number)
+        : null
+      const resType = num !== null
+        ? (num >= 5 ? 'big' : 'small')
+        : (draw.actual_result || draw.result_type ? String(draw.actual_result || draw.result_type).toLowerCase() : null)
+      if (!resType) continue
+
+      try {
+        await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?issue_number=eq.${encodeURIComponent(issue)}`, {
+          method: 'PATCH',
+          headers: this._headers,
+          body: JSON.stringify({
+            actual_result: resType,
+            actual_number: num
+          })
+        })
+      } catch { /* noop */ }
     }
   }
 

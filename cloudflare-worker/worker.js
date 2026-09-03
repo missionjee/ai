@@ -1618,6 +1618,9 @@ async function executeSyncCycle(requestedPeriod = null) {
         } catch (e) {}
     }
 
+    // 2. Clear expired items from memory cache
+    cleanCache();
+
     // 3. Fetch upstream live draws with fallback proxies
     let upstreamHistory = await fetchWithTriProxy(CONFIG.LOTTERY_API, 6000);
     const supabaseHistory = await hydrateHistoryFromSupabase(40);
@@ -1626,19 +1629,36 @@ async function executeSyncCycle(requestedPeriod = null) {
     const historyMap = new Map();
     if (Array.isArray(supabaseHistory)) {
         supabaseHistory.forEach(h => {
-            if (h && h.issue_number) historyMap.set(String(h.issue_number), h);
+            if (h && h.issue_number) {
+                const k = String(h.issue_number);
+                const num = h.actual_number !== undefined && h.actual_number !== null ? parseInt(h.actual_number, 10) : null;
+                const normalizedType = num !== null ? (num >= 5 ? "big" : "small") : (h.actual_result ? String(h.actual_result).toLowerCase() : null);
+                historyMap.set(k, {
+                    ...h,
+                    actual_result: normalizedType,
+                    actual_number: num
+                });
+            }
         });
     }
     if (Array.isArray(upstreamHistory)) {
         upstreamHistory.forEach(h => {
             if (h && h.issue_number) {
                 const k = String(h.issue_number);
+                const rawType = h.actual_result || h.result_type;
+                const num = h.actual_number !== undefined && h.actual_number !== null ? parseInt(h.actual_number, 10) : null;
+                const normalizedType = num !== null ? (num >= 5 ? "big" : "small") : (rawType ? String(rawType).toLowerCase() : null);
                 const existing = historyMap.get(k);
                 if (existing) {
-                    existing.actual_result = h.actual_result || existing.actual_result;
-                    existing.actual_number = h.actual_number !== undefined ? h.actual_number : existing.actual_number;
+                    existing.actual_result = normalizedType || existing.actual_result;
+                    existing.actual_number = num !== null ? num : existing.actual_number;
                 } else {
-                    historyMap.set(k, h);
+                    historyMap.set(k, {
+                        issue_number: k,
+                        actual_result: normalizedType,
+                        actual_number: num,
+                        predicted_type: null
+                    });
                 }
             }
         });
