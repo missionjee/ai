@@ -97,38 +97,28 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
   const maxCount = 14
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 token-modal-backdrop animate-fadeIn">
       {/* Click Outside Backdrop */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Modal Dialog Card (Dark Tinted Glass Aesthetic) */}
-      <div
-        className="relative z-10 w-full max-w-[420px] rounded-[20px] p-5 sm:p-6 flex flex-col gap-4 text-white"
-        style={{
-          background: 'rgba(10, 14, 22, 0.95)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.22)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
-        }}
-      >
+      {/* Modal Dialog Card */}
+      <div className="relative z-10 w-full max-w-[420px] rounded-[20px] p-5 sm:p-6 flex flex-col gap-4 token-modal-card">
         {/* Header with Title & Close Button */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
+        <div className="flex items-center justify-between pb-3 border-b token-modal-header">
           <div className="flex items-center gap-2.5">
             <span className="text-[18px]">🔑</span>
             <div>
-              <h2 className="font-display font-black text-[15px] sm:text-[16px] text-white tracking-[0.8px] leading-tight">
+              <h2 className="font-display font-black text-[15px] sm:text-[16px] tracking-[0.8px] leading-tight token-modal-title">
                 REDEEM ACCESS KEY
               </h2>
-              <span className="text-[9.5px] font-extrabold uppercase tracking-[1.4px] bg-gradient-to-r from-[#00ffcc] to-[#38bdf8] bg-clip-text text-transparent">
+              <span className="text-[9.5px] font-extrabold uppercase tracking-[1.4px] bg-gradient-to-r from-[#00ffcc] to-[#38bdf8] bg-clip-text text-transparent token-modal-subtitle">
                 LICENSE KEY ACTIVATION
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-[#94a3b8] hover:text-white transition-all text-[12px] cursor-pointer"
+            className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-[12px] cursor-pointer token-modal-close"
             aria-label="Close"
           >
             ✕
@@ -136,11 +126,11 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
         </div>
 
         {/* Current Token Balance Indicator */}
-        <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
-          <span className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
+        <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl token-modal-balance">
+          <span className="text-[11px] font-bold uppercase tracking-wider token-modal-balance-label">
             Current Balance:
           </span>
-          <span className="font-display text-[14px] font-black text-[#fbbf24] flex items-center gap-1.5">
+          <span className="font-display text-[14px] font-black flex items-center gap-1.5 token-modal-balance-val">
             <span>⚡</span>
             <span>{tokensBalance} Tokens Remaining</span>
           </span>
@@ -148,9 +138,9 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
 
         {/* License Key Entry Form */}
         <div className="flex flex-col gap-2.5">
-          <div className="flex justify-between items-center text-[10.5px] font-extrabold uppercase tracking-[1px] text-[#94a3b8]">
+          <div className="flex justify-between items-center text-[10.5px] font-extrabold uppercase tracking-[1px] token-modal-label-row">
             <span>Enter 12-Digit License Key</span>
-            <span className="font-mono text-[#00ffcc]">{charCount} / {maxCount}</span>
+            <span className="font-mono token-modal-charcount">{charCount} / {maxCount}</span>
           </div>
 
           <input
@@ -166,13 +156,8 @@ export function TokenModal({ isOpen, tokensBalance, onClose, onRedeemed }: Token
             autoComplete="off"
             spellCheck={false}
             className={cn(
-              'w-full rounded-[12px] px-3.5 py-3 font-mono text-[16px] font-black text-white tracking-[3px] text-center uppercase outline-none transition-all duration-200',
-              'bg-[#04060a]',
-              hasError
-                ? 'border border-[#e11d48] border-b-[#e11d48] border-b-2 shadow-[0_0_12px_rgba(225,29,72,0.3)]'
-                : 'border border-white/[0.12] border-b-2 border-b-white/[0.25] focus:border-[#00ffcc] focus:border-b-[#00ffcc] focus:bg-[#06090d] focus:shadow-[0_0_16px_rgba(0,255,204,0.2)]',
-              'placeholder:text-[#475569] placeholder:text-[13px] placeholder:tracking-[1.5px] placeholder:normal-case placeholder:font-normal',
-              'shadow-[inset_0_2px_6px_rgba(0,0,0,0.8)]'
+              'w-full rounded-[12px] px-3.5 py-3 font-mono text-[16px] font-black tracking-[3px] text-center uppercase outline-none transition-all duration-200 token-modal-input',
+              hasError && 'input-error'
             )}
           />
 

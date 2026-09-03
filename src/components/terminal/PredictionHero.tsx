@@ -143,7 +143,7 @@ export function PredictionHero({
                 <span>Quantitative Model Confidence</span>
                 <div className="flex items-center gap-2">
                   {prediction?.recommendedStake && prediction.status !== 'HOLD' && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00ffcc]/10 text-[#00ffcc] border border-[#00ffcc]/30">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00ffcc]/10 text-[#00ffcc] border border-[#00ffcc]/30 stake-tag">
                       STAKE: {prediction.recommendedStake}
                     </span>
                   )}
