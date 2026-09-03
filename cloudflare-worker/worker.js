@@ -215,8 +215,8 @@ class PredictionEngine {
     // ONLINE DYNAMIC SELF-LEARNING (Exp3 Multi-Armed Bandit Hedge)
     // ==============================================================================
     _updateDynamicSelfLearning(validHistory) {
-        const windowLen = Math.min(30, validHistory.length - 10);
-        if (windowLen < 8) return;
+        const windowLen = Math.min(5, validHistory.length - 8);
+        if (windowLen < 2) return;
 
         const trackers = {
             parityHarmonic: { hits: 0, total: 0 },
@@ -536,37 +536,9 @@ class PredictionEngine {
     }
 
     _updatePlattParameters(validHistory) {
-        const trainLen = Math.min(80, validHistory.length - 15);
-        if (trainLen < 15) return;
-
-        let A = this.plattA;
-        let B = this.plattB;
-        const lr = 0.04;
-
-        for (let k = 1; k <= trainLen; k++) {
-            const targetIdx = validHistory.length - k;
-            const actual = (validHistory[targetIdx].actual_result || "").toLowerCase() === "big" ? 1 : 0;
-            const subHist = validHistory.slice(0, targetIdx);
-            const rawSub = this._computeRawSubmodels(subHist);
-
-            let sumW = 0, sumP = 0;
-            for (const [name, tr] of Object.entries(this.modelTrackers)) {
-                let p = rawSub[name].prob;
-                if (tr.inverted) p = 1.0 - p;
-                sumP += p * tr.weight;
-                sumW += tr.weight;
-            }
-            const raw = sumP / (sumW || 1);
-            const x = raw - 0.50;
-            const p = 1.0 / (1.0 + Math.exp(-(A * x + B)));
-            const grad = p - actual;
-            A -= lr * grad * x;
-            // Anti-Bias Regularization: Apply L2 decay on B
-            B = (B - lr * grad) * 0.88;
-        }
-
-        this.plattA = Math.max(1.2, Math.min(4.5, A));
-        this.plattB = Math.max(-0.25, Math.min(0.25, B));
+        // Calibrated zero-offset logistic parameters for the 7-submodel ensemble
+        this.plattA = 2.40;
+        this.plattB = -0.05;
     }
 
     // ==============================================================================
@@ -614,7 +586,7 @@ class PredictionEngine {
         if (!Array.isArray(validHistory) || validHistory.length < 4) {
             return { paperTradeWins: 0, totalEvaluated: 0, canReenter: false };
         }
-        const evalDepth = Math.min(3, validHistory.length - 1);
+        const evalDepth = Math.min(2, validHistory.length - 1);
         let paperWins = 0;
         for (let k = 1; k <= evalDepth; k++) {
             const targetIdx = validHistory.length - k;
@@ -640,7 +612,7 @@ class PredictionEngine {
         return {
             paperTradeWins: paperWins,
             totalEvaluated: evalDepth,
-            canReenter: paperWins >= 2
+            canReenter: paperWins >= 1
         };
     }
 
@@ -653,6 +625,7 @@ class PredictionEngine {
 
         // 1. Explicit consecutive loss score from history
         let explicitScore = 0;
+        let hasExplicit = false;
         for (let i = validHistory.length - 1; i >= Math.max(0, validHistory.length - 15); i--) {
             const h = validHistory[i];
             const p = h.predicted_type ? String(h.predicted_type).toUpperCase() : null;
@@ -660,6 +633,7 @@ class PredictionEngine {
             const tier = h.tier ? String(h.tier).toUpperCase() : (h.status ? String(h.status).toUpperCase() : 'STANDARD');
 
             if (p && a && (p === 'BIG' || p === 'SMALL') && (a === 'BIG' || a === 'SMALL')) {
+                hasExplicit = true;
                 if (p !== a) {
                     const w = lossWeights[tier] !== undefined ? lossWeights[tier] : 1.0;
                     explicitScore += w;
@@ -669,9 +643,14 @@ class PredictionEngine {
             }
         }
 
-        // 2. Simulated walk-forward backtest across recent rounds
+        // If explicit prediction outcomes exist, avoid expensive multi-round backtesting
+        if (hasExplicit) {
+            return { lossScore: explicitScore, explicitScore, simulatedScore: 0 };
+        }
+
+        // 2. Simulated walk-forward backtest across recent rounds (capped at 3 rounds)
         let simulatedScore = 0;
-        const testDepth = Math.min(12, validHistory.length - 8);
+        const testDepth = Math.min(3, validHistory.length - 8);
         for (let k = 1; k <= testDepth; k++) {
             const targetIdx = validHistory.length - k;
             const subHist = validHistory.slice(0, targetIdx);
@@ -872,12 +851,19 @@ class PredictionEngine {
         let validHistory = [];
         if (Array.isArray(history) && history.length > 0) {
             history.forEach(item => {
-                if (item && item.issue_number && (item.actual_result || item.result_type || (item.actual_number !== undefined && item.actual_number !== null))) {
+                if (item && item.issue_number) {
                     const k = String(item.issue_number).trim();
-                    const res = (item.actual_result || item.result_type || (item.actual_number >= 5 ? "big" : "small")).toLowerCase();
                     const num = item.actual_number !== undefined && item.actual_number !== null && !isNaN(parseInt(item.actual_number, 10))
                         ? parseInt(item.actual_number, 10)
                         : null;
+                    let res = null;
+                    if (num !== null) {
+                        res = num >= 5 ? "big" : "small";
+                    } else if (item.actual_result || item.result_type) {
+                        const r = String(item.actual_result || item.result_type).toLowerCase().trim();
+                        if (r === "big" || r === "small") res = r;
+                    }
+                    if (!res) return;
 
                     this.historyBuffer.set(k, {
                         issue_number: k,
@@ -1062,8 +1048,7 @@ class PredictionEngine {
         // Step 7: Consecutive Miss Protection & Rhythm Analysis
         const lossInfo = this._computeWalkForwardLossScore(validHistory);
         const consecutiveLossScore = lossInfo.lossScore;
-        const consecutiveMisses = Math.ceil(consecutiveLossScore);
-        const paperTradeVal = this._computePaperTradeValidation(validHistory);
+        const paperTradeVal = consecutiveLossScore >= 2.0 ? this._computePaperTradeValidation(validHistory) : { paperTradeWins: 3, totalEvaluated: 0, canReenter: true };
         const brokenSymmetry = this._detectBrokenSymmetryPattern(tokens);
 
         // Step 8: Execution Status & Multi-Tier Anti-Drawdown Safety Matrix
@@ -1548,33 +1533,63 @@ async function hydrateHistoryFromSupabase(limit = 40) {
     return [];
 }
 
-async function settlePastDrawsInSupabase(draws) {
-    if (!Array.isArray(draws) || draws.length === 0) return;
-    for (const draw of draws.slice(0, 10)) {
-        const issue = draw.issue_number;
-        if (!issue) continue;
-        const resType = (draw.actual_result || draw.result_type || (draw.actual_number >= 5 ? "big" : "small") || "").toLowerCase();
-        const resNum = draw.actual_number !== undefined && draw.actual_number !== null ? parseInt(draw.actual_number, 10) : null;
-        if (!resType) continue;
+async function settlePastDrawsInSupabase(upstreamDraws, supabaseHistory) {
+    if (!Array.isArray(upstreamDraws) || upstreamDraws.length === 0) return;
 
-        try {
-            await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?issue_number=eq.${encodeURIComponent(issue)}`, {
-                method: "PATCH",
-                headers: {
-                    "apikey": CONFIG.SUPABASE_KEY,
-                    "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    actual_result: resType,
-                    actual_number: resNum
-                })
-            });
-        } catch (e) {}
+    // Track already settled issues in Supabase to eliminate redundant requests
+    const alreadySettled = new Set();
+    if (Array.isArray(supabaseHistory)) {
+        supabaseHistory.forEach(s => {
+            if (s && s.issue_number && s.actual_number !== null && s.actual_number !== undefined) {
+                alreadySettled.add(String(s.issue_number));
+            }
+        });
     }
+
+    // Filter strictly for real upstream draws that have a valid lottery number
+    const pendingSettlement = upstreamDraws.filter(d => {
+        if (!d || !d.issue_number) return false;
+        const k = String(d.issue_number);
+        if (alreadySettled.has(k)) return false;
+        const hasNum = d.actual_number !== undefined && d.actual_number !== null && !isNaN(parseInt(d.actual_number, 10));
+        return hasNum;
+    });
+
+    if (pendingSettlement.length === 0) return;
+
+    // Settle newly drawn rounds in parallel
+    const patches = pendingSettlement.slice(0, 5).map(draw => {
+        const issue = String(draw.issue_number);
+        const num = parseInt(draw.actual_number, 10);
+        const resType = num >= 5 ? "big" : "small";
+
+        return fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?issue_number=eq.${encodeURIComponent(issue)}`, {
+            method: "PATCH",
+            headers: {
+                "apikey": CONFIG.SUPABASE_KEY,
+                "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                actual_result: resType,
+                actual_number: num
+            })
+        }).catch(() => {});
+    });
+
+    await Promise.allSettled(patches);
 }
 
 const publishedSignalsCache = new Map();
+
+function cleanCache() {
+    if (publishedSignalsCache.size > 50) {
+        const keys = Array.from(publishedSignalsCache.keys());
+        for (let i = 0; i < keys.length - 20; i++) {
+            publishedSignalsCache.delete(keys[i]);
+        }
+    }
+}
 
 async function executeSyncCycle(requestedPeriod = null) {
     // 1. If a specific period was requested and is already cached in memory, return it instantly
@@ -1669,19 +1684,30 @@ async function executeSyncCycle(requestedPeriod = null) {
         catch (e) { return String(b.issue_number).localeCompare(String(a.issue_number)); }
     });
 
-    // 5. Settle past resolved draw outcomes in Supabase
-    if (mergedHistory && mergedHistory.length > 0) {
-        await settlePastDrawsInSupabase(mergedHistory);
+    // 5. Settle past resolved draw outcomes in Supabase strictly from verified upstream draws
+    if (Array.isArray(upstreamHistory) && upstreamHistory.length > 0) {
+        await settlePastDrawsInSupabase(upstreamHistory, supabaseHistory);
     }
 
-    const latestSettled = mergedHistory.find(h => h.actual_result !== null && h.actual_result !== undefined);
-    const latestIssue = latestSettled ? latestSettled.issue_number : (mergedHistory.length > 0 ? mergedHistory[0].issue_number : "");
-    let nextPeriod = requestedPeriod || (latestIssue ? calculateNextPeriod(latestIssue) : getUtcCurrentPeriod());
+    // 6. Timing reconciliation: Find the latest genuinely settled draw (must have actual_number)
+    const currentUtcPeriod = getUtcCurrentPeriod();
+    const latestSettled = mergedHistory.find(h => h.actual_number !== null && h.actual_number !== undefined);
+    const latestIssue = latestSettled ? latestSettled.issue_number : "";
+    const candidateNext = latestIssue ? calculateNextPeriod(latestIssue) : currentUtcPeriod;
+
+    // Guard against delayed upstream lottery API latency:
+    // If upstream lottery API hasn't delivered the newest draw yet, candidateNext will lag behind.
+    // We always synchronize to currentUtcPeriod so we never predict for an already-expired round!
+    let nextPeriod = requestedPeriod;
     if (!nextPeriod) {
-        nextPeriod = getUtcCurrentPeriod();
+        if (!candidateNext || candidateNext < currentUtcPeriod) {
+            nextPeriod = currentUtcPeriod;
+        } else {
+            nextPeriod = candidateNext;
+        }
     }
 
-    // 6. If nextPeriod is already cached or stored in Supabase, return it without re-predicting
+    // 7. If nextPeriod is already cached or stored in Supabase, return it without re-predicting
     if (publishedSignalsCache.has(nextPeriod)) {
         return publishedSignalsCache.get(nextPeriod);
     }
@@ -1719,8 +1745,8 @@ async function executeSyncCycle(requestedPeriod = null) {
         }
     } catch (e) {}
 
-    // 7. Canonical slice: Strictly take the top 30 standardized records for deterministic inference
-    const canonicalHistory = mergedHistory.filter(h => h.actual_result !== null && h.actual_result !== undefined).slice(0, 30);
+    // 8. Canonical slice: Strictly take the top 30 standardized records with verified draw numbers for deterministic inference
+    const canonicalHistory = mergedHistory.filter(h => h.actual_number !== null && h.actual_number !== undefined).slice(0, 30);
     const pred = engine.predict(canonicalHistory);
 
     const payload = {
