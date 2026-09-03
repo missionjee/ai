@@ -5,22 +5,37 @@
 /* Google Fonts loaded in index.html */
 
 @layer base {
+  /* ==========================================================================
+     HIROTO AI — DUAL-THEME 60FPS CSS VARIABLE ARCHITECTURE
+     Both Dark and White themes are built natively on CSS Custom Properties
+     with Zero Backdrop Blur Shader Lag & Native GPU Rasterization.
+     ========================================================================== */
   :root {
-    /* Base Canvas from demo.html */
+    /* 1. Surfaces & Canvases */
     --bg-base: #020509;
     --bg-chassis: #070b12;
-    --bg-card: rgba(11, 17, 27, 0.82);
-    --bg-card-hover: rgba(16, 24, 38, 0.92);
+    --bg-card: #0a0e16;
+    --bg-card-hover: #101622;
     --bg-sunken: #04060b;
     --bg-sunken-inner: #020306;
+    --bg-header: #0a0e16;
+    --bg-brand-logo: #000000;
 
-    /* Precision Specular Borders */
+    /* 2. Precision Borders */
     --border-edge: rgba(255, 255, 255, 0.08);
     --border-specular-top: rgba(255, 255, 255, 0.18);
     --border-subtle: rgba(56, 189, 248, 0.14);
     --border-active: rgba(245, 158, 11, 0.45);
+    --border-bottom-dark: #000000;
+    --border-bottom-strong: #000000;
 
-    /* Institutional Palette */
+    /* 3. Typography */
+    --text-main: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --text-dim: #475569;
+
+    /* 4. Institutional Palette */
     --gold-primary: #f59e0b;
     --gold-bright: #fbbf24;
     --gold-glow: rgba(245, 158, 11, 0.22);
@@ -31,26 +46,190 @@
     --crimson-glow: rgba(225, 29, 72, 0.32);
     --crimson-slab-bg: linear-gradient(180deg, rgba(42, 11, 22, 0.96) 0%, rgba(18, 4, 9, 0.98) 100%);
     --crimson-border: rgba(225, 29, 72, 0.42);
+    --crimson-border-top: #e11d48;
+    --crimson-tag: #fda4af;
+    --crimson-text: #ffffff;
+    --crimson-range: #94a3b8;
 
     --cobalt-signal: #38bdf8;
     --cobalt-deep: #0284c7;
     --cobalt-glow: rgba(56, 189, 248, 0.28);
     --cobalt-slab-bg: linear-gradient(180deg, rgba(8, 28, 52, 0.96) 0%, rgba(3, 11, 22, 0.98) 100%);
     --cobalt-border: rgba(56, 189, 248, 0.42);
+    --cobalt-border-top: #0284c7;
+    --cobalt-tag: #bae6fd;
+    --cobalt-text: #ffffff;
+    --cobalt-range: #94a3b8;
+
+    --hold-slab-bg: linear-gradient(180deg, #131924 0%, #080c13 100%);
+    --hold-border: #2e3d54;
+    --hold-border-top: #475d80;
+    --hold-tag: #fbbf24;
+    --hold-text: #94a3b8;
+    --hold-range: #64748b;
 
     --emerald-accent: #10b981;
     --emerald-bright: #34d399;
     --emerald-glow: rgba(16, 185, 129, 0.2);
 
-    --text-main: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --text-dim: #475569;
+    /* 5. Shadows & Overlays */
+    --card-shadow: 0 10px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    --hero-shadow: 0 18px 45px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --sunken-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 
-    /* Typography Stacks */
+    /* 6. Table & Specific Components */
+    --table-header-bg: linear-gradient(180deg, #0f1725 0%, #080c14 100%);
+    --table-header-border: #1e2b40;
+    --table-row-border: rgba(255, 255, 255, 0.04);
+    --table-row-hover: rgba(255, 255, 255, 0.025);
+    --table-win-bg: rgba(16, 185, 129, 0.04);
+    --pill-bg: rgba(255, 255, 255, 0.05);
+    --pill-border: rgba(255, 255, 255, 0.09);
+    --filter-bar-bg: rgba(5, 7, 11, 0.85);
+    --filter-active-bg: rgba(255, 255, 255, 0.09);
+    --filter-active-border: rgba(255, 255, 255, 0.14);
+    --filter-active-color: #ffffff;
+
+    /* 7. Action Bar & Chips */
+    --action-bar-bg: #070a10;
+    --lucky-box-bg: #04060a;
+    --chip-primary-bg: linear-gradient(180deg, #b45309 0%, #78350f 45%, #2a0e02 100%);
+    --chip-primary-color: #fef08a;
+    --chip-primary-border: #d97706;
+    --chip-secondary-bg: linear-gradient(180deg, #0284c7 0%, #075985 45%, #021a29 100%);
+    --chip-secondary-color: #e0f2fe;
+    --chip-secondary-border: #38bdf8;
+    --copy-btn-bg: linear-gradient(180deg, #fbbf24 0%, #d97706 60%, #b45309 100%);
+    --copy-btn-color: #000000;
+    --copy-btn-border-bottom: #78350f;
+    --pwa-btn-bg: linear-gradient(180deg, #162438 0%, #0c1422 100%);
+    --pwa-btn-border: #0284c7;
+    --pwa-btn-color: #38bdf8;
+
+    /* 8. Modals */
+    --modal-bg: #0a0e16;
+    --modal-border: rgba(255, 255, 255, 0.08);
+    --modal-backdrop: rgba(0, 0, 0, 0.85);
+    --modal-input-bg: #04060a;
+    --modal-input-border: rgba(255, 255, 255, 0.12);
+    --modal-input-color: #ffffff;
+    --scanline-display: block;
+
+    /* Fonts */
     --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-display: 'Space Grotesk', -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  /* ==========================================================================
+     WHITE THEME SPECIFICATION (Pure CSS Variables — Zero Lag, 60-120 FPS)
+     ========================================================================== */
+  html.theme-white,
+  body.theme-white,
+  [data-theme="white"] {
+    /* 1. Surfaces & Canvases */
+    --bg-base: #f8fafc;
+    --bg-chassis: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f1f5f9;
+    --bg-sunken: #f1f5f9;
+    --bg-sunken-inner: #edf2f7;
+    --bg-header: #ffffff;
+    --bg-brand-logo: #ffffff;
+
+    /* 2. Precision Borders */
+    --border-edge: #e2e8f0;
+    --border-specular-top: #cbd5e1;
+    --border-subtle: #cbd5e1;
+    --border-active: #f59e0b;
+    --border-bottom-dark: #cbd5e1;
+    --border-bottom-strong: #e2e8f0;
+
+    /* 3. Typography */
+    --text-main: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+
+    /* 4. Institutional Palette */
+    --gold-primary: #d97706;
+    --gold-bright: #b45309;
+    --gold-glow: rgba(217, 119, 6, 0.15);
+    --gold-dark: #92400e;
+
+    --crimson-signal: #e11d48;
+    --crimson-deep: #be123c;
+    --crimson-glow: rgba(225, 29, 72, 0.12);
+    --crimson-slab-bg: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%);
+    --crimson-border: #f43f5e;
+    --crimson-border-top: #fb7185;
+    --crimson-tag: #be123c;
+    --crimson-text: #be123c;
+    --crimson-range: #9f1239;
+
+    --cobalt-signal: #0284c7;
+    --cobalt-deep: #0369a1;
+    --cobalt-glow: rgba(2, 132, 199, 0.12);
+    --cobalt-slab-bg: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+    --cobalt-border: #38bdf8;
+    --cobalt-border-top: #7dd3fc;
+    --cobalt-tag: #0369a1;
+    --cobalt-text: #0369a1;
+    --cobalt-range: #075985;
+
+    --hold-slab-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    --hold-border: #cbd5e1;
+    --hold-border-top: #e2e8f0;
+    --hold-tag: #b45309;
+    --hold-text: #334155;
+    --hold-range: #64748b;
+
+    --emerald-accent: #059669;
+    --emerald-bright: #047857;
+    --emerald-glow: rgba(5, 150, 105, 0.15);
+
+    /* 5. Shadows & Overlays */
+    --card-shadow: 0 4px 14px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.04);
+    --hero-shadow: 0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04);
+    --sunken-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+
+    /* 6. Table & Specific Components */
+    --table-header-bg: #f8fafc;
+    --table-header-border: #e2e8f0;
+    --table-row-border: #f1f5f9;
+    --table-row-hover: #f8fafc;
+    --table-win-bg: rgba(22, 163, 74, 0.08);
+    --pill-bg: #f1f5f9;
+    --pill-border: #cbd5e1;
+    --filter-bar-bg: #f1f5f9;
+    --filter-active-bg: #ffffff;
+    --filter-active-border: #cbd5e1;
+    --filter-active-color: #0f172a;
+
+    /* 7. Action Bar & Chips */
+    --action-bar-bg: #ffffff;
+    --lucky-box-bg: #f8fafc;
+    --chip-primary-bg: linear-gradient(180deg, #fef08a 0%, #fbbf24 60%, #f59e0b 100%);
+    --chip-primary-color: #78350f;
+    --chip-primary-border: #d97706;
+    --chip-secondary-bg: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 60%, #0284c7 100%);
+    --chip-secondary-color: #ffffff;
+    --chip-secondary-border: #0369a1;
+    --copy-btn-bg: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+    --copy-btn-color: #ffffff;
+    --copy-btn-border-bottom: #92400e;
+    --pwa-btn-bg: #ffffff;
+    --pwa-btn-border: #0284c7;
+    --pwa-btn-color: #0284c7;
+
+    /* 8. Modals */
+    --modal-bg: #ffffff;
+    --modal-border: #cbd5e1;
+    --modal-backdrop: rgba(15, 23, 42, 0.4);
+    --modal-input-bg: #ffffff;
+    --modal-input-border: #cbd5e1;
+    --modal-input-color: #0f172a;
+    --scanline-display: none;
   }
 
   * {
@@ -70,7 +249,7 @@
     letter-spacing: -0.01em;
   }
 
-  /* Ambient Quantum Atmospheric Backdrop from demo.html */
+  /* Hardware Accelerated Clean Viewport Backdrops (No Mask Recalculation) */
   body::before {
     content: "";
     position: fixed;
@@ -78,15 +257,18 @@
     width: 100vw;
     height: 100vh;
     background:
-      radial-gradient(circle at 50% 0%, rgba(30, 58, 138, 0.2) 0%, transparent 50%),
-      radial-gradient(circle at 15% 35%, rgba(245, 158, 11, 0.05) 0%, transparent 40%),
-      radial-gradient(circle at 85% 65%, rgba(225, 29, 72, 0.06) 0%, transparent 45%),
-      linear-gradient(180deg, #020509 0%, #010204 100%);
+      radial-gradient(circle at 50% 0%, rgba(30, 58, 138, 0.18) 0%, transparent 50%),
+      linear-gradient(180deg, var(--bg-base) 0%, var(--bg-sunken-inner) 100%);
     z-index: -2;
     pointer-events: none;
+    transform: translate3d(0, 0, 0);
   }
 
-  /* High-Precision Micro Grid Layer from demo.html */
+  html.theme-white body::before {
+    background: linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+  }
+
+  /* Micro Grid only for AMOLED Dark Mode */
   body::after {
     content: "";
     position: fixed;
@@ -99,6 +281,11 @@
     pointer-events: none;
     mask-image: radial-gradient(ellipse at 50% 30%, black 40%, transparent 90%);
     -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 40%, transparent 90%);
+    transform: translate3d(0, 0, 0);
+  }
+
+  html.theme-white body::after {
+    display: none;
   }
 
   .font-mono {
@@ -111,24 +298,25 @@
 }
 
 @layer components {
+  /* ==========================================================================
+     COMPONENT LAYER (Pure CSS Variables — Zero-Blur High FPS)
+     ========================================================================== */
+
   /* 1. Top Header */
-  /* 1. Dark Tinted Glass Top Header */
   .top-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 13px 18px;
-    background: rgba(10, 14, 22, 0.72);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    background: var(--bg-header);
+    border: 1px solid var(--border-edge);
+    border-top: 1px solid var(--border-specular-top);
     border-radius: 18px;
-    box-shadow: 
-      0 12px 30px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    box-shadow: var(--card-shadow);
     position: relative;
     overflow: hidden;
+    transform: translate3d(0, 0, 0);
+    contain: layout style;
   }
 
   .top-header::after {
@@ -148,14 +336,24 @@
     min-width: 48px;
     border-radius: 13px;
     overflow: hidden;
-    border: 1px solid rgba(245, 158, 11, 0.6);
-    border-top: 1px solid rgba(255, 255, 255, 0.35);
-    background: #000000;
+    border: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--border-specular-top);
+    background: var(--bg-brand-logo);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
     position: relative;
+  }
+
+  .brand-title {
+    color: var(--text-main);
+  }
+
+  .version-badge {
+    background: var(--pill-bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border-edge);
   }
 
   /* Refined Theme Toggle Button */
@@ -163,24 +361,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-top: 1px solid rgba(255, 255, 255, 0.22);
-    color: #f8fafc;
+    background: var(--bg-card);
+    border: 1px solid var(--border-edge);
+    border-top: 1px solid var(--border-specular-top);
+    color: var(--text-main);
     font-size: 14px;
     line-height: 1;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+    box-shadow: var(--card-shadow);
     user-select: none;
   }
 
   .theme-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(245, 158, 11, 0.45);
+    border-color: var(--border-active);
     transform: scale(1.05);
   }
 
@@ -188,7 +385,7 @@
     transform: scale(0.95);
   }
 
-  /* Refined Translucent Status Pill */
+  /* Status Pill */
   .status-pill {
     display: inline-flex;
     align-items: center;
@@ -198,21 +395,17 @@
     font-family: var(--font-mono);
     font-size: 10.5px;
     font-weight: 700;
-    background: rgba(16, 185, 129, 0.08);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.22);
-    border-top: 1px solid rgba(16, 185, 129, 0.4);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
     transition: all 0.2s ease;
     cursor: default;
   }
 
   .status-pill.syncing {
-    background: rgba(56, 189, 248, 0.08);
-    color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.22);
-    border-top: 1px solid rgba(56, 189, 248, 0.4);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    background: rgba(56, 189, 248, 0.1);
+    color: #0284c7;
+    border: 1px solid rgba(56, 189, 248, 0.25);
   }
 
   .status-pill .pulse-dot {
@@ -230,13 +423,11 @@
     100% { transform: scale(0.95); opacity: 0.8; }
   }
 
-  /* 2. Dark Tinted Glass Metric Boxes */
+  /* 2. Metric Boxes */
   .metric-box {
-    background: rgba(10, 14, 22, 0.72);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    background: var(--bg-card);
+    border: 1px solid var(--border-edge);
+    border-top: 1px solid var(--border-specular-top);
     border-radius: 16px;
     padding: 13px 10px 11px;
     text-align: center;
@@ -246,31 +437,27 @@
     justify-content: center;
     position: relative;
     overflow: hidden;
-    box-shadow: 
-      0 10px 24px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: var(--card-shadow);
+    transform: translate3d(0, 0, 0);
+    contain: layout style;
+    transition: transform 0.15s ease, border-color 0.15s ease;
   }
 
   .metric-box:hover {
     transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.75);
+    border-color: var(--border-specular-top);
   }
 
   .metric-box.metric-tokens {
-    border-top: 1.5px solid rgba(245, 158, 11, 0.55);
-    background: rgba(14, 16, 22, 0.72);
+    border-top: 2.5px solid var(--gold-primary);
   }
 
   .metric-box.metric-streak {
-    border-top: 1.5px solid rgba(16, 185, 129, 0.55);
-    background: rgba(10, 16, 20, 0.72);
+    border-top: 2.5px solid var(--emerald-accent);
   }
 
   .metric-box.metric-consensus {
-    border-top: 1.5px solid rgba(56, 189, 248, 0.55);
-    background: rgba(10, 16, 24, 0.72);
+    border-top: 2.5px solid var(--cobalt-deep);
   }
 
   .metric-label {
@@ -283,38 +470,32 @@
     display: block;
   }
 
-  .metric-value {
-    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8));
-  }
-
   .metric-tokens .metric-value {
-    color: #fbbf24;
+    color: var(--gold-primary);
   }
 
   .metric-streak .metric-value {
-    color: #34d399;
+    color: var(--emerald-accent);
   }
 
   .metric-consensus .metric-value {
-    color: #38bdf8;
+    color: var(--cobalt-deep);
   }
 
-  /* 3. Dark Tinted Glass Prediction Hero */
+  /* 3. Prediction Hero */
   .prediction-hero {
-    background: rgba(10, 14, 22, 0.75);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    background: var(--bg-card);
+    border: 1px solid var(--border-edge);
+    border-top: 1px solid var(--border-specular-top);
     border-radius: 20px;
     padding: 18px 18px 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    box-shadow: 
-      0 18px 45px rgba(0, 0, 0, 0.65),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-shadow: var(--hero-shadow);
     position: relative;
+    transform: translate3d(0, 0, 0);
+    contain: layout style;
   }
 
   .hero-top {
@@ -322,7 +503,7 @@
     justify-content: space-between;
     align-items: center;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--border-edge);
   }
 
   .period-badge-wrap {
@@ -337,8 +518,8 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
     padding: 3px 8px;
     border-radius: 6px;
   }
@@ -347,7 +528,7 @@
     font-family: var(--font-mono);
     font-size: 20px;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-main);
     letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
   }
@@ -356,12 +537,12 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    background: rgba(5, 7, 11, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    background: var(--bg-sunken);
+    border: 1px solid var(--border-edge);
+    border-top: 1px solid var(--border-specular-top);
     border-radius: 12px;
     padding: 5px 12px;
-    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--sunken-shadow);
   }
 
   .countdown-label {
@@ -379,13 +560,11 @@
     color: var(--cobalt-signal);
     letter-spacing: 0.06em;
     font-variant-numeric: tabular-nums;
-    text-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
-    transition: color 0.3s ease, text-shadow 0.3s ease;
+    transition: color 0.3s ease;
   }
 
   .countdown-timer.urgent {
     color: var(--crimson-signal);
-    text-shadow: 0 0 14px rgba(244, 63, 94, 0.6);
     animation: urgentBlink 0.9s infinite;
   }
 
@@ -406,37 +585,43 @@
     gap: 4px;
     position: relative;
     overflow: hidden;
-    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translate3d(0, 0, 0);
   }
 
   .signal-banner.BIG {
     background: var(--crimson-slab-bg);
     border: 1.5px solid var(--crimson-border);
-    border-top: 1.5px solid #e11d48;
-    border-bottom: 4px solid #000000;
-    box-shadow: 
-      0 14px 34px rgba(0, 0, 0, 0.85),
-      0 0 35px var(--crimson-glow),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-top: 1.5px solid var(--crimson-border-top);
+    border-bottom: 4px solid var(--border-bottom-dark);
+    box-shadow: 0 10px 30px var(--crimson-glow);
   }
 
   .signal-banner.SMALL {
     background: var(--cobalt-slab-bg);
     border: 1.5px solid var(--cobalt-border);
-    border-top: 1.5px solid #0284c7;
-    border-bottom: 4px solid #000000;
-    box-shadow: 
-      0 14px 34px rgba(0, 0, 0, 0.85),
-      0 0 35px var(--cobalt-glow),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-top: 1.5px solid var(--cobalt-border-top);
+    border-bottom: 4px solid var(--border-bottom-dark);
+    box-shadow: 0 10px 30px var(--cobalt-glow);
   }
 
   .signal-banner.HOLD, .signal-banner.LOCKED {
-    background: linear-gradient(180deg, #131924 0%, #080c13 100%);
-    border: 1.5px solid #2e3d54;
-    border-top: 1.5px solid #475d80;
-    border-bottom: 4px solid #000000;
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.85);
+    background: var(--hold-slab-bg);
+    border: 1.5px solid var(--hold-border);
+    border-top: 1.5px solid var(--hold-border-top);
+    border-bottom: 4px solid var(--border-bottom-dark);
+  }
+
+  .signal-banner.BIG .signal-tag {
+    color: var(--crimson-tag);
+  }
+
+  .signal-banner.SMALL .signal-tag {
+    color: var(--cobalt-tag);
+  }
+
+  .signal-banner.HOLD .signal-tag,
+  .signal-banner.LOCKED .signal-tag {
+    color: var(--hold-tag);
   }
 
   .signal-tag {
@@ -450,19 +635,6 @@
     gap: 6px;
   }
 
-  .signal-banner.BIG .signal-tag {
-    color: #fda4af;
-  }
-
-  .signal-banner.SMALL .signal-tag {
-    color: #bae6fd;
-  }
-
-  .signal-banner.HOLD .signal-tag,
-  .signal-banner.LOCKED .signal-tag {
-    color: #fbbf24;
-  }
-
   .signal-text {
     font-family: var(--font-display);
     font-size: 58px;
@@ -470,30 +642,36 @@
     line-height: 1;
     letter-spacing: 5px;
     text-transform: uppercase;
-    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.9));
   }
 
   .signal-banner.BIG .signal-text {
-    background: linear-gradient(180deg, #ffffff 0%, #ffe4e6 40%, #fda4af 75%, #f43f5e 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 24px rgba(244, 63, 94, 0.55));
+    color: var(--crimson-text);
     letter-spacing: 6px;
   }
 
   .signal-banner.SMALL .signal-text {
-    background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 40%, #7dd3fc 75%, #0284c7 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 24px rgba(56, 189, 248, 0.55));
+    color: var(--cobalt-text);
     letter-spacing: 6px;
   }
 
   .signal-banner.HOLD .signal-text,
   .signal-banner.LOCKED .signal-text {
-    color: #94a3b8;
+    color: var(--hold-text);
     font-size: 32px;
     letter-spacing: 2px;
+  }
+
+  .signal-banner.BIG .signal-range {
+    color: var(--crimson-range);
+  }
+
+  .signal-banner.SMALL .signal-range {
+    color: var(--cobalt-range);
+  }
+
+  .signal-banner.HOLD .signal-range,
+  .signal-banner.LOCKED .signal-range {
+    color: var(--hold-range);
   }
 
   .signal-range {
@@ -506,6 +684,7 @@
   }
 
   .signal-banner::after {
+    display: var(--scanline-display);
     content: "";
     position: absolute;
     inset: 0;
@@ -529,11 +708,11 @@
   }
 
   .confidence-wrap {
-    background: #05080e;
-    border: 1px solid #1a2434;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border-edge);
     border-radius: 14px;
     padding: 12px 14px;
-    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--sunken-shadow);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -550,7 +729,7 @@
 
   .confidence-header strong {
     font-family: var(--font-mono);
-    color: #ffffff;
+    color: var(--text-main);
     font-size: 13px;
     font-weight: 800;
   }
@@ -559,53 +738,49 @@
     width: 100%;
     height: 8px;
     border-radius: 999px;
-    background: #020407;
-    border: 1px solid #141c28;
+    background: var(--bg-sunken-inner);
+    border: 1px solid var(--border-edge);
     overflow: hidden;
     position: relative;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.9);
   }
 
   .confidence-fill {
     height: 100%;
     border-radius: 999px;
     background: linear-gradient(90deg, #059669 0%, #10b981 60%, #34d399 100%);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: width 0.4s ease;
   }
 
-  /* Dark Tinted Glass Action Bar Row */
+  .stake-tag {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--emerald-accent);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    font-weight: 800;
+  }
+
+  /* Action Bar Row */
   .action-bar-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    background: rgba(7, 10, 16, 0.72);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    background: var(--action-bar-bg);
+    border: 1px solid var(--border-edge);
+    border-top: 1px solid var(--border-specular-top);
     border-radius: 15px;
     padding: 12px 14px;
-    box-shadow: 
-      0 6px 18px rgba(0, 0, 0, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: var(--card-shadow);
   }
 
-  /* Recessed Dark Glass Lucky Digits Tray */
+  /* Lucky Digits Tray */
   .lucky-digits-box {
     display: flex;
     align-items: center;
     gap: 9px;
-    background: rgba(4, 6, 10, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-top: 1px solid rgba(0, 0, 0, 0.8);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--lucky-box-bg);
+    border: 1px solid var(--border-edge);
     border-radius: 12px;
     padding: 5px 10px;
-    box-shadow: 
-      inset 0 2px 6px rgba(0, 0, 0, 0.8),
-      0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .lucky-label {
@@ -622,7 +797,7 @@
     gap: 6px;
   }
 
-  /* Laser-Carved Chamfered Lucky Digit Hologram Chips */
+  /* Digit Chips */
   .digit-chip {
     width: 36px;
     height: 36px;
@@ -635,41 +810,31 @@
     font-weight: 900;
     font-variant-numeric: tabular-nums;
     user-select: none;
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
-    position: relative;
+    transition: transform 0.15s ease;
   }
 
   .digit-chip:hover {
-    transform: scale(1.08);
+    transform: scale(1.06);
   }
 
   .digit-chip.primary {
-    background: linear-gradient(180deg, #b45309 0%, #78350f 45%, #2a0e02 100%);
-    color: #fef08a;
-    border: 1px solid #d97706;
-    box-shadow: 
-      0 4px 12px rgba(0, 0, 0, 0.7),
-      0 0 14px rgba(245, 158, 11, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    background: var(--chip-primary-bg);
+    color: var(--chip-primary-color);
+    border: 1.5px solid var(--chip-primary-border);
   }
 
   .digit-chip.secondary {
-    background: linear-gradient(180deg, #0284c7 0%, #075985 45%, #021a29 100%);
-    color: #e0f2fe;
-    border: 1px solid #38bdf8;
-    box-shadow: 
-      0 4px 12px rgba(0, 0, 0, 0.7),
-      0 0 14px rgba(56, 189, 248, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    background: var(--chip-secondary-bg);
+    color: var(--chip-secondary-color);
+    border: 1.5px solid var(--chip-secondary-border);
   }
 
-  /* Sovereign Gold 3D Mechanical Action Button */
+  /* Action Button */
   .btn-copy-signal {
-    background: linear-gradient(180deg, #fbbf24 0%, #d97706 60%, #b45309 100%);
-    color: #000000;
+    background: var(--copy-btn-bg);
+    color: var(--copy-btn-color);
     border: none;
-    border-top: 1.5px solid #fffbeb;
-    border-bottom: 3.5px solid #78350f;
+    border-bottom: 3.5px solid var(--copy-btn-border-bottom);
     border-radius: 12px;
     font-family: var(--font-display);
     font-weight: 800;
@@ -680,60 +845,61 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    box-shadow: 
-      0 6px 18px rgba(245, 158, 11, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.5);
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
+    transition: transform 0.12s ease;
     user-select: none;
-    position: relative;
-    overflow: hidden;
   }
 
   .btn-copy-signal:hover {
-    filter: brightness(1.12);
-    transform: translateY(-1.5px);
-    box-shadow: 0 8px 22px rgba(245, 158, 11, 0.45);
+    filter: brightness(1.08);
+    transform: translateY(-1px);
   }
 
   .btn-copy-signal:active {
     transform: translateY(1.5px);
-    border-bottom-width: 1px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+    border-bottom-width: 1.5px;
   }
 
-  /* Inline Green Copied Morph State */
   .btn-copy-signal.copied {
     background: linear-gradient(180deg, #34d399 0%, #059669 60%, #064e3b 100%);
     color: #ffffff;
-    border-top: 1.5px solid #a7f3d0;
     border-bottom: 3.5px solid #064e3b;
-    box-shadow: 
-      0 6px 18px rgba(16, 185, 129, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    animation: springPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
 
-  @keyframes springPop {
-    0% { transform: scale(0.95); }
-    50% { transform: scale(1.04); }
-    100% { transform: scale(1); }
-  }
-
-  /* 4. Dark Tinted Glass History Card */
+  /* 4. History Card */
   .history-card {
-    background: rgba(10, 14, 22, 0.75);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    background: var(--bg-card);
+    border: 1px solid var(--border-edge);
+    border-top: 1px solid var(--border-specular-top);
     border-radius: 20px;
     padding: 18px 18px 20px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    box-shadow: 
-      0 18px 45px rgba(0, 0, 0, 0.65),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-shadow: var(--hero-shadow);
+    transform: translate3d(0, 0, 0);
+    contain: layout style;
+  }
+
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-edge);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .history-title {
+    color: var(--text-main);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .history-title::before {
@@ -744,16 +910,14 @@
     background: var(--gold-primary);
   }
 
-  /* Segmented Dark Tinted Filter Bar */
   .filter-segmented-bar {
     display: inline-flex;
     align-items: center;
-    background: rgba(5, 7, 11, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--filter-bar-bg);
+    border: 1px solid var(--border-edge);
     border-radius: 11px;
     padding: 3px;
     gap: 2px;
-    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
   }
 
   .filter-pill {
@@ -766,27 +930,24 @@
     font-weight: 700;
     cursor: pointer;
     font-family: var(--font-ui);
-    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: color 0.15s ease, background 0.15s ease;
   }
 
   .filter-pill:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
   }
 
   .filter-pill.active {
-    background: rgba(255, 255, 255, 0.09);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-top: 1px solid rgba(255, 255, 255, 0.28);
-    color: #ffffff;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    background: var(--filter-active-bg);
+    border: 1px solid var(--filter-active-border);
+    color: var(--filter-active-color);
   }
 
   /* Table Container */
   .history-table-container {
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--border-edge);
     border-radius: 14px;
-    background: rgba(4, 7, 12, 0.85);
+    background: var(--bg-card);
     overflow: hidden;
   }
 
@@ -798,8 +959,8 @@
   }
 
   .history-table thead tr {
-    background: linear-gradient(180deg, #0f1725 0%, #080c14 100%);
-    border-bottom: 1px solid #1e2b40;
+    background: var(--table-header-bg);
+    border-bottom: 1px solid var(--table-header-border);
   }
 
   .history-table th {
@@ -814,8 +975,8 @@
 
   .history-table td {
     padding: 11px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    transition: background 0.15s ease;
+    border-bottom: 1px solid var(--table-row-border);
+    color: var(--text-main);
   }
 
   .history-table tbody tr:last-child td {
@@ -823,24 +984,18 @@
   }
 
   .history-table tbody tr:hover td {
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--table-row-hover);
   }
 
-  .history-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    flex-wrap: wrap;
-    gap: 10px;
+  .history-table tbody tr.row-win td {
+    background: var(--table-win-bg);
   }
 
   .col-period {
     width: 32%;
     font-family: var(--font-mono);
     font-weight: 700;
-    color: #cbd5e1;
+    color: var(--text-main);
     font-variant-numeric: tabular-nums;
   }
 
@@ -857,7 +1012,6 @@
     text-align: right;
   }
 
-  /* Signal Badges in Table */
   .table-signal-badge {
     font-family: var(--font-mono);
     font-size: 12px;
@@ -885,6 +1039,16 @@
     font-weight: 700;
   }
 
+  .result-num-chip {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-edge);
+    color: var(--text-main);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
   /* Outcome Badges */
   .outcome-pill {
     display: inline-flex;
@@ -901,8 +1065,7 @@
   .outcome-pill.WIN {
     background: rgba(16, 185, 129, 0.15);
     border: 1px solid #059669;
-    color: var(--emerald-bright);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+    color: #10b981;
   }
 
   .outcome-pill.LOSS {
@@ -912,28 +1075,16 @@
   }
 
   .outcome-pill.PENDING {
-    background: rgba(148, 163, 184, 0.08);
-    border: 1px solid #334155;
+    background: var(--pill-bg);
+    border: 1px solid var(--border-edge);
     color: var(--text-muted);
   }
 
-  .result-num-chip {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    color: #ffffff;
-    border-radius: 5px;
-    padding: 1px 6px;
-    font-size: 11px;
-    font-weight: 800;
-  }
-
-  /* PWA Install Button */
+  /* 5. PWA Install & System Footer */
   .btn-pwa-install {
-    background: linear-gradient(180deg, #162438 0%, #0c1422 100%);
-    border: 1px solid #0284c7;
-    border-top: 1px solid #38bdf8;
-    border-bottom: 2.5px solid #0369a1;
-    color: #38bdf8;
+    background: var(--pwa-btn-bg);
+    border: 1px solid var(--pwa-btn-border);
+    color: var(--pwa-btn-color);
     font-family: var(--font-display);
     font-size: 12px;
     font-weight: 800;
@@ -943,767 +1094,143 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    box-shadow: 0 4px 16px rgba(56, 189, 248, 0.18);
-    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 14px rgba(56, 189, 248, 0.12);
+    transition: transform 0.15s ease;
   }
 
   .btn-pwa-install:hover {
-    background: linear-gradient(180deg, #1e334e 0%, #101c30 100%);
     transform: translateY(-1.5px);
-    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.3);
   }
 
-  /* Chameleon Dynamic Atmospheric Aura */
-  .terminal-viewport {
-    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-    position: relative;
+  .system-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0;
   }
 
-  .terminal-viewport::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    transition: opacity 0.8s ease, background 0.8s ease;
-    opacity: 0.55;
+  .footer-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
   }
 
-  .terminal-viewport.glow-BIG::before {
-    background: 
-      radial-gradient(ellipse 70% 50% at 50% 18%, rgba(225, 29, 72, 0.16) 0%, transparent 70%),
-      radial-gradient(circle at 85% 25%, rgba(244, 63, 94, 0.08) 0%, transparent 50%);
+  .footer-info .dot {
+    color: var(--border-edge);
   }
 
-  .terminal-viewport.glow-SMALL::before {
-    background: 
-      radial-gradient(ellipse 70% 50% at 50% 18%, rgba(2, 132, 199, 0.18) 0%, transparent 70%),
-      radial-gradient(circle at 15% 25%, rgba(56, 189, 248, 0.08) 0%, transparent 50%);
-  }
-
-  .terminal-viewport.glow-SNIPER::before {
-    background: 
-      radial-gradient(ellipse 75% 55% at 50% 18%, rgba(16, 185, 129, 0.22) 0%, transparent 70%),
-      radial-gradient(circle at 50% 15%, rgba(52, 211, 153, 0.14) 0%, transparent 50%);
-  }
-
-  .terminal-viewport.glow-HOLD::before {
-    background: 
-      radial-gradient(ellipse 70% 50% at 50% 18%, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
-  }
-
-  /* Winning Row Highlight Effect (Clean Subtle Tint without Side Border) */
-  .history-table tbody tr.row-win td {
-    background: rgba(16, 185, 129, 0.04);
-  }
-
-  /* Token Redemption Modal (AMOLED Dark Defaults) */
+  /* 6. Token Modal */
   .token-modal-backdrop {
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: var(--modal-backdrop);
   }
 
   .token-modal-card {
-    background: rgba(10, 14, 22, 0.95);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-top: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    color: #ffffff;
+    background: var(--modal-bg);
+    border: 1px solid var(--modal-border);
+    border-top: 1px solid var(--border-specular-top);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    color: var(--text-main);
   }
 
   .token-modal-header {
-    border-bottom-color: rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid var(--border-edge);
   }
 
   .token-modal-title {
-    color: #ffffff;
+    color: var(--text-main);
   }
 
   .token-modal-close {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #94a3b8;
+    background: var(--pill-bg);
+    border: 1px solid var(--border-edge);
+    color: var(--text-muted);
   }
 
   .token-modal-close:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
+    color: var(--text-main);
   }
 
   .token-modal-balance {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-sunken);
+    border: 1px solid var(--border-edge);
   }
 
   .token-modal-balance-label {
-    color: #94a3b8;
+    color: var(--text-muted);
   }
 
   .token-modal-balance-val {
-    color: #fbbf24;
+    color: var(--gold-primary);
   }
 
   .token-modal-label-row {
-    color: #94a3b8;
+    color: var(--text-muted);
   }
 
   .token-modal-charcount {
-    color: #00ffcc;
+    color: var(--cobalt-signal);
   }
 
   .token-modal-input {
-    background: #04060a;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.25);
-    color: #ffffff;
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+    background: var(--modal-input-bg);
+    border: 1px solid var(--modal-input-border);
+    color: var(--modal-input-color);
   }
 
   .token-modal-input:focus {
-    border-color: #00ffcc;
-    border-bottom-color: #00ffcc;
-    background: #06090d;
-    box-shadow: 0 0 16px rgba(0, 255, 204, 0.2);
+    border-color: var(--cobalt-signal);
   }
 
   .token-modal-input.input-error {
-    border-color: #e11d48;
-    border-bottom-color: #e11d48;
-    box-shadow: 0 0 12px rgba(225, 29, 72, 0.3);
+    border-color: var(--crimson-deep);
   }
 
-  /* ==========================================================================
-     WHITE THEME INSTITUTIONAL OVERRIDES (100% Zero-Dark Remnant & High Contrast)
-     ========================================================================== */
-  html.theme-white,
-  body.theme-white {
-    background-color: #f8fafc !important;
-    color: #0f172a !important;
+  /* Sub-cards in Prediction Hero */
+  .sub-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-edge);
   }
 
-  body.theme-white::before {
-    background:
-      radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.14) 0%, transparent 55%),
-      radial-gradient(circle at 15% 35%, rgba(245, 158, 11, 0.09) 0%, transparent 45%),
-      radial-gradient(circle at 85% 65%, rgba(225, 29, 72, 0.09) 0%, transparent 50%),
-      linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%) !important;
+  .sub-card-label {
+    color: var(--text-muted);
   }
 
-  body.theme-white::after {
-    background-image: 
-      linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px) !important;
+  .sub-card-val {
+    color: var(--text-main);
   }
 
-  /* 1. Header */
-  .theme-white .top-header {
-    background: #ffffff !important;
-    border: 1.5px solid #e2e8f0 !important;
-    border-top: 2px solid #cbd5e1 !important;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05) !important;
+  .hero-footer {
+    border-top: 1px solid var(--border-edge);
   }
 
-  .theme-white .top-header::after {
-    background: linear-gradient(90deg, transparent 0%, rgba(245, 158, 11, 0.6) 35%, rgba(56, 189, 248, 0.6) 65%, transparent 100%) !important;
+  .intel-tag {
+    color: var(--text-muted);
   }
 
-  .theme-white .brand-logo-wrap {
-    background: #ffffff !important;
-    border: 1.5px solid #e2e8f0 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
-  }
-
-  .theme-white .brand-title {
-    color: #0f172a !important;
-  }
-
-  .theme-white .version-badge {
-    background: #f1f5f9 !important;
-    color: #334155 !important;
-    border: 1px solid #cbd5e1 !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .theme-toggle-btn {
-    background: #f8fafc !important;
-    border: 1.5px solid #cbd5e1 !important;
-    color: #0f172a !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
-  }
-
-  .theme-white .theme-toggle-btn:hover {
-    background: #ffffff !important;
-    border-color: #f59e0b !important;
-    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2) !important;
-  }
-
-  .theme-white .status-pill {
-    background: #ecfdf5 !important;
-    color: #047857 !important;
-    border: 1.5px solid #a7f3d0 !important;
-    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15) !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .status-pill.syncing {
-    background: #f0f9ff !important;
-    color: #0284c7 !important;
-    border: 1.5px solid #bae6fd !important;
-    box-shadow: 0 2px 6px rgba(56, 189, 248, 0.15) !important;
-  }
-
-  /* 2. Metrics Summary Row */
-  .theme-white .metric-box {
-    background: #ffffff !important;
-    border: 1.5px solid #e2e8f0 !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
-  }
-
-  .theme-white .metric-box.metric-tokens {
-    border-top: 3px solid #f59e0b !important;
-  }
-
-  .theme-white .metric-box.metric-streak {
-    border-top: 3px solid #10b981 !important;
-  }
-
-  .theme-white .metric-box.metric-consensus {
-    border-top: 3px solid #0284c7 !important;
-  }
-
-  .theme-white .metric-label {
-    color: #475569 !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .metric-box.metric-tokens .metric-value {
-    color: #d97706 !important;
-  }
-
-  .theme-white .metric-box.metric-streak .metric-value {
-    color: #059669 !important;
-  }
-
-  .theme-white .metric-box.metric-consensus .metric-value {
-    color: #0284c7 !important;
-  }
-
-  /* 3. Prediction Hero Container */
-  .theme-white .prediction-hero {
-    background: #ffffff !important;
-    border: 1.5px solid #e2e8f0 !important;
-    border-top: 2px solid #cbd5e1 !important;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.06) !important;
-  }
-
-  .theme-white .hero-top {
-    border-bottom: 1.5px solid #f1f5f9 !important;
-  }
-
-  .theme-white .period-title {
-    background: #f1f5f9 !important;
-    border: 1px solid #cbd5e1 !important;
-    color: #475569 !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .period-num {
-    color: #0f172a !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .countdown-box {
-    background: #f8fafc !important;
-    border: 1.5px solid #e2e8f0 !important;
-    box-shadow: none !important;
-  }
-
-  .theme-white .countdown-label {
-    color: #64748b !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .countdown-timer {
-    color: #0284c7 !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .countdown-timer.urgent {
-    color: #dc2626 !important;
-  }
-
-  /* 4. Signal Banners in White Theme (Zero-Darkness & Ultra Contrast) */
-  .theme-white .signal-banner::after {
-    display: none !important;
-  }
-
-  .theme-white .signal-banner.BIG {
-    background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%) !important;
-    border: 2px solid #e11d48 !important;
-    border-top: 2px solid #f43f5e !important;
-    border-bottom: 4px solid #be123c !important;
-    box-shadow: 0 10px 30px rgba(225, 29, 72, 0.16) !important;
-  }
-
-  .theme-white .signal-banner.BIG .signal-tag {
-    color: #be123c !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .signal-banner.BIG .signal-text {
-    background: none !important;
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: #be123c !important;
-    color: #be123c !important;
-    filter: none !important;
-    text-shadow: 0 2px 6px rgba(225, 29, 72, 0.25) !important;
-  }
-
-  .theme-white .signal-banner.BIG .signal-range {
-    color: #9f1239 !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .signal-banner.SMALL {
-    background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%) !important;
-    border: 2px solid #0284c7 !important;
-    border-top: 2px solid #38bdf8 !important;
-    border-bottom: 4px solid #0369a1 !important;
-    box-shadow: 0 10px 30px rgba(2, 132, 199, 0.16) !important;
-  }
-
-  .theme-white .signal-banner.SMALL .signal-tag {
-    color: #0369a1 !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .signal-banner.SMALL .signal-text {
-    background: none !important;
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: #0369a1 !important;
-    color: #0369a1 !important;
-    filter: none !important;
-    text-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
-  }
-
-  .theme-white .signal-banner.SMALL .signal-range {
-    color: #075985 !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .signal-banner.HOLD,
-  .theme-white .signal-banner.LOCKED {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
-    border: 2px solid #cbd5e1 !important;
-    border-top: 2px solid #e2e8f0 !important;
-    border-bottom: 4px solid #94a3b8 !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05) !important;
-  }
-
-  .theme-white .signal-banner.HOLD .signal-tag,
-  .theme-white .signal-banner.LOCKED .signal-tag {
-    color: #b45309 !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .signal-banner.HOLD .signal-text,
-  .theme-white .signal-banner.LOCKED .signal-text {
-    background: none !important;
-    -webkit-text-fill-color: #334155 !important;
-    color: #334155 !important;
-    filter: none !important;
-  }
-
-  .theme-white .signal-banner.HOLD .signal-range,
-  .theme-white .signal-banner.LOCKED .signal-range {
-    color: #64748b !important;
-    font-weight: 800 !important;
-  }
-
-  /* 5. Confidence Bar & Quick Details */
-  .theme-white .confidence-wrap {
-    background: #f8fafc !important;
-    border: 1.5px solid #e2e8f0 !important;
-    box-shadow: none !important;
-  }
-
-  .theme-white .confidence-header {
-    color: #334155 !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .confidence-header strong {
-    color: #0f172a !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .confidence-track {
-    background: #e2e8f0 !important;
-    border: 1px solid #cbd5e1 !important;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06) !important;
-  }
-
-  .theme-white .confidence-fill {
-    background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.35) !important;
-  }
-
-  .theme-white .stake-tag {
-    background: #ecfdf5 !important;
-    color: #047857 !important;
-    border: 1.5px solid #a7f3d0 !important;
-    font-weight: 800 !important;
-  }
-
-  /* 6. Lucky Digits & Action Bar */
-  .theme-white .action-bar-row {
-    background: #ffffff !important;
-    border: 1.5px solid #e2e8f0 !important;
-    border-top: 1.5px solid #cbd5e1 !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
-  }
-
-  .theme-white .lucky-digits-box {
-    background: #f8fafc !important;
-    border: 1.5px solid #e2e8f0 !important;
-    border-top: 1.5px solid #e2e8f0 !important;
-    border-bottom: 1.5px solid #e2e8f0 !important;
-    box-shadow: none !important;
-  }
-
-  .theme-white .lucky-label {
-    color: #475569 !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .digit-chip.primary {
-    background: linear-gradient(180deg, #fef08a 0%, #fbbf24 60%, #f59e0b 100%) !important;
-    color: #78350f !important;
-    border: 1.5px solid #d97706 !important;
-    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35) !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .digit-chip.secondary {
-    background: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 60%, #0284c7 100%) !important;
-    color: #ffffff !important;
-    border: 1.5px solid #0369a1 !important;
-    box-shadow: 0 3px 10px rgba(56, 189, 248, 0.35) !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .btn-copy-signal {
-    background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
-    color: #ffffff !important;
-    border: 1px solid #b45309 !important;
-    border-top: 1.5px solid #fde68a !important;
-    border-bottom: 3.5px solid #92400e !important;
-    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.3) !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .btn-copy-signal.copied {
-    background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
-    color: #ffffff !important;
-    border-color: #047857 !important;
-    border-bottom: 3.5px solid #064e3b !important;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
-  }
-
-  /* 7. Draw History Card & Table */
-  .theme-white .history-card {
-    background: #ffffff !important;
-    border: 1.5px solid #e2e8f0 !important;
-    border-top: 2px solid #cbd5e1 !important;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.06) !important;
-  }
-
-  .theme-white .history-header {
-    border-bottom: 1.5px solid #f1f5f9 !important;
-  }
-
-  .theme-white .history-title {
-    color: #0f172a !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .filter-segmented-bar {
-    background: #f1f5f9 !important;
-    border: 1.5px solid #e2e8f0 !important;
-    box-shadow: none !important;
-  }
-
-  .theme-white .filter-pill {
-    color: #64748b !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .filter-pill:hover {
-    color: #0f172a !important;
-    background: #e2e8f0 !important;
-  }
-
-  .theme-white .filter-pill.active {
-    background: #ffffff !important;
-    border: 1.5px solid #cbd5e1 !important;
-    color: #0f172a !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .history-table-container {
-    background: #ffffff !important;
-    border: 1.5px solid #e2e8f0 !important;
-  }
-
-  .theme-white .history-table thead tr {
-    background: #f8fafc !important;
-    border-bottom: 1.5px solid #e2e8f0 !important;
-  }
-
-  .theme-white .history-table th {
-    color: #475569 !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .history-table td {
-    border-bottom: 1px solid #f1f5f9 !important;
-    color: #1e293b !important;
-    font-weight: 600 !important;
-  }
-
-  .theme-white .history-table tbody tr:hover td {
-    background: #f8fafc !important;
-  }
-
-  .theme-white .history-table tbody tr.row-win td {
-    background: rgba(22, 163, 74, 0.08) !important;
-  }
-
-  .theme-white .col-period {
-    color: #0f172a !important;
-    font-weight: 800 !important;
-  }
-
-  .theme-white .table-signal-badge.BIG {
-    color: #be123c !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .table-signal-badge.SMALL {
-    color: #0369a1 !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .result-group span {
-    font-weight: 800 !important;
-  }
-
-  .theme-white .result-group span.text-\[\#fb7185\] {
-    color: #be123c !important;
-  }
-
-  .theme-white .result-group span.text-\[\#38bdf8\] {
-    color: #0369a1 !important;
-  }
-
-  .theme-white .result-num-chip {
-    background: #f1f5f9 !important;
-    border: 1.5px solid #cbd5e1 !important;
-    color: #0f172a !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .outcome-pill.WIN {
-    background: #dcfce7 !important;
-    border: 1.5px solid #16a34a !important;
-    color: #15803d !important;
-    box-shadow: 0 0 8px rgba(22, 163, 74, 0.15) !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .outcome-pill.LOSS {
-    background: #fee2e2 !important;
-    border: 1.5px solid #dc2626 !important;
-    color: #b91c1c !important;
-    box-shadow: 0 0 8px rgba(220, 38, 38, 0.15) !important;
-    font-weight: 900 !important;
-  }
-
-  .theme-white .outcome-pill.PENDING {
-    background: #f1f5f9 !important;
-    border: 1.5px solid #cbd5e1 !important;
-    color: #64748b !important;
-    font-weight: 800 !important;
-  }
-
-  /* 8. PWA Install & Footer */
-  .theme-white .btn-pwa-install {
-    background: #ffffff !important;
-    border: 1.5px solid #0284c7 !important;
-    border-top: 1.5px solid #38bdf8 !important;
-    border-bottom: 3px solid #0369a1 !important;
-    color: #0284c7 !important;
-    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.14) !important;
-  }
-
-  .theme-white .btn-pwa-install:hover {
-    background: #f0f9ff !important;
-    color: #0369a1 !important;
-  }
-
-  .theme-white .footer-info {
-    color: #64748b !important;
-  }
-
-  .theme-white .footer-info .dot {
-    color: #cbd5e1 !important;
-  }
-
-  /* 9. Token Redemption Modal in White Theme */
-  .theme-white .token-modal-backdrop {
-    background: rgba(15, 23, 42, 0.5) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-  }
-
-  .theme-white .token-modal-card {
-    background: #ffffff !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1.5px solid #cbd5e1 !important;
-    border-top: 2px solid #94a3b8 !important;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.16) !important;
-    color: #0f172a !important;
-  }
-
-  .theme-white .token-modal-header {
-    border-bottom-color: #f1f5f9 !important;
-  }
-
-  .theme-white .token-modal-title {
-    color: #0f172a !important;
-  }
-
-  .theme-white .token-modal-close {
-    background: #f1f5f9 !important;
-    border: 1px solid #cbd5e1 !important;
-    color: #475569 !important;
-  }
-
-  .theme-white .token-modal-close:hover {
-    background: #e2e8f0 !important;
-    color: #0f172a !important;
-  }
-
-  .theme-white .token-modal-balance {
-    background: #f8fafc !important;
-    border: 1.5px solid #e2e8f0 !important;
-  }
-
-  .theme-white .token-modal-balance-label {
-    color: #475569 !important;
-  }
-
-  .theme-white .token-modal-balance-val {
-    color: #d97706 !important;
-  }
-
-  .theme-white .token-modal-label-row {
-    color: #475569 !important;
-  }
-
-  .theme-white .token-modal-charcount {
-    color: #0284c7 !important;
-  }
-
-  .theme-white .token-modal-input {
-    background: #ffffff !important;
-    border: 2px solid #cbd5e1 !important;
-    border-bottom: 3px solid #94a3b8 !important;
-    color: #0f172a !important;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04) !important;
-  }
-
-  .theme-white .token-modal-input:focus {
-    border-color: #0284c7 !important;
-    border-bottom-color: #0369a1 !important;
-    background: #ffffff !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.18) !important;
-  }
-
-  .theme-white .token-modal-input.input-error {
-    border-color: #dc2626 !important;
-    border-bottom-color: #b91c1c !important;
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18) !important;
-  }
-
-  /* 10. Sub-cards & Viewport Ambient Glows */
-  .theme-white .hero-grid-sub {
-    background: #f8fafc !important;
-    border: 1.5px solid #e2e8f0 !important;
-  }
-
-  .theme-white .sub-card {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03) !important;
-  }
-
-  .theme-white .sub-card-label {
-    color: #64748b !important;
-  }
-
-  .theme-white .sub-card-val {
-    color: #0f172a !important;
-  }
-
-  .theme-white .hero-footer {
-    background: #f8fafc !important;
-    border-top: 1.5px solid #e2e8f0 !important;
-  }
-
-  .theme-white .intel-tag {
-    color: #64748b !important;
-  }
-
-  .theme-white .intel-value {
-    color: #0f172a !important;
-  }
-
-  .theme-white .terminal-viewport::before {
-    background: none !important;
+  .intel-value {
+    color: var(--text-main);
   }
 }
 
 @layer utilities {
-  .bg-amoled { background-color: #020509; }
-  .theme-white .bg-amoled { background-color: #f1f5f9; }
+  .bg-amoled { background-color: var(--bg-base); }
   
-  /* 120Hz Hardware Acceleration */
+  /* GPU Promoted Compositing Layers */
+  .top-header,
   .metric-box,
   .prediction-hero,
   .history-card,
-  .signal-banner,
-  .btn-copy-signal,
-  .digit-chip,
-  .filter-pill {
+  .signal-banner {
     transform: translate3d(0, 0, 0);
-    will-change: transform, box-shadow;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
   }
 
-  /* Scrollbar customization */
+  /* Minimal Clean Scrollbar */
   ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: #070b12; }
-  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #334155; }
-
-  .theme-white ::-webkit-scrollbar-track { background: #e2e8f0; }
-  .theme-white ::-webkit-scrollbar-thumb { background: #94a3b8; }
+  ::-webkit-scrollbar-track { background: var(--bg-base); }
+  ::-webkit-scrollbar-thumb { background: var(--border-edge); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 }
 
