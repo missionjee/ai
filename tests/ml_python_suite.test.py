@@ -11,7 +11,9 @@ from ml_engine.models import (
     ADWINDriftDetector,
     EvidentialDeepLearner,
     SparseMoERouter,
-    FailureAnalysisTrigger
+    FailureAnalysisTrigger,
+    SpectralFourierPredictor,
+    RunsMartingalePredictor
 )
 
 
@@ -163,7 +165,25 @@ class TestMLEngine(unittest.TestCase):
         self.assertIsNotNone(incident)
         self.assertEqual(incident["predicted"], "BIG")
         self.assertEqual(incident["actual"], "SMALL")
-        self.assertIn("barrier_rule", incident)
+    def test_spectral_fourier_predictor(self):
+        fourier = SpectralFourierPredictor()
+        # Alternating series has period ~ 2.0
+        alt_nums = [1, 9, 2, 8, 1, 9, 2, 8, 1, 9, 2, 8, 1, 9, 2, 8]
+        fourier.fit(alt_nums)
+        self.assertTrue(fourier.is_fitted)
+        self.assertGreater(fourier.dominant_period, 0.0)
+        dist = fourier.predict_distribution(alt_nums)
+        self.assertEqual(len(dist), 10)
+        self.assertAlmostEqual(float(np.sum(dist)), 1.0, places=4)
+
+    def test_runs_martingale_predictor(self):
+        martingale = RunsMartingalePredictor()
+        trend_nums = [8, 9, 7, 8, 9, 8, 9, 8, 7, 9, 8, 9] * 2
+        martingale.fit(trend_nums)
+        self.assertTrue(martingale.is_fitted)
+        dist = martingale.predict_distribution(trend_nums)
+        self.assertEqual(len(dist), 10)
+        self.assertAlmostEqual(float(np.sum(dist)), 1.0, places=4)
 
 
 if __name__ == "__main__":

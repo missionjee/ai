@@ -17,7 +17,9 @@ from ml_engine.models import (
     ADWINDriftDetector,
     EvidentialDeepLearner,
     SparseMoERouter,
-    FailureAnalysisTrigger
+    FailureAnalysisTrigger,
+    SpectralFourierPredictor,
+    RunsMartingalePredictor
 )
 
 
@@ -110,6 +112,8 @@ class QuantitativePipeline:
         self.drift_detector = ADWINDriftDetector(delta=0.005)
         self.evidential = EvidentialDeepLearner()
         self.moe_router = SparseMoERouter()
+        self.spectral = SpectralFourierPredictor()
+        self.runs_martingale = RunsMartingalePredictor()
         self.failure_analyzer = FailureAnalysisTrigger(confidence_threshold=75)
 
     def run(self, history_records):
@@ -155,6 +159,8 @@ class QuantitativePipeline:
         self.lightgbm.fit(X, y)
         self.attention.fit(all_nums)
         self.evidential.fit(all_nums)
+        self.spectral.fit(all_nums)
+        self.runs_martingale.fit(all_nums)
         
         # Feature vector for upcoming target round (index = len(valid))
         target_features = extract_features_for_index(valid, len(valid), lookback=12)

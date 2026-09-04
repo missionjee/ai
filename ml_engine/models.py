@@ -569,3 +569,120 @@ class FailureAnalysisTrigger:
         return incident
 
 
+
+
+class SpectralFourierPredictor:
+    """
+    Discrete Fourier Transform (DFT) harmonic detector.
+    Analyzes frequency spectrum of binary outcome series and phase alignment.
+    """
+    def __init__(self, max_window: int = 32):
+        self.max_window = max_window
+        self.dominant_period = 0.0
+        self.peak_power = 0.0
+        self.is_fitted = False
+
+    def fit(self, history_nums: list):
+        if len(history_nums) < 8:
+            return self
+        
+        tokens = [1.0 if float(n) >= 5.0 else -1.0 for n in history_nums[-self.max_window:]]
+        n = len(tokens)
+        
+        max_power = 0.0
+        peak_k = 1
+        for k in range(1, n // 2 + 1):
+            re, im = 0.0, 0.0
+            for t in range(n):
+                angle = (2.0 * math.pi * k * t) / n
+                re += tokens[t] * math.cos(angle)
+                im -= tokens[t] * math.sin(angle)
+            power = (re * re + im * im) / n
+            if power > max_power:
+                max_power = power
+                peak_k = k
+                
+        self.dominant_period = round(n / peak_k, 2)
+        self.peak_power = round(min(1.0, max_power / n), 3)
+        self.is_fitted = True
+        return self
+
+    def predict_distribution(self, recent_nums: list) -> np.ndarray:
+        if not self.is_fitted or len(recent_nums) < 4:
+            return np.ones(10) / 10.0
+            
+        last_val = 1.0 if float(recent_nums[-1]) >= 5.0 else -1.0
+        big_p = 0.50
+        
+        if 1.8 <= self.dominant_period <= 2.2:
+            big_p = 0.35 if last_val > 0 else 0.65
+        elif 3.5 <= self.dominant_period <= 4.5 and len(recent_nums) >= 2:
+            second_last = 1.0 if float(recent_nums[-2]) >= 5.0 else -1.0
+            if last_val == second_last:
+                big_p = 0.38 if last_val > 0 else 0.62
+            else:
+                big_p = 0.62 if last_val > 0 else 0.38
+                
+        small_p = 1.0 - big_p
+        dist = np.zeros(10)
+        dist[:5] = small_p / 5.0
+        dist[5:] = big_p / 5.0
+        return dist
+
+
+class RunsMartingalePredictor:
+    """
+    Non-parametric Wald-Wolfowitz runs test and Martingale excursion predictor.
+    Detects non-random clustering or excess alternation in sequence.
+    """
+    def __init__(self, window_size: int = 30):
+        self.window_size = window_size
+        self.runs_z = 0.0
+        self.is_non_random = False
+        self.is_fitted = False
+
+    def fit(self, history_nums: list):
+        if len(history_nums) < 10:
+            return self
+            
+        tokens = [1 if float(n) >= 5.0 else 0 for n in history_nums[-self.window_size:]]
+        n = len(tokens)
+        
+        n1 = sum(tokens)
+        n0 = n - n1
+        if n1 == 0 or n0 == 0:
+            self.runs_z = 0.0
+            self.is_non_random = False
+            self.is_fitted = True
+            return self
+            
+        runs = 1
+        for i in range(1, n):
+            if tokens[i] != tokens[i - 1]:
+                runs += 1
+                
+        mu = (2.0 * n1 * n0) / n + 1.0
+        variance = (2.0 * n1 * n0 * (2.0 * n1 * n0 - n)) / (n * n * (n - 1.0))
+        std = math.sqrt(max(1e-6, variance))
+        self.runs_z = (runs - mu) / std
+        self.is_non_random = abs(self.runs_z) >= 1.65
+        self.is_fitted = True
+        return self
+
+    def predict_distribution(self, recent_nums: list) -> np.ndarray:
+        if not self.is_fitted or len(recent_nums) < 4:
+            return np.ones(10) / 10.0
+            
+        last = 1 if float(recent_nums[-1]) >= 5.0 else 0
+        big_p = 0.50
+        
+        if self.is_non_random:
+            if self.runs_z < -1.65:
+                big_p = 0.62 if last == 1 else 0.38
+            elif self.runs_z > 1.65:
+                big_p = 0.38 if last == 1 else 0.62
+                
+        dist = np.zeros(10)
+        dist[:5] = (1.0 - big_p) / 5.0
+        dist[5:] = big_p / 5.0
+        return dist

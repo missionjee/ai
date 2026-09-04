@@ -76,6 +76,9 @@ export interface ModelTrackers {
   empiricalMarkov: ModelTracker
   parityHarmonic: ModelTracker
   latentTrajectory: ModelTracker
+  spectralFourier?: ModelTracker
+  runsMartingale?: ModelTracker
+  [key: string]: ModelTracker | undefined
 }
 
 // Prediction result from the engine
