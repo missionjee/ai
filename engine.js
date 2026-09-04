@@ -1122,8 +1122,83 @@ export class PredictionEngine {
 
         const calibratedP = this._plattCalibrate(rawEnsembleScore);
 
-        const prediction = calibratedP >= 0.50 ? "BIG" : "SMALL";
-        const margin = Math.abs(calibratedP - 0.50);
+        // =========================================================================
+        // 1. QUANTITATIVE 10-CLASS DIGIT SIMPLEX P(d) in Delta^9
+        // =========================================================================
+        const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
+        const prevNum = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastNum;
+        const vel = lastNum - prevNum;
+        const digitScores = {};
+        for (let d = 0; d <= 9; d++) digitScores[d] = 1.0; // Uniform prior
+
+        // 1A. Bayesian Dirichlet-Markov 10x10 Transition Operator
+        const digitTransCounts = new Array(10).fill(0);
+        let digitTransTotal = 0;
+        for (let i = 0; i < numSeq.length - 1; i++) {
+            if (numSeq[i] === lastNum) {
+                digitTransCounts[numSeq[i + 1]]++;
+                digitTransTotal++;
+            }
+        }
+        if (digitTransTotal > 0) {
+            for (let d = 0; d <= 9; d++) {
+                const pMarkov = (digitTransCounts[d] + 0.4) / (digitTransTotal + 4.0);
+                digitScores[d] += pMarkov * 4.5;
+            }
+        }
+
+        // 1B. 2nd-Order Taylor Kinematic SDE Attractor with Boundary Reflection
+        let emaFast = numSeq[Math.max(0, numSeq.length - 4)];
+        for (let i = Math.max(0, numSeq.length - 3); i < numSeq.length; i++) {
+            emaFast = 0.70 * numSeq[i] + 0.30 * emaFast;
+        }
+        let emaSlow = numSeq[Math.max(0, numSeq.length - 8)];
+        for (let i = Math.max(0, numSeq.length - 7); i < numSeq.length; i++) {
+            emaSlow = 0.35 * numSeq[i] + 0.65 * emaSlow;
+        }
+        const prev2Num = numSeq.length >= 3 ? numSeq[numSeq.length - 3] : prevNum;
+        const accel = vel - (prevNum - prev2Num);
+        let yTarget = 0.52 * emaFast + 0.28 * emaSlow + 0.20 * (lastNum + 0.35 * vel + 0.10 * accel);
+        // Boundary reflection
+        if (yTarget < 0) yTarget = Math.abs(yTarget);
+        if (yTarget > 9) yTarget = 9 - (yTarget - 9);
+        yTarget = Math.max(0.15, Math.min(8.85, yTarget));
+
+        for (let d = 0; d <= 9; d++) {
+            const g = Math.exp(-0.5 * Math.pow((d - yTarget) / 1.75, 2));
+            digitScores[d] += g * 4.2;
+        }
+
+        // 1C. Modulo 5 Residue Classes & Parity Ring Harmonics (Z2 x Z5)
+        const mod5 = lastNum % 5;
+        const parity = lastNum % 2;
+        for (let d = 0; d <= 9; d++) {
+            if (d % 5 === mod5) digitScores[d] += 0.85;
+            if (d % 2 !== parity) digitScores[d] += 0.65;
+        }
+
+        // 1D. Sequence Motif Attention Matching (Order 2-3)
+        if (rawSub.historicalPatternAssistance && rawSub.historicalPatternAssistance.followingDigits) {
+            rawSub.historicalPatternAssistance.followingDigits.forEach(fd => {
+                if (fd >= 0 && fd <= 9) digitScores[fd] += 1.6;
+            });
+        }
+
+        // Marginal Partition Probabilities derived from Number Simplex
+        let numBigMass = 0, numSmallMass = 0;
+        for (let d = 0; d <= 4; d++) numSmallMass += digitScores[d];
+        for (let d = 5; d <= 9; d++) numBigMass += digitScores[d];
+        const pNumBig = numBigMass / (numBigMass + numSmallMass);
+
+        // =========================================================================
+        // 2. DYNAMIC CROSS-DOMAIN HARMONIC FUSION
+        // =========================================================================
+        const wNum = (curStreak >= 3 || regimeCheck.hurstH >= 0.54) ? 0.45 : 0.65;
+        const wMacro = 1.0 - wNum;
+        const pFusedBig = wNum * pNumBig + wMacro * calibratedP;
+
+        let prediction = pFusedBig >= 0.50 ? "BIG" : "SMALL";
+        const margin = Math.abs(pFusedBig - 0.50);
 
         const agreeingModels = subResults.filter(s => s.pred === prediction);
         let confidence = Math.min(this.maxConfidence, Math.max(this.minConfidence, Math.round(52 + margin * 88)));
@@ -1136,7 +1211,7 @@ export class PredictionEngine {
         let statusReason = `Multi-model confluence verified (Hurst H=${regimeCheck.hurstH})`;
 
         const isSniper = (
-            (calibratedP >= 0.60 || calibratedP <= 0.40) &&
+            (pFusedBig >= 0.60 || pFusedBig <= 0.40) &&
             agreeingModels.length >= 4 &&
             margin >= 0.055 &&
             curStreak < 4
@@ -1146,50 +1221,54 @@ export class PredictionEngine {
             status = "CLEARED";
             tier = "SNIPER";
             recommendedStake = "2U";
-            statusReason = `🎯 Ultra-Sniper: ${agreeingModels.length}/9 models, Hurst H=${regimeCheck.hurstH}, Calibrated ${(Math.max(calibratedP, 1 - calibratedP)*100).toFixed(0)}% [2U Stake]`;
+            statusReason = `🎯 Ultra-Sniper: ${agreeingModels.length}/9 models, Hurst H=${regimeCheck.hurstH}, Calibrated ${(Math.max(pFusedBig, 1 - pFusedBig)*100).toFixed(0)}% [2U Stake]`;
             confidence = Math.max(78, confidence);
         } else {
             status = "CLEARED";
             tier = "STANDARD";
             recommendedStake = "1U";
-            statusReason = `⚡ Standard Signal: ${agreeingModels.length}/9 consensus, Calibrated ${(Math.max(calibratedP, 1 - calibratedP)*100).toFixed(0)}% in ${regimeCheck.regimeName} [1U Stake]`;
+            statusReason = `⚡ Standard Signal: ${agreeingModels.length}/9 consensus, Calibrated ${(Math.max(pFusedBig, 1 - pFusedBig)*100).toFixed(0)}% in ${regimeCheck.regimeName} [1U Stake]`;
             confidence = Math.max(62, confidence);
         }
 
-        const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
-        const digitScores = {};
-        for (let d = 0; d <= 9; d++) digitScores[d] = 1.0;
+        // =========================================================================
+        // 3. ADAPTIVE CONSECUTIVE LOSS REDUCER (ACLR v10)
+        // =========================================================================
+        const walkForwardScore = this._computeWalkForwardLossScore(validHistory).lossScore;
 
-        for (let i = 0; i < numSeq.length - 1; i++) {
-            if (numSeq[i] === lastNum) {
-                digitScores[numSeq[i + 1]] += 1.8;
+        if (walkForwardScore >= 1) {
+            // State S1: Kinematic Velocity Realignment
+            if (Math.abs(vel) >= 2) {
+                const velPred = vel > 0 ? "BIG" : "SMALL";
+                if (velPred !== prediction && margin < 0.12) {
+                    prediction = velPred;
+                    tier = "STANDARD";
+                    recommendedStake = "1U";
+                    statusReason = `🎯 ACLR-S1 Velocity Realignment: aligning with physical digit velocity (${vel > 0 ? '+' : ''}${vel})`;
+                }
             }
         }
 
-        if (rawSub.historicalPatternAssistance && rawSub.historicalPatternAssistance.followingDigits) {
-            rawSub.historicalPatternAssistance.followingDigits.forEach(fd => {
-                if (fd >= 0 && fd <= 9) digitScores[fd] += 1.4;
-            });
+        if (walkForwardScore >= 2) {
+            // State S2: Anti-Chop & Anti-Adverse Circuit Breaker
+            if (curAlts >= 2 || (spectral.dominantPeriod >= 1.8 && spectral.dominantPeriod <= 2.2)) {
+                // In alternating chop, synchronize with alternation wave: opposite of last draw
+                prediction = (lastToken === 1) ? "SMALL" : "BIG";
+                tier = "STANDARD";
+                recommendedStake = "1U";
+                statusReason = `⚡ ACLR-S2 Anti-Chop Phase-Lock: synchronizing with alternation rhythm (${curAlts} switches)`;
+            } else {
+                // Invert the persistent adverse bias
+                prediction = (prediction === "BIG") ? "SMALL" : "BIG";
+                tier = "STANDARD";
+                recommendedStake = "1U";
+                statusReason = `⚡ ACLR-S2 Circuit Breaker: inverting adverse regime bias`;
+            }
         }
 
-        let emaFast = numSeq[Math.max(0, numSeq.length - 4)];
-        for (let i = Math.max(0, numSeq.length - 3); i < numSeq.length; i++) {
-            emaFast = 0.72 * numSeq[i] + 0.28 * emaFast;
-        }
-        let emaSlow = numSeq[Math.max(0, numSeq.length - 8)];
-        for (let i = Math.max(0, numSeq.length - 7); i < numSeq.length; i++) {
-            emaSlow = 0.35 * numSeq[i] + 0.65 * emaSlow;
-        }
-        const lastD = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
-        const prevD = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastD;
-        const vel = lastD - prevD;
-        const blendedEma = 0.55 * emaFast + 0.25 * emaSlow + 0.20 * (lastD + 0.35 * vel);
-
-        for (let d = 0; d <= 9; d++) {
-            const g = Math.exp(-0.5 * Math.pow((d - blendedEma) / 2.0, 2));
-            digitScores[d] *= (0.75 + g * 1.5);
-        }
-
+        // =========================================================================
+        // 4. CALIBRATED CONDITIONED LUCKY DIGITS
+        // =========================================================================
         const totalDigitScore = Object.values(digitScores).reduce((a, b) => a + b, 0) || 1;
         const digitProbs = {};
         for (let d = 0; d <= 9; d++) {
@@ -1210,7 +1289,7 @@ export class PredictionEngine {
             : rawSub.dragonMomentum.reason;
 
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
-        const dominantProb = Math.max(calibratedP, 1.0 - calibratedP);
+        const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig);
         const conformalDecision = this.conformalGator.evaluateSignal(dominantProb, shannonEntropy, regimeCheck.hurstH, regimeEntropyThreshold);
 
         return {
@@ -1220,9 +1299,9 @@ export class PredictionEngine {
             statusReason,
             strategy: topSub ? topSub.name : "Meta-Learner Ensemble",
             reason: topSub ? topSub.reason : "Dynamic multi-model consensus",
-            bigProb: Math.round(calibratedP * 100),
-            smallProb: Math.round((1.0 - calibratedP) * 100),
-            calibratedP: parseFloat(calibratedP.toFixed(3)),
+            bigProb: Math.round(pFusedBig * 100),
+            smallProb: Math.round((1.0 - pFusedBig) * 100),
+            calibratedP: parseFloat(pFusedBig.toFixed(3)),
             hurstExponent: regimeCheck.hurstH,
             luckyDigits,
             digitProbs,
@@ -1230,7 +1309,7 @@ export class PredictionEngine {
             volatility: "0.48",
             entropy: shannonEntropy.toFixed(2),
             permutationEntropy: permEntropy.toFixed(2),
-            continuousVal: parseFloat(blendedEma.toFixed(2)),
+            continuousVal: parseFloat(yTarget.toFixed(2)),
             isSniper,
             tier,
             recommendedStake,
@@ -1238,7 +1317,7 @@ export class PredictionEngine {
             holdAnalysis: undefined,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "v10.0",
+            engineVersion: "v10.1",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit,
             conformalRisk: conformalDecision,
