@@ -401,7 +401,7 @@ export function useTerminal() {
               const rawCloudPred = String(s.predicted_type || '').toUpperCase()
               const cloudPred: 'BIG' | 'SMALL' = rawCloudPred === 'BIG' ? 'BIG' : 'SMALL'
               const cloudConf = s.confidence || s.prediction_confidence || 54
-              const cloudStatus = (s.status as any) || (s.prediction_status as any) || (rawCloudPred === 'HOLD' ? 'HOLD' : 'CLEARED')
+              const cloudStatus = (s.status as any) || (s.prediction_status as any) || 'CLEARED'
               const cloudDigits = ensureLuckyDigits(s.lucky_digits || s.luckyDigits, cloudPred)
 
               // Update history map & universal cache with central signal
@@ -546,8 +546,8 @@ export function useTerminal() {
 
   const copySignal = useCallback(() => {
     const { prediction, targetPeriod } = state
-    if (!prediction || !targetPeriod || prediction.prediction === 'HOLD') {
-      showToast('Cannot copy: Signal is on HOLD')
+    if (!prediction || !targetPeriod) {
+      showToast('No active signal to copy')
       return
     }
     const period4 = PeriodHelper.formatLast4(targetPeriod)

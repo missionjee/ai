@@ -28,8 +28,8 @@ export function PredictionHero({
 }: PredictionHeroProps) {
   const [isCopied, setIsCopied] = useState(false)
   const isLocked = tokensBalance <= 0
-  const signalKey = isLocked ? 'LOCKED' : (prediction?.prediction || 'HOLD')
-  const signalText = isLocked ? 'LOCKED' : (prediction?.prediction === 'BIG' ? 'BIGGG' : (prediction?.prediction || 'HOLD'))
+  const signalKey = isLocked ? 'LOCKED' : (prediction?.prediction === 'SMALL' ? 'SMALL' : 'BIG')
+  const signalText = isLocked ? 'LOCKED' : (prediction?.prediction === 'SMALL' ? 'SMALL' : 'BIGGG')
   
   const signalRange =
     signalKey === 'BIG'
@@ -38,7 +38,7 @@ export function PredictionHero({
       ? '0 · 1 · 2 · 3 · 4'
       : isLocked
       ? '0 TOKENS AVAILABLE • RECHARGE KEY'
-      : 'EVALUATING REGIME...'
+      : '5 · 6 · 7 · 8 · 9'
 
   const confidence = isLocked ? 0 : (prediction?.confidence || 0)
   const defaultLuckyBig = [7, 8]
@@ -71,26 +71,10 @@ export function PredictionHero({
 
   const handleCopy = () => {
     onCopy()
-    if (prediction && prediction.prediction !== 'HOLD') {
+    if (prediction) {
       setIsCopied(true)
       setTimeout(() => setIsCopied(false), 2000)
     }
-  }
-
-  const getShortHoldReason = (reason?: string): string => {
-    if (!reason) return 'HOLD [PASS]'
-    const r = reason.toLowerCase()
-    if (r.includes('quarantine') || r.includes('miss') || r.includes('loss')) return 'HOLD [ANTI-DRAWDOWN]'
-    if (r.includes('dragon')) return 'HOLD [DRAGON STREAK]'
-    if (r.includes('2-2') || r.includes('pair')) return 'HOLD [2-2 PATTERN]'
-    if (r.includes('alternat') || r.includes('switch')) return 'HOLD [OSCILLATION]'
-    if (r.includes('symmetry')) return 'HOLD [ASYMMETRY TRAP]'
-    if (r.includes('white-noise') || r.includes('noise')) return 'HOLD [WHITE NOISE]'
-    if (r.includes('entropy') || r.includes('chop')) return 'HOLD [CHOP ZONE]'
-    if (r.includes('synchroniz') || r.includes('buffering')) return 'HOLD [SYNCING]'
-    if (r.includes('streak boundary') || r.includes('transition')) return 'HOLD [TRANSITION]'
-    if (r.includes('discordance') || r.includes('edge')) return 'HOLD [LOW EDGE]'
-    return 'HOLD [PASS]'
   }
 
   return (
@@ -114,16 +98,13 @@ export function PredictionHero({
         <div className={cn('signal-banner', signalKey)}>
           <span className="signal-tag whitespace-nowrap overflow-hidden text-ellipsis max-w-full block">
             {isLocked && <span>🔒 SIGNAL LOCKED</span>}
-            {!isLocked && prediction?.status === 'HOLD' && (
-              <span>⚠️ {getShortHoldReason(prediction?.statusReason)}</span>
-            )}
             {!isLocked && (prediction?.tier === 'SNIPER' || prediction?.isSniper) && (
               <span>🎯 ULTRA-SNIPER [{prediction?.recommendedStake || '2U'}]</span>
             )}
             {!isLocked && prediction?.tier === 'SCOUT' && (
-              <span>🔭 SCOUT SIGNAL [{prediction?.recommendedStake || '½U'}]</span>
+              <span>🔭 SCOUT SIGNAL [{prediction?.recommendedStake || '1U'}]</span>
             )}
-            {!isLocked && (prediction?.tier === 'STANDARD' || (prediction?.status === 'CLEARED' && !prediction?.isSniper && prediction?.tier !== 'SCOUT')) && (
+            {!isLocked && (!prediction?.isSniper && prediction?.tier !== 'SCOUT') && (
               <span>⚡ QUANTUM STANDARD [{prediction?.recommendedStake || '1U'}]</span>
             )}
             {!isLocked && !prediction && (

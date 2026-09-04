@@ -215,11 +215,10 @@ function ensureLuckyDigits(digits, predType) {
     return (predType || "").toUpperCase() === "BIG" ? [7, 8] : [2, 3];
 }
 
-// Copy Current Signal
 function copyCurrentSignal() {
     const p = state.prediction;
-    if (!p || !state.targetPeriod || p.prediction === "HOLD") {
-        showToast("Cannot copy: Signal is on HOLD");
+    if (!p || !state.targetPeriod) {
+        showToast("No active signal to copy");
         return;
     }
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
@@ -486,7 +485,8 @@ async function syncCycle() {
             supabaseClient.getAuthorizedPrediction(currentTargetPeriod).then(authResult => {
                 if (authResult && authResult.success && authResult.signal && authResult.signal.issue_number === currentTargetPeriod) {
                     const s = authResult.signal;
-                    const cloudPred = s.predicted_type || 'HOLD';
+                    const rawPred = String(s.predicted_type || '').toUpperCase();
+                    const cloudPred = (rawPred === 'BIG' || rawPred === 'SMALL') ? rawPred : 'BIG';
                     const cloudConf = s.confidence || s.prediction_confidence || 54;
                     const cloudDigits = ensureLuckyDigits(s.lucky_digits || s.luckyDigits, cloudPred);
 
@@ -495,13 +495,13 @@ async function syncCycle() {
                         entry.predicted_type = cloudPred;
                         entry.prediction_confidence = cloudConf;
                         entry.lucky_digits = cloudDigits;
-                        entry.status = s.status || (cloudPred === 'HOLD' ? 'HOLD' : 'CLEARED');
+                        entry.status = s.status || 'CLEARED';
                     }
 
                     state.prediction = {
                         prediction: cloudPred,
                         confidence: cloudConf,
-                        status: s.status || s.prediction_status || (cloudPred === 'HOLD' ? 'HOLD' : 'CLEARED'),
+                        status: s.status || s.prediction_status || 'CLEARED',
                         statusReason: s.reason || '',
                         luckyDigits: cloudDigits,
                         strategy: s.strategy || s.strategy_used || 'Autonomous Meta-Learner (Cloud)',
@@ -511,8 +511,8 @@ async function syncCycle() {
                         regime: s.regime || 'trending',
                         pattern: s.pattern || 'Standard',
                         isSniper: s.is_sniper !== undefined ? s.is_sniper : false,
-                        tier: s.tier || (cloudPred === 'HOLD' ? 'HOLD' : 'STANDARD'),
-                        recommendedStake: s.stake_units || (cloudPred === 'HOLD' ? '0U' : '1U')
+                        tier: s.tier || 'STANDARD',
+                        recommendedStake: s.stake_units || '1U'
                     };
                     renderUI();
                 }
@@ -607,13 +607,10 @@ function renderUI() {
         }
 
         if (UI.signalTag) {
-            if (p.status === 'HOLD') {
-                const reason = p.statusReason ? p.statusReason.toUpperCase() : "CAUTION • HIGH CHOP ZONE [PASS]";
-                UI.signalTag.innerHTML = `⚠️ <span style="color:#f5b335;font-weight:700;">${reason}</span>`;
-            } else if (p.tier === 'SNIPER' || p.isSniper) {
+            if (p.tier === 'SNIPER' || p.isSniper) {
                 UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">ULTRA-SNIPER [${p.recommendedStake || '2U'}] (${p.confidence}%)</span>`;
             } else if (p.tier === 'SCOUT') {
-                UI.signalTag.innerHTML = `🔭 <span style="color:#38bdf8;font-weight:700;">SCOUT SIGNAL [${p.recommendedStake || '½U'}] (${p.confidence}%)</span>`;
+                UI.signalTag.innerHTML = `🔭 <span style="color:#38bdf8;font-weight:700;">SCOUT SIGNAL [${p.recommendedStake || '1U'}] (${p.confidence}%)</span>`;
             } else {
                 UI.signalTag.innerHTML = `⚡ <span style="color:#00ffcc;font-weight:700;">QUANTUM STANDARD [${p.recommendedStake || '1U'}] (${p.confidence}%)</span>`;
             }

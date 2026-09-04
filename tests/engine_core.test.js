@@ -17,16 +17,15 @@ describe('PredictionEngine Core Submodels & Statistics', () => {
         });
     };
 
-    it('1. Stream Initialization: returns HOLD when history is under 8 rounds', () => {
+    it('1. Stream Initialization: returns actionable signal when history is short', () => {
         const engine = new PredictionEngine();
         const shortHistory = createHistory([1, 8, 3, 7]);
         const result = engine.predict(shortHistory);
 
-        assert.equal(result.prediction, 'HOLD');
-        assert.equal(result.status, 'HOLD');
-        assert.equal(result.confidence, 50);
-        assert.equal(result.strategy, 'Stream Initialization');
-        assert.match(result.statusReason, /Synchronizing/);
+        assert.ok(result.prediction === 'BIG' || result.prediction === 'SMALL');
+        assert.equal(result.status, 'CLEARED');
+        assert.equal(result.recommendedStake, '1U');
+        assert.equal(result.tier, 'STANDARD');
     });
 
     it('2. Hurst Exponent: correctly measures persistence and mean reversion', () => {
@@ -209,23 +208,23 @@ describe('PredictionEngine Core Submodels & Statistics', () => {
         assert.equal(typeof res.conformalRisk.isGated, 'boolean');
     });
 
-    it('13. Tiered Signal Architecture: verifies Sniper (2U), Standard (1U), Scout (½U), and Hold (0U)', () => {
+    it('13. Tiered Signal Architecture: verifies Sniper (2U) and Standard (1U) are always real actionable signals', () => {
         const engine = new PredictionEngine();
 
         // High conviction trending series -> Sniper or Standard
         const sniperHistory = createHistory([7, 8, 9, 8, 7, 8, 9, 8, 9, 8, 9, 8, 7, 8, 9, 8]);
         const res1 = engine.predict(sniperHistory);
-        assert.ok(['SNIPER', 'STANDARD', 'SCOUT', 'HOLD'].includes(res1.tier), `Invalid tier: ${res1.tier}`);
-        assert.ok(['2U', '1U', '0.5U', '0U [PASS]'].includes(res1.recommendedStake), `Invalid stake: ${res1.recommendedStake}`);
+        assert.ok(['SNIPER', 'STANDARD'].includes(res1.tier), `Invalid tier: ${res1.tier}`);
+        assert.ok(['2U', '1U'].includes(res1.recommendedStake), `Invalid stake: ${res1.recommendedStake}`);
+        assert.equal(res1.status, 'CLEARED');
 
-        // Hold series in white-noise / chop
+        // Mixed / chop sequence also returns real actionable signal
         const holdHistory = createHistory([0, 9, 1, 8, 2, 7, 3, 6, 4, 5, 0, 9, 1, 8]);
         const resHold = engine.predict(holdHistory);
-        assert.equal(resHold.status, 'HOLD');
-        assert.equal(resHold.tier, 'HOLD');
-        assert.equal(resHold.recommendedStake, '0U [PASS]');
-        assert.ok(resHold.holdAnalysis !== undefined, 'Hold result must include holdAnalysis');
-        assert.ok(typeof resHold.holdAnalysis.regime === 'string');
+        assert.equal(resHold.status, 'CLEARED');
+        assert.ok(['SNIPER', 'STANDARD'].includes(resHold.tier));
+        assert.ok(['2U', '1U'].includes(resHold.recommendedStake));
+        assert.ok(resHold.prediction === 'BIG' || resHold.prediction === 'SMALL');
     });
 
     it('14. Per-Regime Softened Entropy Gating: evaluates regime-specific thresholds', () => {
