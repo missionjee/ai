@@ -17,7 +17,7 @@
 ```
                   ┌───────────────────────────────────────────────────────────┐
                   │          Upstream Lottery Gateway & Tri-Proxy Layer       │
-                  │   https://tirangaprediction.ai/api_fixed.php (1M Game)     │
+                  │   https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json (1M Game) │
                   │   + AllOrigins Proxy + CorsProxy (3.5s Failover Timeout)  │
                   └─────────────────────────────┬─────────────────────────────┘
                                                 │

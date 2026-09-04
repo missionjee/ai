@@ -11,7 +11,7 @@ import { PredictionEngine } from '@/engine/PredictionEngine'
 import { supabaseClient } from '@/services/supabase'
 import type { AppState, FilterType, HistoryEntry, PredictionResult } from '@/types'
 
-const API_LATEST = 'https://tirangaprediction.ai/api_fixed.php?action=latest_results&source=1M'
+const API_LATEST = 'https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json'
 const PROXIES = [
   (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
@@ -54,17 +54,42 @@ function promiseAny<T>(promises: Promise<T>[]): Promise<T> {
   })
 }
 
+function normalizeRemoteData(raw: any): HistoryEntry[] | null {
+  if (!raw) return null
+  const list = Array.isArray(raw) ? raw : (raw?.data?.list || raw?.data || [])
+  if (!Array.isArray(list) || list.length === 0) return null
+  return list.map((item: any) => {
+    const issue = item.issue_number || item.issueNumber
+    const rawNum = item.actual_number !== undefined && item.actual_number !== null ? item.actual_number : item.number
+    const num = rawNum !== undefined && rawNum !== null && !isNaN(parseInt(rawNum, 10)) ? parseInt(rawNum, 10) : null
+    const rawType = item.actual_result || item.result_type
+    const resType = num !== null ? (num >= 5 ? 'big' : 'small') : (rawType ? String(rawType).toLowerCase() : null)
+    return {
+      issue_number: String(issue).trim(),
+      actual_number: num,
+      actual_result: resType,
+      predicted_type: null,
+      prediction_confidence: null,
+      lucky_digits: null,
+    } as HistoryEntry
+  }).filter((x: HistoryEntry) => Boolean(x.issue_number))
+}
+
 async function fetchRemoteData(): Promise<{ data: HistoryEntry[] | null; isLive: boolean }> {
+  const timestamp = Date.now()
+  const targetUrl = API_LATEST.includes('?') ? `${API_LATEST}&ts=${timestamp}` : `${API_LATEST}?ts=${timestamp}`
+
   // 1. Direct fetch first with fast timeout (CORS supported, ~300ms latency)
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 1800)
-    const res = await fetch(API_LATEST, { signal: controller.signal, cache: 'no-store' })
+    const timeout = setTimeout(() => controller.abort(), 2000)
+    const res = await fetch(targetUrl, { signal: controller.signal, cache: 'no-store' })
     clearTimeout(timeout)
     if (res.ok) {
-      const data = await res.json()
+      const raw = await res.json()
+      const data = normalizeRemoteData(raw)
       if (Array.isArray(data) && data.length > 0) {
-        return { data: data as HistoryEntry[], isLive: true }
+        return { data, isLive: true }
       }
     }
   } catch {
@@ -76,11 +101,12 @@ async function fetchRemoteData(): Promise<{ data: HistoryEntry[] | null; isLive:
     const proxyPromises = PROXIES.map(async proxyFn => {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 2500)
-      const res = await fetch(proxyFn(API_LATEST), { signal: controller.signal, cache: 'no-store' })
+      const res = await fetch(proxyFn(targetUrl), { signal: controller.signal, cache: 'no-store' })
       clearTimeout(timeout)
       if (!res.ok) throw new Error('Proxy HTTP error')
-      const data = await res.json()
-      if (Array.isArray(data) && data.length > 0) return data as HistoryEntry[]
+      const raw = await res.json()
+      const data = normalizeRemoteData(raw)
+      if (Array.isArray(data) && data.length > 0) return data
       throw new Error('Empty proxy data')
     })
     const data = await promiseAny(proxyPromises)

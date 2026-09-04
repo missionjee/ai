@@ -15,7 +15,7 @@ import requests
 from ml_engine.pipeline import QuantitativePipeline
 
 CONFIG = {
-    "LOTTERY_API": "https://tirangaprediction.ai/api_fixed.php?action=latest_results&source=1M",
+    "LOTTERY_API": "https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json",
     "PROXIES": [
         lambda u: f"https://api.allorigins.win/raw?url={requests.utils.quote(u)}",
         lambda u: f"https://corsproxy.io/?url={requests.utils.quote(u)}"
@@ -66,15 +66,32 @@ def fetch_upstream_draws():
     """
     Tri-Proxy resilient fetcher with 3.5s timeout.
     """
-    endpoints = [CONFIG["LOTTERY_API"]] + [p(CONFIG["LOTTERY_API"]) for p in CONFIG["PROXIES"]]
+    ts = int(time.time() * 1000)
+    base_url = f"{CONFIG['LOTTERY_API']}?ts={ts}" if "?" not in CONFIG["LOTTERY_API"] else f"{CONFIG['LOTTERY_API']}&ts={ts}"
+    endpoints = [base_url] + [p(base_url) for p in CONFIG["PROXIES"]]
     
     for url in endpoints:
         try:
             res = requests.get(url, timeout=3.5, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
             if res.status_code == 200:
-                data = res.json()
-                if isinstance(data, list) and len(data) > 0:
-                    return data
+                raw = res.json()
+                items = raw if isinstance(raw, list) else (raw.get("data", {}).get("list", []) if isinstance(raw, dict) else [])
+                if isinstance(items, list) and len(items) > 0:
+                    normalized = []
+                    for item in items:
+                        issue = item.get("issue_number") or item.get("issueNumber")
+                        num_raw = item.get("actual_number") if item.get("actual_number") is not None else item.get("number")
+                        num = int(num_raw) if num_raw is not None and str(num_raw).isdigit() else None
+                        res_type = item.get("actual_result") or item.get("result_type") or ("big" if (num is not None and num >= 5) else "small")
+                        if issue:
+                            normalized.append({
+                                "issue_number": str(issue),
+                                "actual_number": num,
+                                "actual_result": str(res_type).lower(),
+                                "color": item.get("color")
+                            })
+                    if normalized:
+                        return normalized
         except Exception:
             continue
     return None

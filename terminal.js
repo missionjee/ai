@@ -14,7 +14,7 @@ import { supabaseClient, SUPABASE_CONFIG } from "./supabaseClient.js";
 
 // Configuration
 const CONFIG = {
-    API_LATEST: "https://tirangaprediction.ai/api_fixed.php?action=latest_results&source=1M",
+    API_LATEST: "https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json",
     PROXIES: [
         url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
         url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
@@ -236,15 +236,41 @@ function copyCurrentSignal() {
 }
 
 // Fetch Remote Data with multi-proxy fallback
+function normalizeRemoteData(raw) {
+    if (!raw) return null;
+    const list = Array.isArray(raw) ? raw : (raw?.data?.list || raw?.data || []);
+    if (!Array.isArray(list) || list.length === 0) return null;
+    return list.map(item => {
+        const issue = item.issue_number || item.issueNumber;
+        const rawNum = item.actual_number !== undefined && item.actual_number !== null ? item.actual_number : item.number;
+        const num = rawNum !== undefined && rawNum !== null && !isNaN(parseInt(rawNum, 10)) ? parseInt(rawNum, 10) : null;
+        const rawType = item.actual_result || item.result_type;
+        const resType = num !== null ? (num >= 5 ? "big" : "small") : (rawType ? String(rawType).toLowerCase() : null);
+        return {
+            ...item,
+            issue_number: issue ? String(issue).trim() : null,
+            actual_number: num,
+            actual_result: resType,
+            color: item.color
+        };
+    }).filter(x => x.issue_number);
+}
+
 async function fetchRemoteData() {
+    const timestamp = Date.now();
+    const targetUrl = CONFIG.API_LATEST.includes("?") 
+        ? `${CONFIG.API_LATEST}&ts=${timestamp}` 
+        : `${CONFIG.API_LATEST}?ts=${timestamp}`;
+
     // 1. Direct fetch first with fast timeout (CORS supported, ~300ms latency)
     try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1800);
-        const res = await fetch(CONFIG.API_LATEST, { signal: controller.signal, cache: 'no-store' });
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(targetUrl, { signal: controller.signal, cache: 'no-store' });
         clearTimeout(timeout);
         if (res.ok) {
-            const data = await res.json();
+            const raw = await res.json();
+            const data = normalizeRemoteData(raw);
             if (Array.isArray(data) && data.length > 0) {
                 state.isLiveFeed = true;
                 return data;
@@ -257,10 +283,11 @@ async function fetchRemoteData() {
         const proxyPromises = CONFIG.PROXIES.map(async proxyFn => {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 2500);
-            const res = await fetch(proxyFn(CONFIG.API_LATEST), { signal: controller.signal, cache: 'no-store' });
+            const res = await fetch(proxyFn(targetUrl), { signal: controller.signal, cache: 'no-store' });
             clearTimeout(timeout);
             if (!res.ok) throw new Error('Proxy HTTP error');
-            const data = await res.json();
+            const raw = await res.json();
+            const data = normalizeRemoteData(raw);
             if (Array.isArray(data) && data.length > 0) return data;
             throw new Error('Empty proxy data');
         });

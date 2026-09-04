@@ -29,7 +29,7 @@ export default defineConfig({
         navigateFallback: null,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/tirangaprediction\.ai\/.*/i,
+            urlPattern: /^https:\/\/(draw\.ar-lottery01\.com|tirangaprediction\.ai)\/.*/i,
             handler: 'NetworkOnly'
           },
           {

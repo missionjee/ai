@@ -47,7 +47,7 @@ Once deployed, you can verify your worker in the browser:
     "platform": "Cloudflare Workers 24/7",
     "engine": "v5.2 Institutional Number-First Quantitative Engine",
     "historical_rounds_buffered": 548,
-    "upstream_lottery_api": "https://tirangaprediction.ai/api_fixed.php?action=latest_results&source=1M",
+    "upstream_lottery_api": "https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json",
     "buffer_target": "2,000-Round FIFO Ring Buffer",
     "timestamp": "2026-08-30T04:20:00.000Z"
   }

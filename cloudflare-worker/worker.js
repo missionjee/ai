@@ -33,7 +33,7 @@
  */
 
 const CONFIG = {
-    LOTTERY_API: "https://tirangaprediction.ai/api_fixed.php?action=latest_results&source=1M",
+    LOTTERY_API: "https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json",
     SUPABASE_URL: "https://fvmbqikdomcjalladwmz.supabase.co",
     SUPABASE_KEY: "sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c"
 };
@@ -1314,10 +1314,12 @@ function getUtcCurrentPeriod(date = new Date()) {
 }
 
 async function fetchWithTriProxy(url, timeoutMs = 6000) {
+    const timestamp = Date.now();
+    const targetUrl = url.includes("?") ? `${url}&ts=${timestamp}` : `${url}?ts=${timestamp}`;
     const proxies = [
-        url,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`
+        targetUrl,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
     ];
 
     for (const target of proxies) {
@@ -1328,7 +1330,7 @@ async function fetchWithTriProxy(url, timeoutMs = 6000) {
                 signal: controller.signal,
                 headers: {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                    "Accept": "application/json"
+                    "Accept": "application/json, text/plain, */*"
                 }
             });
             clearTimeout(timer);
@@ -1336,9 +1338,26 @@ async function fetchWithTriProxy(url, timeoutMs = 6000) {
                 const text = await res.text();
                 try {
                     const parsed = JSON.parse(text);
-                    const list = Array.isArray(parsed) ? parsed : (parsed?.data || []);
+                    const list = Array.isArray(parsed) 
+                        ? parsed 
+                        : (Array.isArray(parsed?.data?.list) 
+                            ? parsed.data.list 
+                            : (Array.isArray(parsed?.data) ? parsed.data : []));
                     if (Array.isArray(list) && list.length > 0) {
-                        return list;
+                        return list.map(item => {
+                            const issue = item.issue_number || item.issueNumber;
+                            const rawNum = item.actual_number !== undefined && item.actual_number !== null ? item.actual_number : item.number;
+                            const num = rawNum !== undefined && rawNum !== null && !isNaN(parseInt(rawNum, 10)) ? parseInt(rawNum, 10) : null;
+                            const rawType = item.actual_result || item.result_type;
+                            const resType = num !== null ? (num >= 5 ? "big" : "small") : (rawType ? String(rawType).toLowerCase() : null);
+                            return {
+                                ...item,
+                                issue_number: issue ? String(issue).trim() : null,
+                                actual_number: num,
+                                actual_result: resType,
+                                color: item.color
+                            };
+                        }).filter(x => x.issue_number);
                     }
                 } catch (e) {}
             }
