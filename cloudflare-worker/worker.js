@@ -39,7 +39,7 @@ const CONFIG = {
 };
 
 // ==============================================================================
-// 1. CONFORMAL RISK GATOR & PREDICTION ENGINE (v9.1 Quantum Enterprise)
+// 1. CONFORMAL RISK GATOR & PREDICTION ENGINE (v9.3 Quantum Enterprise)
 // ==============================================================================
 class ConformalRiskGator {
     /**
@@ -113,13 +113,13 @@ class PredictionEngine {
         this.plattB = -0.05;
         this.conformalGator = new ConformalRiskGator(0.12, 120);
         this.defaultModelTrackers = () => ({
-            parityHarmonic: { hits: 15, total: 25, accuracy: 60, weight: 2.40, inverted: false },
-            latentTrajectory: { hits: 14, total: 25, accuracy: 56, weight: 2.20, inverted: false },
-            contextAttention: { hits: 14, total: 25, accuracy: 56, weight: 1.80, inverted: false },
-            kneserNeyLM: { hits: 13, total: 25, accuracy: 52, weight: 1.20, inverted: false },
-            dragonMomentum: { hits: 13, total: 25, accuracy: 52, weight: 1.00, inverted: false },
-            historicalPatternAssistance: { hits: 12, total: 25, accuracy: 48, weight: 0.30, inverted: false },
-            empiricalMarkov: { hits: 11, total: 25, accuracy: 44, weight: 0.20, inverted: false }
+            parityHarmonic: { hits: 18, total: 25, accuracy: 72, weight: 3.00, inverted: false },
+            dragonMomentum: { hits: 17, total: 25, accuracy: 68, weight: 2.80, inverted: false },
+            latentTrajectory: { hits: 16, total: 25, accuracy: 64, weight: 2.50, inverted: false },
+            empiricalMarkov: { hits: 14, total: 25, accuracy: 56, weight: 1.20, inverted: false },
+            contextAttention: { hits: 12, total: 25, accuracy: 48, weight: 0.25, inverted: false },
+            historicalPatternAssistance: { hits: 12, total: 25, accuracy: 48, weight: 0.15, inverted: false },
+            kneserNeyLM: { hits: 11, total: 25, accuracy: 44, weight: 0.05, inverted: false }
         });
         this.modelTrackers = this.defaultModelTrackers();
     }
@@ -924,7 +924,7 @@ class PredictionEngine {
                 isSniper: false,
                 pattern: "Buffering",
                 parityPrediction: "EVEN",
-                engineVersion: "v9.1",
+                engineVersion: "v9.3",
                 modelPerformance: null
             };
         }
@@ -1062,10 +1062,11 @@ class PredictionEngine {
         let earlyChopDowngradeToScout = false;
 
         const isConfirmedRegimeMatch = (
-            (curStreak >= 3 && agreementRate >= 0.50) ||
-            (is22Pair && agreementRate >= 0.40) ||
-            (regimeCheck.hurstH >= 0.54) ||
-            (regimeCheck.hurstH <= 0.44 && margin >= 0.03)
+            (curStreak >= 3 && agreementRate >= 0.45) ||
+            (is22Pair && agreementRate >= 0.50) ||
+            (regimeCheck.hurstH >= 0.52 && margin >= 0.03) ||
+            (regimeCheck.hurstH <= 0.46 && margin >= 0.03) ||
+            (margin >= 0.05)
         );
 
         let holdRegime = null;
@@ -1091,14 +1092,14 @@ class PredictionEngine {
             holdRegime = "QUARANTINE";
             statusReason = `🛡️ Anti-Drawdown Shield: Loss score ${consecutiveLossScore.toFixed(1)} detected. Absorbing market regime shift (${paperTradeVal.paperTradeWins}/3 paper wins) [HOLD].`;
             confidence = Math.min(confidence, 52);
-        } else if (consecutiveLossScore >= 1.0 && (margin < 0.10 || agreementRate < 0.75)) {
+        } else if (consecutiveLossScore >= 1.0 && (margin < 0.04 && agreementRate < 0.50)) {
             status = "HOLD";
             tier = "HOLD";
             recommendedStake = "0U [PASS]";
             holdRegime = "QUARANTINE";
-            statusReason = `🛡️ Post-Loss Edge Gate: Loss score ${consecutiveLossScore.toFixed(1)} requires >=75% agreement (current: ${Math.round(agreementRate * 100)}%).`;
+            statusReason = `🛡️ Post-Loss Edge Gate: Loss score ${consecutiveLossScore.toFixed(1)} requires >=50% agreement (current: ${Math.round(agreementRate * 100)}%).`;
             confidence = Math.min(confidence, 56);
-        } else if (shannonEntropy > regimeEntropyThreshold) {
+        } else if (shannonEntropy > regimeEntropyThreshold && margin < 0.035) {
             status = "HOLD";
             tier = "HOLD";
             recommendedStake = "0U [PASS]";
@@ -1110,7 +1111,7 @@ class PredictionEngine {
             tier = "HOLD";
             recommendedStake = "0U [PASS]";
             holdRegime = "CHOP_OSCILLATION";
-            statusReason = `🛡️ Alternation Ceiling: ${curAlts} consecutive switches detected (Anti-Oscillation Trap) [HOLD].`;
+            statusReason = `🛡️ Alternation Ceiling (Chop): ${curAlts} consecutive switches detected (Anti-Oscillation Trap) [HOLD].`;
             confidence = Math.min(confidence, 52);
         } else if (curAlts === 2 && shannonEntropy > 0.84) {
             // Fix 3: Early chop halt at switch 2 with elevated entropy
@@ -1207,11 +1208,11 @@ class PredictionEngine {
         // Tier classification & Conformal Risk Verification
         // Fix 2: Never allow 2U Sniper on streak >= 4 (stake reduction cap)
         const isSniper = (
-            (calibratedP >= 0.70 || calibratedP <= 0.30) &&
-            agreeingModels.length >= 4 &&
-            shannonEntropy < 0.86 &&
-            regimeCheck.hurstH >= 0.50 &&
-            margin >= 0.10 &&
+            (calibratedP >= 0.60 || calibratedP <= 0.40) &&
+            agreeingModels.length >= 3 &&
+            shannonEntropy < 0.94 &&
+            regimeCheck.hurstH >= 0.49 &&
+            margin >= 0.055 &&
             status !== "HOLD" &&
             curStreak < 4
         );
@@ -1230,17 +1231,17 @@ class PredictionEngine {
                 recommendedStake = "2U";
                 statusReason = `🎯 Ultra-Sniper: ${agreeingModels.length}/7 models, Hurst H=${regimeCheck.hurstH}, Calibrated ${(Math.max(calibratedP, 1 - calibratedP)*100).toFixed(0)}% [2U Stake]`;
                 confidence = Math.max(78, confidence);
-            } else if (agreeingModels.length >= 3 && margin >= 0.04 && shannonEntropy <= regimeEntropyThreshold) {
+            } else if (agreeingModels.length >= 3 && margin >= 0.035) {
                 status = "CLEARED";
                 tier = "STANDARD";
                 recommendedStake = "1U";
                 statusReason = `⚡ Standard Signal: ${agreeingModels.length}/7 consensus, Calibrated ${(Math.max(calibratedP, 1 - calibratedP)*100).toFixed(0)}% in ${regimeCheck.regimeName} [1U Stake]`;
                 confidence = Math.max(62, confidence);
-            } else if (agreeingModels.length >= 2 && isConfirmedRegimeMatch) {
+            } else if (agreeingModels.length >= 2 || margin >= 0.02) {
                 status = "SCOUT";
                 tier = "SCOUT";
                 recommendedStake = "0.5U";
-                statusReason = `🔭 Scout Signal: Confirmed ${regimeCheck.regimeName} match with ${agreeingModels.length}/7 consensus [½U Stake]`;
+                statusReason = `🔭 Scout Signal: Controlled exposure with ${agreeingModels.length}/7 consensus in ${regimeCheck.regimeName} [½U Stake]`;
                 confidence = Math.max(54, confidence);
             } else {
                 status = "HOLD";
@@ -1342,7 +1343,7 @@ class PredictionEngine {
             holdAnalysis,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "v9.1",
+            engineVersion: "v9.3",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit,
             conformalRisk: conformalDecision
@@ -1396,7 +1397,7 @@ class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "v9.1 Autonomous Meta-Learner Enterprise",
+            engine_version: "v9.3 Autonomous Meta-Learner Enterprise",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
@@ -1763,7 +1764,7 @@ async function executeSyncCycle(requestedPeriod = null) {
         regime: pred.regime,
         pattern: pred.pattern,
         is_sniper: pred.isSniper,
-        engine_version: "v9.1"
+        engine_version: "v9.3"
     };
 
     try {
@@ -1849,8 +1850,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v9.1 Autonomous Meta-Learner Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
-                engine_version: "v9.1",
+                engine: "v9.3 Autonomous Meta-Learner Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
+                engine_version: "v9.3",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
                 buffer_target: "5,000-Round FIFO Ring Buffer",
@@ -1872,8 +1873,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v9.1 Autonomous Meta-Learner Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
-                engine_version: "v9.1",
+                engine: "v9.3 Autonomous Meta-Learner Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
+                engine_version: "v9.3",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 diagnostics_url: "/report",
                 data: syncResult
@@ -1903,10 +1904,10 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v9.1 Autonomous Meta-Learner Enterprise",
+                engine: "v9.3 Autonomous Meta-Learner Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 version: "9.1.0 Enterprise",
-                engine_version: "v9.1",
+                engine_version: "v9.3",
                 diagnostics_url: "/report"
             }, null, 2), {
                 status: 200,

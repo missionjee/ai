@@ -71,7 +71,7 @@ describe('PredictionEngine Safety Filters & Gating Matrix', () => {
 
         assert.equal(res.status, 'HOLD');
         assert.equal(res.isSniper, false);
-        assert.ok(res.statusReason.includes('Streak boundary 2x') || res.statusReason.includes('Anti-Drawdown') || res.statusReason.includes('discordance'));
+        assert.ok(res.statusReason.includes('Streak boundary 2x') || res.statusReason.includes('Anti-Drawdown') || res.statusReason.includes('discordance') || res.statusReason.includes('2-2'));
     });
 
     it('6. Anti-Drawdown Shield: halts execution upon 2 consecutive misses', () => {

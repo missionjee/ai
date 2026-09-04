@@ -343,7 +343,7 @@ export function useTerminal() {
             entropy: '0.50',
             permutationEntropy: '0.50',
             parityPrediction: 'EVEN',
-            engineVersion: 'v9.2',
+            engineVersion: 'v9.3',
             modelPerformance: null,
           }
         } else {
@@ -379,7 +379,7 @@ export function useTerminal() {
             regime: localEngineResult.regime,
             pattern: localEngineResult.pattern,
             is_sniper: localEngineResult.isSniper,
-            engine_version: 'v9.2'
+            engine_version: 'v9.3'
           }).catch(() => {})
         }
 
@@ -435,7 +435,7 @@ export function useTerminal() {
                     entropy: '0.50',
                     permutationEntropy: '0.50',
                     parityPrediction: 'EVEN',
-                    engineVersion: 'v9.2',
+                    engineVersion: 'v9.3',
                     modelPerformance: null,
                     tier: s.is_sniper ? 'SNIPER' : (s.tier || 'STANDARD'),
                     recommendedStake: s.stake_units || (s.is_sniper ? '2U' : '1U')

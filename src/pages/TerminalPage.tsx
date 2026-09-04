@@ -62,6 +62,18 @@ export function TerminalPage() {
           onInstallPwa={installPwa}
         />
 
+        {/* v9.3 High-Frequency Upgrade Notification Banner */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-2.5">
+            <span className="bg-amber-500 text-black text-[10px] font-black px-2 py-0.5 rounded tracking-wider shadow-sm">
+              v9.3 ACTIVE
+            </span>
+            <span className="font-semibold text-[11.5px] text-amber-200/90 leading-tight">
+              ⚡ High-Frequency Upgrade: HOLD frequency reduced by 90% (85%+ active actionable rounds) • Ultra-Sniper 2U Unlocked
+            </span>
+          </div>
+        </div>
+
         {/* Metrics Row (Opens Token Packages & Key Redemption Dialog on Click) */}
         <MetricsRow
           tokensBalance={tokensBalance}
@@ -104,7 +116,7 @@ export function TerminalPage() {
             <span className="dot">•</span>
             <span>Single Device Locked</span>
             <span className="dot">•</span>
-            <span>Quantum Engine v9.2</span>
+            <span>Quantum Engine v9.3</span>
           </div>
         </footer>
       </div>

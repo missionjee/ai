@@ -477,7 +477,7 @@ async function syncCycle() {
                         regime: localEngineResult.regime,
                         pattern: localEngineResult.pattern,
                         is_sniper: localEngineResult.isSniper,
-                        engine_version: 'v9.2'
+                        engine_version: 'v9.3'
                     }).catch(() => {});
                 }
             }
