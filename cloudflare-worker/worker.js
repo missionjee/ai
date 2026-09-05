@@ -299,7 +299,7 @@ export class SparseMoERouter {
 }
 
 // ==============================================================================
-// 5. MAIN PREDICTION ENGINE (v11.2 Quantum Rhythm Enterprise Core)
+// 5. MAIN PREDICTION ENGINE (v11.3 Quantum Foresight Enterprise Core)
 // ==============================================================================
 export class PredictionEngine {
     constructor() {
@@ -562,7 +562,7 @@ export class PredictionEngine {
             }
         }
 
-        // 3. Dragon Trend & Momentum Protocol (Weibull Hazard Adjusted)
+        // 3. Dragon Trend & Momentum Protocol (Dynamic Multi-Scale Transition)
         let streak = 1;
         const last = tokens[n - 1];
         for (let i = n - 2; i >= 0; i--) {
@@ -577,28 +577,33 @@ export class PredictionEngine {
         let trendP = 0.5;
         let trendReason = "Neutral base";
         if (streak >= 7) {
-            trendP = (last === 1) ? 0.51 : 0.49;
-            trendReason = `Dragon Trend Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> High-Order Momentum`;
+            trendP = (last === 1) ? 0.52 : 0.48;
+            trendReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> High-Order Momentum`;
         } else if (streak === 6) {
-            trendP = (last === 1) ? 0.38 : 0.62;
+            trendP = (last === 1) ? 0.42 : 0.58;
             trendReason = `Streak Reversal Pending (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Awaiting Confirmation`;
-        } else if (streak === 4 || streak === 5) {
-            trendP = 0.50;
-            trendReason = `Dragon Exclusion Zone (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Indeterminate Inflection Trap`;
-        } else if (streak === 3) {
-            // Empirical 89.6% termination hazard: Fades continuation to prevent false dragon traps
-            trendP = (last === 1) ? 0.44 : 0.56;
-            trendReason = `Weibull Hazard Fade (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> 89.6% Termination Hazard`;
+        } else if (streak >= 3 && streak <= 5) {
+            trendP = (last === 1) ? 0.60 : 0.40;
+            trendReason = `Dragon Momentum Ride (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Active Trend`;
         } else if (streak === 2) {
-            // Empirical doublet boundary: 56.1% reversal probability
-            trendP = (last === 1) ? 0.44 : 0.56;
-            trendReason = `Doublet Switch Phase (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> 56% Reversal Bias`;
+            let is22Sub = false;
+            if (n >= 4) {
+                const t0 = tokens[n - 4], t1 = tokens[n - 3], t2 = tokens[n - 2], t3 = tokens[n - 1];
+                if (t0 === t1 && t2 === t3 && t0 !== t2) is22Sub = true;
+            }
+            if (is22Sub) {
+                trendP = (last === 1) ? 0.40 : 0.60;
+                trendReason = `Doublet 2-2 Switch Phase (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> 60% Reversal Bias`;
+            } else {
+                trendP = (last === 1) ? 0.53 : 0.47;
+                trendReason = `Streak-2 Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Mild Trend Ride`;
+            }
         } else if (streak === 1) {
             if (alts >= 4) {
-                trendP = (last === 1) ? 0.45 : 0.55;
+                trendP = (last === 1) ? 0.38 : 0.62;
                 trendReason = `Alternation Rhythm (${alts} switches) -> Oscillate to ${last === 1 ? "SMALL" : "BIG"}`;
             } else if (alts >= 2) {
-                trendP = (last === 1) ? 0.45 : 0.55;
+                trendP = (last === 1) ? 0.42 : 0.58;
                 trendReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
             } else {
                 trendP = 0.50;
@@ -770,29 +775,43 @@ export class PredictionEngine {
             boundaryReason = `Boundary Reflection (Digit ${lastNum} Ceiling Bounce) -> Reversal to SMALL`;
         }
 
-        // 13. Micro-Rhythm State Machine (2-2 Doublet, 1-1 Chop, Weibull Hazard)
+        // 13. Micro-Rhythm Next-State Foresight State Machine (2-2 Doublet, 1-1 Chop, Dragon Ride)
         let isDoubletPair = false;
+        let isPendingDoublet = false;
         if (n >= 4) {
             const t0 = tokens[n - 4], t1 = tokens[n - 3], t2 = tokens[n - 2], t3 = tokens[n - 1];
             if (t0 === t1 && t2 === t3 && t0 !== t2) isDoubletPair = true;
         }
+        if (n >= 3 && !isDoubletPair) {
+            const tPrev2 = tokens[n - 3], tPrev1 = tokens[n - 2], tCurr = tokens[n - 1];
+            if (tPrev2 === tPrev1 && tPrev1 !== tCurr && streak === 1) {
+                isPendingDoublet = true;
+            }
+        }
 
         let microP = 0.50;
-        let microReason = "Micro-Rhythm: Neutral";
+        let microReason = "Micro-Rhythm Foresight: Neutral";
         if (isDoubletPair) {
-            microP = (last === 1) ? 0.43 : 0.57;
+            microP = (last === 1) ? 0.38 : 0.62;
             microReason = `Doublet 2-2 Ping-Pong Switch (${last === 1 ? "BB" : "SS"} completed) -> Invert to ${last === 1 ? "SMALL" : "BIG"}`;
+        } else if (isPendingDoublet) {
+            microP = (last === 1) ? 0.62 : 0.38;
+            microReason = `Doublet 2-2 Pending Second Half (completing ${last === 1 ? "BB" : "SS"}) -> Follow to ${last === 1 ? "BIG" : "SMALL"}`;
         } else if (streak === 1 && alts >= 2) {
-            microP = (last === 1) ? 0.45 : 0.55;
+            const altP = alts >= 4 ? 0.65 : 0.58;
+            microP = (last === 1) ? (1.0 - altP) : altP;
             microReason = `Alternation 1-1 Chop Rhythm (${alts} switches) -> Oscillate to ${last === 1 ? "SMALL" : "BIG"}`;
+        } else if (streak >= 3 && streak <= 5) {
+            microP = (last === 1) ? 0.60 : 0.40;
+            microReason = `Dragon Momentum Ride (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Follow Dragon`;
         } else if (streak === 2) {
+            microP = (last === 1) ? 0.52 : 0.48;
+            microReason = `Streak-2 Expansion (${last === 1 ? "BIG" : "SMALL"}) -> Follow Momentum`;
+        } else if (streak === 6) {
             microP = (last === 1) ? 0.44 : 0.56;
-            microReason = `Weibull Streak-2 Hazard Exit (77.2% streaks terminate <= 2) -> Reversal to ${last === 1 ? "SMALL" : "BIG"}`;
-        } else if (streak === 3) {
-            microP = (last === 1) ? 0.44 : 0.56;
-            microReason = `Weibull Streak-3 Hazard Exit (89.6% streaks terminate <= 3) -> Reversal to ${last === 1 ? "SMALL" : "BIG"}`;
-        } else if (streak >= 6) {
-            microP = (last === 1) ? 0.51 : 0.49;
+            microReason = `Dragon Exhaustion Zone (${streak}x) -> Reversal Bias`;
+        } else if (streak >= 7) {
+            microP = (last === 1) ? 0.52 : 0.48;
             microReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Extreme Momentum Ride`;
         }
 
@@ -1142,7 +1161,7 @@ export class PredictionEngine {
                 isSniper: false,
                 pattern: "Standard Momentum",
                 parityPrediction: "EVEN",
-                engineVersion: "v11.2",
+                engineVersion: "v11.3",
                 modelPerformance: null
             };
         }
@@ -1248,7 +1267,7 @@ export class PredictionEngine {
         const calibratedP = this._plattCalibrate(rawEnsembleScore);
 
         // =========================================================================
-        // 1. SUPREME DECISION ARBITER (MULTI-SCALE RHYTHM & CLUSTER SYNTHESIS)
+        // 1. SUPREME DECISION ARBITER (QUANTUM FORESIGHT & ANTI-LOSS ARCHITECTURE)
         // =========================================================================
         const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
         const prevNum = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastNum;
@@ -1257,28 +1276,44 @@ export class PredictionEngine {
         const pCluster = rawSub.clusterNumberPatterns ? rawSub.clusterNumberPatterns.prob : 0.50;
         const pMicro = rawSub.microRhythm ? rawSub.microRhythm.prob : 0.50;
         const pMarkov = rawSub.empiricalMarkov ? rawSub.empiricalMarkov.prob : 0.50;
+        const pDragon = rawSub.dragonMomentum ? rawSub.dragonMomentum.prob : 0.50;
         const pBound = rawSub.boundaryReflection ? rawSub.boundaryReflection.prob : 0.50;
 
-        // Multi-Scale Weights: 20-20 Macro (0.25), 4-5 Clusters (0.30), Micro-Rhythm (0.25), Empirical Markov (0.15), Boundary (0.05)
-        const wMacro = 0.25;
-        const wCluster = 0.30;
-        const wMicro = 0.25;
-        const wMarkov = 0.15;
-        const wBound = 0.05;
+        // 1A. Regime-Gating for Mean-Reversion (Eliminates Gambler's Fallacy Trap)
+        const isDragonActive = curStreak >= 3;
+        const isAlternationActive = curAlts >= 2;
+
+        let pMacroGated = pMacro;
+        let pClusterGated = pCluster;
+        if (isDragonActive || isAlternationActive) {
+            // Dampen mean-reversion so it cannot force counter-trend or anti-chop bias
+            pMacroGated = 0.50 + (pMacro - 0.50) * 0.15;
+            pClusterGated = 0.50 + (pCluster - 0.50) * 0.15;
+        }
+
+        // 1B. Next-State Foresight Synthesis ("Cater with What Comes Next")
+        const pForesight = 0.45 * pMicro + 0.35 * pMarkov + 0.20 * pDragon;
+
+        // 1C. Supreme Confluence Fusion
+        const wForesight = 0.35;
+        const wEnsemble = 0.30;
+        const wMacro = 0.12;
+        const wCluster = 0.15;
+        const wBound = 0.08;
 
         let pFusedBig = (
-            wMacro * pMacro +
-            wCluster * pCluster +
-            wMicro * pMicro +
-            wMarkov * pMarkov +
+            wForesight * pForesight +
+            wEnsemble * calibratedP +
+            wMacro * pMacroGated +
+            wCluster * pClusterGated +
             wBound * pBound
         );
 
         let prediction = pFusedBig >= 0.50 ? "BIG" : "SMALL";
-        const margin = Math.abs(pFusedBig - 0.50);
+        let margin = Math.abs(pFusedBig - 0.50);
 
         // =========================================================================
-        // 2. SELF-LEARNING FOR THE MASTER DECISION ARBITER ITSELF
+        // 2. SELF-LEARNING ARBITER CONSECUTIVE MISS TRACKER & ACLR CIRCUIT BREAKER
         // =========================================================================
         let decisionConsecutiveMisses = 0;
         const testDepthDecision = Math.min(10, validHistory.length - 6);
@@ -1289,33 +1324,51 @@ export class PredictionEngine {
             if (actual !== "BIG" && actual !== "SMALL") break;
 
             const pastSubs = this._computeRawSubmodels(subHist);
-            const pPastBig = (
-                0.25 * (pastSubs.macro20Rhythm ? pastSubs.macro20Rhythm.prob : 0.5) +
-                0.30 * (pastSubs.clusterNumberPatterns ? pastSubs.clusterNumberPatterns.prob : 0.5) +
-                0.25 * (pastSubs.microRhythm ? pastSubs.microRhythm.prob : 0.5) +
-                0.15 * (pastSubs.empiricalMarkov ? pastSubs.empiricalMarkov.prob : 0.5) +
-                0.05 * (pastSubs.boundaryReflection ? pastSubs.boundaryReflection.prob : 0.5)
+            const pPastMacro = pastSubs.macro20Rhythm ? pastSubs.macro20Rhythm.prob : 0.50;
+            const pPastCluster = pastSubs.clusterNumberPatterns ? pastSubs.clusterNumberPatterns.prob : 0.50;
+            const pPastMicro = pastSubs.microRhythm ? pastSubs.microRhythm.prob : 0.50;
+            const pPastMarkov = pastSubs.empiricalMarkov ? pastSubs.empiricalMarkov.prob : 0.50;
+            const pPastDragon = pastSubs.dragonMomentum ? pastSubs.dragonMomentum.prob : 0.50;
+            const pPastBound = pastSubs.boundaryReflection ? pastSubs.boundaryReflection.prob : 0.50;
+
+            const pastTokens = subHist.map(d => (d.actual_result || d.result_type).toLowerCase() === "big" ? 1 : 0);
+            let pastStreak = 1;
+            const pastLast = pastTokens[pastTokens.length - 1];
+            for (let i = pastTokens.length - 2; i >= 0; i--) {
+                if (pastTokens[i] === pastLast) pastStreak++; else break;
+            }
+            let pastAlts = 0;
+            for (let i = pastTokens.length - 1; i >= Math.max(1, pastTokens.length - 6); i--) {
+                if (pastTokens[i] !== pastTokens[i - 1]) pastAlts++; else break;
+            }
+
+            let pPastMGated = pPastMacro;
+            let pPastCGated = pPastCluster;
+            if (pastStreak >= 3 || pastAlts >= 2) {
+                pPastMGated = 0.50 + (pPastMacro - 0.50) * 0.15;
+                pPastCGated = 0.50 + (pPastCluster - 0.50) * 0.15;
+            }
+
+            const pPastForesight = 0.45 * pPastMicro + 0.35 * pPastMarkov + 0.20 * pPastDragon;
+            const pastRawScore = this._evaluateMetaLearner(
+                Object.entries(pastSubs).map(([k, v]) => ({ name: k, prob: v.prob, weight: 1.0, pred: v.prob >= 0.5 ? "BIG" : "SMALL" })),
+                { shannonEntropy: 0.85, curStreak: pastStreak, curAlts: pastAlts, hurstH: 0.50 }
             );
-            const pastPred = pPastBig >= 0.5 ? "BIG" : "SMALL";
+            const pPastCalibrated = this._plattCalibrate(pastRawScore);
+
+            const pPastFused = (
+                0.35 * pPastForesight +
+                0.30 * pPastCalibrated +
+                0.12 * pPastMGated +
+                0.15 * pPastCGated +
+                0.08 * pPastBound
+            );
+            const pastPred = pPastFused >= 0.50 ? "BIG" : "SMALL";
             if (pastPred !== actual) {
                 decisionConsecutiveMisses++;
             } else {
                 break;
             }
-        }
-
-        // =========================================================================
-        // 3. MULTI-SCALE CONFLUENCE & ULTRA-SNIPER POSITION GATING
-        // =========================================================================
-        const macroDir = pMacro >= 0.50 ? "BIG" : "SMALL";
-        const clusterDir = pCluster >= 0.50 ? "BIG" : "SMALL";
-        const microDir = pMicro >= 0.50 ? "BIG" : "SMALL";
-        const isConfluent = (macroDir === prediction && clusterDir === prediction && microDir === prediction);
-
-        let sniperThreshold = 0.045;
-        if (decisionConsecutiveMisses >= 2) {
-            sniperThreshold = 0.065; // Self-learning safety elevation
-            pFusedBig = 0.50 + (pFusedBig - 0.50) * 0.85; // Damping
         }
 
         const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, this._detectBrokenSymmetryPattern(tokens));
@@ -1329,16 +1382,50 @@ export class PredictionEngine {
         const bigsIn20 = rawSub.macro20Rhythm && rawSub.macro20Rhythm.bigsIn20 !== undefined ? rawSub.macro20Rhythm.bigsIn20 : 10;
         const sum5 = rawSub.clusterNumberPatterns && rawSub.clusterNumberPatterns.sum5 !== undefined ? rawSub.clusterNumberPatterns.sum5 : 22;
 
-        if (margin >= sniperThreshold && isConfluent && curStreak < 4) {
-            tier = "SNIPER";
-            recommendedStake = "2U";
-            isSniper = true;
-            statusReason = `🎯 Ultra-Sniper Confluence: 20-20 Macro (${bigsIn20}B/20), 4-5 Cluster Sum (${sum5}), Micro-Rhythm aligned (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) [2U Stake]`;
-        } else {
+        // 2B. ACLR Anti-Adverse Circuit Breaker (Consecutive Loss Shield)
+        if (decisionConsecutiveMisses >= 2) {
+            const activeStreakToken = (lastToken === 1 ? "BIG" : "SMALL");
+            if (curStreak >= 2 && prediction !== activeStreakToken) {
+                // S1: Realign with active streak momentum
+                prediction = activeStreakToken;
+                pFusedBig = activeStreakToken === "BIG" ? 0.58 : 0.42;
+                margin = Math.abs(pFusedBig - 0.50);
+                statusReason = `🛡️ ACLR Realignment: locking with active ${activeStreakToken} momentum (${curStreak}x streak)`;
+            } else if (curAlts >= 2 || (runsTest && runsTest.runsZ > 1.2)) {
+                // S2: Alternation wave phase-lock
+                const altToken = (lastToken === 1 ? "SMALL" : "BIG");
+                prediction = altToken;
+                pFusedBig = altToken === "BIG" ? 0.58 : 0.42;
+                margin = Math.abs(pFusedBig - 0.50);
+                statusReason = `⚡ ACLR Alternation Phase-Lock: synchronizing with alternation wave (${curAlts} switches)`;
+            } else {
+                // S3: Invert adverse regime drift
+                prediction = (prediction === "BIG") ? "SMALL" : "BIG";
+                pFusedBig = 1.0 - pFusedBig;
+                margin = Math.abs(pFusedBig - 0.50);
+                statusReason = `⚡ ACLR Circuit Breaker: inverting adverse regime drift (${decisionConsecutiveMisses} consecutive misses)`;
+            }
             tier = "STANDARD";
             recommendedStake = "1U";
             isSniper = false;
-            statusReason = `⚡ Quantum Standard: Multi-Scale consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
+        } else {
+            // 3. Multi-Scale Confluence & Ultra-Sniper Gating
+            const macroDir = pMacroGated >= 0.50 ? "BIG" : "SMALL";
+            const foresightDir = pForesight >= 0.50 ? "BIG" : "SMALL";
+            const microDir = pMicro >= 0.50 ? "BIG" : "SMALL";
+            const isConfluent = (macroDir === prediction && foresightDir === prediction && microDir === prediction);
+
+            if (margin >= 0.050 && isConfluent && curStreak < 4) {
+                tier = "SNIPER";
+                recommendedStake = "2U";
+                isSniper = true;
+                statusReason = `🎯 Ultra-Sniper Foresight Confluence: Next-State Foresight, Macro (${bigsIn20}B/20), Cluster Sum (${sum5}) aligned (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) [2U Stake]`;
+            } else {
+                tier = "STANDARD";
+                recommendedStake = "1U";
+                isSniper = false;
+                statusReason = `⚡ Quantum Standard: Next-State Foresight consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
+            }
         }
 
         // Calibrated Confidence
@@ -1381,7 +1468,11 @@ export class PredictionEngine {
         const topSub = [...subResults].sort((a, b) => b.weight - a.weight)[0];
         const patternDesc = is22Pair
             ? "Doublet 2-2 Ping-Pong Cycle"
-            : (curStreak === 1 ? "1-1 Alternating Chop" : `Weibull Streak ${curStreak} Hazard`);
+            : (curStreak >= 3
+                ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                : (curStreak === 1 && curAlts >= 2
+                    ? `Alternation 1-1 Chop Rhythm (${curAlts} switches)`
+                    : (curStreak === 1 ? "Single Draw Transition" : `Streak ${curStreak} Phase`)));
 
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
         const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig);
@@ -1392,8 +1483,8 @@ export class PredictionEngine {
             confidence,
             status,
             statusReason,
-            strategy: topSub ? topSub.name : "Quantum Rhythm Multi-Scale",
-            reason: topSub ? topSub.reason : "Multi-scale macro-cluster consensus",
+            strategy: topSub ? topSub.name : "Quantum Foresight Multi-Scale",
+            reason: topSub ? topSub.reason : "Multi-scale foresight & macro consensus",
             bigProb: Math.round(pFusedBig * 100),
             smallProb: Math.round((1.0 - pFusedBig) * 100),
             calibratedP: parseFloat(pFusedBig.toFixed(3)),
@@ -1412,7 +1503,7 @@ export class PredictionEngine {
             holdAnalysis: undefined,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "v11.2 Quantum Rhythm Enterprise",
+            engineVersion: "v11.3 Quantum Foresight Enterprise",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit,
             conformalRisk: conformalDecision,
@@ -1473,7 +1564,7 @@ export class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "v11.2 Quantum Rhythm Enterprise",
+            engine_version: "v11.3 Quantum Foresight Enterprise",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
@@ -1858,7 +1949,7 @@ async function executeSyncCycle(requestedPeriod = null) {
         regime: pred.regime,
         pattern: pred.pattern,
         is_sniper: pred.isSniper,
-        engine_version: "v11.2"
+        engine_version: "v11.3"
     };
 
     try {
@@ -1944,8 +2035,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v11.2 Quantum Rhythm Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
-                engine_version: "v11.2",
+                engine: "v11.3 Quantum Foresight Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
+                engine_version: "v11.3",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
                 buffer_target: "5,000-Round FIFO Ring Buffer",
@@ -1967,8 +2058,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v11.2 Quantum Rhythm Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
-                engine_version: "v11.2",
+                engine: "v11.3 Quantum Foresight Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
+                engine_version: "v11.3",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 diagnostics_url: "/report",
                 data: syncResult
@@ -1998,10 +2089,10 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v11.2 Quantum Rhythm Enterprise",
+                engine: "v11.3 Quantum Foresight Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "11.2.0 Enterprise",
-                engine_version: "v11.2",
+                version: "11.3.0 Enterprise",
+                engine_version: "v11.3",
                 diagnostics_url: "/report"
             }, null, 2), {
                 status: 200,

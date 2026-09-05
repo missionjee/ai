@@ -64,7 +64,7 @@ export function Header({
               HIROTO
             </h1>
             <span className="font-mono text-[9px] font-semibold text-[#f59e0b] bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded tracking-wider version-badge">
-              v11.2 PRO
+              v11.3 PRO
             </span>
           </div>
           <span className="text-[10px] sm:text-[10.5px] font-extrabold tracking-[1.6px] uppercase bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] bg-clip-text text-transparent leading-tight">
