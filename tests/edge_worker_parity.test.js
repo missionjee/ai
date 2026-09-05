@@ -63,7 +63,7 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.status, 'ONLINE');
-        assert.ok(body.engine_version === 'v11.3' || body.engine_version === 'v11.2' || body.engine_version === 'v10.0' || body.engine_version === 'v9.3');
+        assert.ok(body.engine_version === 'v12.0' || body.engine_version === 'v11.3' || body.engine_version === 'v11.2' || body.engine_version === 'v10.0' || body.engine_version === 'v9.3');
         assert.equal(body.diagnostics_url, '/report');
     });
 
@@ -74,7 +74,7 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.status, 'ONLINE');
-        assert.ok(body.engine_version.includes('v11.3') || body.engine_version.includes('v11.2') || body.engine_version.includes('v10.0') || body.engine_version.includes('v9.3'));
+        assert.ok(body.engine_version.includes('v12.0') || body.engine_version.includes('v11.3') || body.engine_version.includes('v11.2') || body.engine_version.includes('v10.0') || body.engine_version.includes('v9.3'));
         assert.equal(body.buffer_capacity, 5000);
         assert.ok(typeof body.hold_audit_summary === 'object');
         assert.ok(typeof body.meta_learner_models === 'object');

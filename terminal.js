@@ -503,7 +503,7 @@ async function syncCycle() {
                         regime: localEngineResult.regime,
                         pattern: localEngineResult.pattern,
                         is_sniper: localEngineResult.isSniper,
-                        engine_version: 'v11.3'
+                        engine_version: 'v12.0'
                     }).catch(() => {});
                 }
             }
