@@ -1062,7 +1062,7 @@ export class PredictionEngine {
         isSniper: false,
         pattern: "Standard Momentum",
         parityPrediction: "EVEN",
-        engineVersion: "v10.0",
+        engineVersion: "v11.2",
         modelPerformance: null
       }
     }
@@ -1377,7 +1377,7 @@ export class PredictionEngine {
 
     return {
       status: "ONLINE",
-      engine_version: "v10.0 Autonomous Meta-Learner Enterprise",
+      engine_version: "v11.2 Quantum Rhythm Enterprise",
       timestamp: new Date().toISOString(),
       historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
       buffer_capacity: 5000,

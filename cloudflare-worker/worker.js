@@ -299,7 +299,7 @@ export class SparseMoERouter {
 }
 
 // ==============================================================================
-// 5. MAIN PREDICTION ENGINE (v10.0 Quantum Enterprise Core)
+// 5. MAIN PREDICTION ENGINE (v11.2 Quantum Rhythm Enterprise Core)
 // ==============================================================================
 export class PredictionEngine {
     constructor() {
@@ -1142,7 +1142,7 @@ export class PredictionEngine {
                 isSniper: false,
                 pattern: "Standard Momentum",
                 parityPrediction: "EVEN",
-                engineVersion: "v10.0",
+                engineVersion: "v11.2",
                 modelPerformance: null
             };
         }
@@ -1473,7 +1473,7 @@ export class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "v10.0 Autonomous Meta-Learner Enterprise",
+            engine_version: "v11.2 Quantum Rhythm Enterprise",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
@@ -1944,7 +1944,7 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v10.0 Autonomous Meta-Learner Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
+                engine: "v11.2 Quantum Rhythm Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
                 engine_version: "v11.2",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
@@ -1967,8 +1967,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v10.0 Autonomous Meta-Learner Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
-                engine_version: "v10.0",
+                engine: "v11.2 Quantum Rhythm Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
+                engine_version: "v11.2",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 diagnostics_url: "/report",
                 data: syncResult
@@ -1998,10 +1998,10 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v10.0 Autonomous Meta-Learner Enterprise",
+                engine: "v11.2 Quantum Rhythm Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "9.1.0 Enterprise",
-                engine_version: "v10.0",
+                version: "11.2.0 Enterprise",
+                engine_version: "v11.2",
                 diagnostics_url: "/report"
             }, null, 2), {
                 status: 200,

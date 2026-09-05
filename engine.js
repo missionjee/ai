@@ -1,5 +1,5 @@
 /**
- * HIROTO AI — Institutional Prediction Engine (v10.0 Quantum Enterprise)
+ * HIROTO AI — Institutional Prediction Engine (v11.2 Quantum Rhythm Enterprise)
  * High-Frequency Multi-Tier Engine with Modular 9-Submodel Registry,
  * Multi-Horizon Exponential Gradient Hedge (Online OCO),
  * Sparse Mixture-of-Experts (MoE) Gating Stacker,
@@ -266,7 +266,7 @@ export class SparseMoERouter {
 }
 
 // ==============================================================================
-// 5. MAIN PREDICTION ENGINE (v10.0 Quantum Enterprise Core)
+// 5. MAIN PREDICTION ENGINE (v11.2 Quantum Rhythm Enterprise Core)
 // ==============================================================================
 export class PredictionEngine {
     constructor() {
@@ -1109,7 +1109,7 @@ export class PredictionEngine {
                 isSniper: false,
                 pattern: "Standard Momentum",
                 parityPrediction: "EVEN",
-                engineVersion: "v10.0",
+                engineVersion: "v11.2",
                 modelPerformance: null
             };
         }
@@ -1440,7 +1440,7 @@ export class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "v10.0 Autonomous Meta-Learner Enterprise",
+            engine_version: "v11.2 Quantum Rhythm Enterprise",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,

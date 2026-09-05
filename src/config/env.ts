@@ -4,4 +4,4 @@
 export const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://fvmbqikdomcjalladwmz.supabase.co'
 export const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 'sb_publishable_UNWum89AzkwnfNb2BoxdKA_otmSXn5c'
 export const APP_VERSION = '3.1.0'
-export const ENGINE_VERSION = 'v9.3'
+export const ENGINE_VERSION = 'v11.2'
