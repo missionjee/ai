@@ -1305,6 +1305,12 @@ export class PredictionEngine {
         // Signal 6: Triad Markov
         logit += triadLogit;
 
+        // Signal 7: Cluster Deficit / Surplus Pattern (5-Draw Sum S5)
+        if (sum5 <= 14) logit += 0.12;
+        else if (sum5 <= 19) logit += 0.06;
+        else if (sum5 >= 31) logit -= 0.12;
+        else if (sum5 >= 26) logit -= 0.06;
+
         // Symmetric Fused Probability
         let pFusedBig = 1.0 / (1.0 + Math.exp(-logit));
         let prediction = pFusedBig >= 0.50 ? "BIG" : "SMALL";
