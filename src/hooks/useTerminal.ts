@@ -369,7 +369,7 @@ export function useTerminal() {
             entropy: '0.50',
             permutationEntropy: '0.50',
             parityPrediction: 'EVEN',
-            engineVersion: 'v12.1',
+            engineVersion: 'v12.2',
             modelPerformance: null,
           }
         } else {
@@ -405,7 +405,7 @@ export function useTerminal() {
             regime: localEngineResult.regime,
             pattern: localEngineResult.pattern,
             is_sniper: localEngineResult.isSniper,
-            engine_version: 'v12.1'
+            engine_version: 'v12.2'
           }).catch(() => {})
         }
 
@@ -461,7 +461,7 @@ export function useTerminal() {
                     entropy: '0.50',
                     permutationEntropy: '0.50',
                     parityPrediction: 'EVEN',
-                    engineVersion: 'v12.1',
+                    engineVersion: 'v12.2',
                     modelPerformance: null,
                     tier: s.is_sniper ? 'SNIPER' : (s.tier || 'STANDARD'),
                     recommendedStake: s.stake_units || (s.is_sniper ? '2U' : '1U')
@@ -578,8 +578,9 @@ export function useTerminal() {
     }
     const period4 = PeriodHelper.formatLast4(targetPeriod)
     const digits = prediction.luckyDigits?.join(', ') ?? '-'
+    const tag = (prediction.isSniper || prediction.tier === 'SNIPER') ? ' [🎯 SNIPER]' : ''
     const predDisplay = prediction.prediction === 'BIG' ? 'BIGGG' : prediction.prediction
-    const text = `**⚡ ${period4} • QUANTUM SIGNAL: ${predDisplay} • [${digits}]**`
+    const text = `**🎯 ${period4} • ${predDisplay}${tag} • [${digits}]**`
     navigator.clipboard
       .writeText(text)
       .then(() => showToast(`✓ Copied: ${predDisplay} [${digits}]`))

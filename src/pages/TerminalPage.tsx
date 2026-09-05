@@ -100,7 +100,7 @@ export function TerminalPage() {
             <span className="dot">•</span>
             <span>Single Device Locked</span>
             <span className="dot">•</span>
-            <span>Quantum Engine v12.1</span>
+            <span>Quantum Engine v12.2</span>
           </div>
         </footer>
       </div>

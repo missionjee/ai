@@ -80,6 +80,22 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
     ).slice(0, 30)
   }
 
+  const winCount = resolvedList.filter(h => {
+    const p = String(h.predicted_type || '').toUpperCase()
+    const a = getCanonicalType(h)
+    return p && a && p === a
+  }).length
+  const lossCount = resolvedList.filter(h => {
+    const p = String(h.predicted_type || '').toUpperCase()
+    const a = getCanonicalType(h)
+    return !p || !a || p !== a
+  }).length
+  const counts = {
+    all: resolvedList.length,
+    wins: winCount,
+    losses: lossCount
+  }
+
   const emptyMsg =
     activeFilter === 'ALL'
       ? 'No draw history recorded yet.'
@@ -95,19 +111,19 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
             onClick={() => onFilterChange('ALL')}
             className={cn('filter-pill', activeFilter === 'ALL' && 'active')}
           >
-            All
+            All ({counts.all})
           </button>
           <button
             onClick={() => onFilterChange('WINS')}
             className={cn('filter-pill', activeFilter === 'WINS' && 'active')}
           >
-            Wins
+            Wins ({counts.wins})
           </button>
           <button
             onClick={() => onFilterChange('LOSSES')}
             className={cn('filter-pill', activeFilter === 'LOSSES' && 'active')}
           >
-            Losses
+            Losses ({counts.losses})
           </button>
         </div>
       </div>
