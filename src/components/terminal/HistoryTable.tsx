@@ -60,16 +60,6 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
     return hasNum || hasRes
   })
   
-  const allCount = resolvedList.length
-  const winCount = resolvedList.filter(
-    h => {
-      const p = String(h.predicted_type || '').toUpperCase()
-      const a = getCanonicalType(h)
-      return p && a && p === a
-    }
-  ).length
-  const lossCount = allCount - winCount
-
   let items = resolvedList.slice(0, 30)
 
   if (activeFilter === 'WINS') {
@@ -105,19 +95,19 @@ export function HistoryTable({ history, activeFilter, onFilterChange }: HistoryT
             onClick={() => onFilterChange('ALL')}
             className={cn('filter-pill', activeFilter === 'ALL' && 'active')}
           >
-            All ({allCount})
+            All
           </button>
           <button
             onClick={() => onFilterChange('WINS')}
             className={cn('filter-pill', activeFilter === 'WINS' && 'active')}
           >
-            Wins ({winCount})
+            Wins
           </button>
           <button
             onClick={() => onFilterChange('LOSSES')}
             className={cn('filter-pill', activeFilter === 'LOSSES' && 'active')}
           >
-            Losses ({lossCount})
+            Losses
           </button>
         </div>
       </div>
