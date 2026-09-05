@@ -1265,13 +1265,19 @@ export class PredictionEngine {
 
         let logit = 0.0;
 
-        // Signal 1: Dynamic Hazard Streak Reversion
-        // Empirical: Streaks 2-5 reverse 54.3% - 58.6% of the time
-        if (curStreak >= 7) {
-            logit += (lastToken === 1 ? +0.32 : -0.32);
+        // Signal 1: Dynamic Hazard Streak Reversion & Monster Dragon Protocol
+        if (curStreak >= 6) {
+            logit += (lastToken === 1 ? +0.30 : -0.30);
+        } else if (curStreak >= 4) {
+            const isMonsterDragon = (lastToken === 1 && sum5 >= 30) || (lastToken === 0 && sum5 <= 15);
+            if (isMonsterDragon) {
+                logit += (lastToken === 1 ? +0.20 : -0.20);
+            } else {
+                logit += (lastToken === 1 ? -0.20 : +0.20);
+            }
         } else if (curStreak >= 2) {
-            const revStrength = curStreak >= 4 ? 0.42 : (curStreak === 3 ? 0.32 : 0.24);
-            logit += (lastToken === 1 ? -revStrength : +revStrength);
+            const rev = (curStreak === 3 ? 0.25 : 0.22);
+            logit += (lastToken === 1 ? -rev : +rev);
         }
 
         // Signal 2: Micro Rhythm (1-1 Alternation & Doublets)
