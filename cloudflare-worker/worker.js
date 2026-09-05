@@ -299,7 +299,7 @@ export class SparseMoERouter {
 }
 
 // ==============================================================================
-// 5. MAIN PREDICTION ENGINE (v12.0 Quantum Empirical Enterprise Core)
+// 5. MAIN PREDICTION ENGINE (v12.1 Quantum Empirical Enterprise Core)
 // ==============================================================================
 export class PredictionEngine {
     constructor() {
@@ -1166,7 +1166,7 @@ export class PredictionEngine {
                 isSniper: false,
                 pattern: "Standard Momentum",
                 parityPrediction: "EVEN",
-                engineVersion: "v12.0 Quantum Empirical Enterprise",
+                engineVersion: "v12.1 Quantum Empirical Enterprise",
                 modelPerformance: null
             };
         }
@@ -1272,7 +1272,7 @@ export class PredictionEngine {
         const calibratedP = this._plattCalibrate(rawEnsembleScore);
 
         // =========================================================================
-        // 1. EMPIRICAL MULTI-SIGNAL LOGIT STACKER (v12.0 Quantum Empirical Core)
+        // 1. EMPIRICAL MULTI-SIGNAL LOGIT STACKER (v12.1 Quantum Empirical Core)
         // =========================================================================
         const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
         const prevNum = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastNum;
@@ -1486,7 +1486,7 @@ export class PredictionEngine {
             holdAnalysis: undefined,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "v12.0 Quantum Empirical Enterprise",
+            engineVersion: "v12.1 Quantum Empirical Enterprise",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit,
             conformalRisk: conformalDecision,
@@ -1547,7 +1547,7 @@ export class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "v12.0 Quantum Empirical Enterprise",
+            engine_version: "v12.1 Quantum Empirical Enterprise",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
@@ -1932,7 +1932,7 @@ async function executeSyncCycle(requestedPeriod = null) {
         regime: pred.regime,
         pattern: pred.pattern,
         is_sniper: pred.isSniper,
-        engine_version: "v12.0"
+        engine_version: "v12.1"
     };
 
     try {
@@ -2018,8 +2018,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v12.0 Quantum Empirical Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
-                engine_version: "v12.0",
+                engine: "v12.1 Quantum Empirical Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
+                engine_version: "v12.1",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
                 buffer_target: "5,000-Round FIFO Ring Buffer",
@@ -2041,8 +2041,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v12.0 Quantum Empirical Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
-                engine_version: "v12.0",
+                engine: "v12.1 Quantum Empirical Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
+                engine_version: "v12.1",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 diagnostics_url: "/report",
                 data: syncResult
@@ -2072,10 +2072,10 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v12.0 Quantum Empirical Enterprise",
+                engine: "v12.1 Quantum Empirical Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "12.0.0 Enterprise",
-                engine_version: "v12.0",
+                version: "12.1.0 Enterprise",
+                engine_version: "v12.1",
                 diagnostics_url: "/report"
             }, null, 2), {
                 status: 200,

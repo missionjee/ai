@@ -1,5 +1,5 @@
 /**
- * HIROTO AI — Institutional Prediction Engine (v12.0 Quantum Empirical Enterprise)
+ * HIROTO AI — Institutional Prediction Engine (v12.1 Quantum Empirical Enterprise)
  * High-Frequency Multi-Tier Engine with Empirical 9-Submodel Stacker,
  * Multi-Horizon Exponential Gradient Hedge (Online OCO),
  * Sparse Mixture-of-Experts (MoE) Gating Stacker,
@@ -266,7 +266,7 @@ export class SparseMoERouter {
 }
 
 // ==============================================================================
-// 5. MAIN PREDICTION ENGINE (v12.0 Quantum Empirical Enterprise Core)
+// 5. MAIN PREDICTION ENGINE (v12.1 Quantum Empirical Enterprise Core)
 // ==============================================================================
 export class PredictionEngine {
     constructor() {
@@ -1133,7 +1133,7 @@ export class PredictionEngine {
                 isSniper: false,
                 pattern: "Standard Momentum",
                 parityPrediction: "EVEN",
-                engineVersion: "v12.0 Quantum Empirical Enterprise",
+                engineVersion: "v12.1 Quantum Empirical Enterprise",
                 modelPerformance: null
             };
         }
@@ -1239,7 +1239,7 @@ export class PredictionEngine {
         const calibratedP = this._plattCalibrate(rawEnsembleScore);
 
         // =========================================================================
-        // 1. EMPIRICAL MULTI-SIGNAL LOGIT STACKER (v12.0 Quantum Empirical Core)
+        // 1. EMPIRICAL MULTI-SIGNAL LOGIT STACKER (v12.1 Quantum Empirical Core)
         // =========================================================================
         const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
         const prevNum = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastNum;
@@ -1453,7 +1453,7 @@ export class PredictionEngine {
             holdAnalysis: undefined,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "v12.0 Quantum Empirical Enterprise",
+            engineVersion: "v12.1 Quantum Empirical Enterprise",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit,
             conformalRisk: conformalDecision,
@@ -1514,7 +1514,7 @@ export class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "v12.0 Quantum Empirical Enterprise",
+            engine_version: "v12.1 Quantum Empirical Enterprise",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
