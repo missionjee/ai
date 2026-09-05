@@ -78,6 +78,10 @@ export interface ModelTrackers {
   latentTrajectory: ModelTracker
   spectralFourier?: ModelTracker
   runsMartingale?: ModelTracker
+  macro20Rhythm?: ModelTracker
+  clusterNumberPatterns?: ModelTracker
+  boundaryReflection?: ModelTracker
+  microRhythm?: ModelTracker
   [key: string]: ModelTracker | undefined
 }
 
@@ -119,6 +123,9 @@ export interface PredictionResult {
     diffAutocorr: number
     sampleSize?: number
   }
+  metaLearnerMetrics?: any
+  plattParameters?: any
+  [key: string]: any
 }
 
 // History entry
