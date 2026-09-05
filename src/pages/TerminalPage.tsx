@@ -37,10 +37,6 @@ export function TerminalPage() {
 
   const glowClass = !tokensBalance || tokensBalance <= 0
     ? 'glow-LOCKED'
-    : prediction?.status === 'HOLD'
-    ? 'glow-HOLD'
-    : prediction?.isSniper
-    ? 'glow-SNIPER'
     : prediction?.prediction === 'BIG'
     ? 'glow-BIG'
     : prediction?.prediction === 'SMALL'

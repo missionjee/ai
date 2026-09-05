@@ -224,9 +224,8 @@ function copyCurrentSignal() {
     const period4 = PeriodHelper.formatLast4(state.targetPeriod);
     const resolvedDigits = ensureLuckyDigits(p.luckyDigits, p.prediction);
     const digits = resolvedDigits.join(", ");
-    const tierTag = p.tier === "SNIPER" ? " [🎯 SNIPER 2U]" : (p.tier === "SCOUT" ? " [🔭 SCOUT ½U]" : " [⚡ 1U]");
     const predDisplay = p.prediction === "BIG" ? "BIGGG" : p.prediction;
-    const minimalText = `**🎯 ${period4} • ${predDisplay}${tierTag} • [${digits}]**`;
+    const minimalText = `**⚡ ${period4} • QUANTUM SIGNAL: ${predDisplay} • [${digits}]**`;
 
     navigator.clipboard.writeText(minimalText).then(() => {
         showToast(`Copied: ${minimalText}`);
@@ -634,13 +633,7 @@ function renderUI() {
         }
 
         if (UI.signalTag) {
-            if (p.tier === 'SNIPER' || p.isSniper) {
-                UI.signalTag.innerHTML = `🎯 <span style="color:#00e676;font-weight:800;">ULTRA-SNIPER [${p.recommendedStake || '2U'}] (${p.confidence}%)</span>`;
-            } else if (p.tier === 'SCOUT') {
-                UI.signalTag.innerHTML = `🔭 <span style="color:#38bdf8;font-weight:700;">SCOUT SIGNAL [${p.recommendedStake || '1U'}] (${p.confidence}%)</span>`;
-            } else {
-                UI.signalTag.innerHTML = `⚡ <span style="color:#00ffcc;font-weight:700;">QUANTUM STANDARD [${p.recommendedStake || '1U'}] (${p.confidence}%)</span>`;
-            }
+            UI.signalTag.innerHTML = `⚡ <span style="color:#00ffcc;font-weight:800;letter-spacing:0.8px;">QUANTUM SIGNAL</span>`;
         }
 
         if (UI.confidencePct && UI.confidenceBar) {

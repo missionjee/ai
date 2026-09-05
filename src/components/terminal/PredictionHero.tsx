@@ -98,18 +98,8 @@ export function PredictionHero({
         <div className={cn('signal-banner', signalKey)}>
           <span className="signal-tag whitespace-nowrap overflow-hidden text-ellipsis max-w-full block">
             {isLocked && <span>🔒 SIGNAL LOCKED</span>}
-            {!isLocked && (prediction?.tier === 'SNIPER' || prediction?.isSniper) && (
-              <span>🎯 ULTRA-SNIPER [{prediction?.recommendedStake || '2U'}]</span>
-            )}
-            {!isLocked && prediction?.tier === 'SCOUT' && (
-              <span>🔭 SCOUT SIGNAL [{prediction?.recommendedStake || '1U'}]</span>
-            )}
-            {!isLocked && (!prediction?.isSniper && prediction?.tier !== 'SCOUT') && (
-              <span>⚡ QUANTUM STANDARD [{prediction?.recommendedStake || '1U'}]</span>
-            )}
-            {!isLocked && !prediction && (
-              <span>⚡ SYNCING FEED...</span>
-            )}
+            {!isLocked && !prediction && <span>⚡ SYNCING FEED...</span>}
+            {!isLocked && prediction && <span>⚡ QUANTUM SIGNAL</span>}
           </span>
           <span className="signal-text">{signalText}</span>
           <span className="signal-range">{signalRange}</span>
@@ -123,11 +113,6 @@ export function PredictionHero({
               <div className="confidence-header">
                 <span>Quantitative Model Confidence</span>
                 <div className="flex items-center gap-2">
-                  {prediction?.recommendedStake && prediction.status !== 'HOLD' && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00ffcc]/10 text-[#00ffcc] border border-[#00ffcc]/30 stake-tag">
-                      STAKE: {prediction.recommendedStake}
-                    </span>
-                  )}
                   <strong>{confidence}%</strong>
                 </div>
               </div>

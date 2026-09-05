@@ -578,9 +578,8 @@ export function useTerminal() {
     }
     const period4 = PeriodHelper.formatLast4(targetPeriod)
     const digits = prediction.luckyDigits?.join(', ') ?? '-'
-    const tag = prediction.isSniper ? ' [🎯 SNIPER]' : ''
     const predDisplay = prediction.prediction === 'BIG' ? 'BIGGG' : prediction.prediction
-    const text = `**🎯 ${period4} • ${predDisplay}${tag} • [${digits}]**`
+    const text = `**⚡ ${period4} • QUANTUM SIGNAL: ${predDisplay} • [${digits}]**`
     navigator.clipboard
       .writeText(text)
       .then(() => showToast(`✓ Copied: ${predDisplay} [${digits}]`))
