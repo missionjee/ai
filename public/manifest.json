@@ -1,7 +1,7 @@
 {
-  "name": "HIROTO AI — Quantum Terminal",
+  "name": "HIROTO AI — Signal Terminal",
   "short_name": "HIROTO AI",
-  "description": "High-precision quantum predictive signal intelligence terminal",
+  "description": "High-precision predictive signal intelligence terminal",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

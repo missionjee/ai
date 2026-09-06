@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.jpg', 'bg.jpg'],
       manifest: {
-        name: 'HIROTO AI — Quantum Terminal',
+        name: 'HIROTO AI — Signal Terminal',
         short_name: 'HIROTO AI',
-        description: 'High-precision quantum predictive signal intelligence terminal',
+        description: 'High-precision predictive signal intelligence terminal',
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',

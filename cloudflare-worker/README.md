@@ -1,6 +1,6 @@
 # 24/7 Cloudflare Worker Prediction Engine Setup
 
-This worker runs your **v5.2 Institutional Number-First Quantitative Engine** 24/7 on Cloudflare's edge network, polling the 1M lottery API every minute via a Tri-Proxy resilience layer, calculating continuous latent trajectories and 10-class probability distributions, and publishing the official prediction to Supabase (`global_signals`).
+This worker runs your **GPT 6 ASTRA Quantum Ultra Enterprise Engine** 24/7 on Cloudflare's edge network, polling the 1M lottery API every minute via a Tri-Proxy resilience layer, calculating multi-scale holographic pattern resonance and 10-class probability distributions, and publishing the official prediction to Supabase (`global_signals`).
 
 All client users receive the **exact same signal, lucky numbers, and history**, regardless of device, browser, or time zone.
 
@@ -45,7 +45,7 @@ Once deployed, you can verify your worker in the browser:
   {
     "status": "HEALTHY",
     "platform": "Cloudflare Workers 24/7",
-    "engine": "v5.2 Institutional Number-First Quantitative Engine",
+    "engine": "GPT 6 ASTRA Quantum Ultra Enterprise",
     "historical_rounds_buffered": 548,
     "upstream_lottery_api": "https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json",
     "buffer_target": "2,000-Round FIFO Ring Buffer",

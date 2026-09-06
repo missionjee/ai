@@ -126,7 +126,7 @@ export function LoginPage() {
               HIROTO AI
             </h1>
             <p className="text-[11px] text-[#f5b335] font-extrabold tracking-[0.8px]">
-              QUANTUM SIGNAL GATEWAY
+              ASTRA SIGNAL GATEWAY
             </p>
           </div>
 

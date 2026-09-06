@@ -1302,10 +1302,10 @@ export class PredictionEngine {
 
         // 1A. Cluster Deficit / Surplus Pattern (S5)
         let clusterLogit = 0.0;
-        if (s5 <= 14) clusterLogit = +0.22;
+        if (s5 <= 14) clusterLogit = +0.20;
         else if (s5 <= 19) clusterLogit = +0.11;
-        else if (s5 >= 31) clusterLogit = -0.22;
-        else if (s5 >= 26) clusterLogit = -0.11;
+        else if (s5 >= 31) clusterLogit = -0.26;
+        else if (s5 >= 26) clusterLogit = -0.18;
 
         // 1B. Multi-Scale Holographic Historical Pattern Matching across full Supabase dataset (Scale-5 + Scale-3)
         let wBig5 = 0, wSmall5 = 0, matchCount5 = 0;
@@ -1379,23 +1379,30 @@ export class PredictionEngine {
             patternLogit = (pPat - 0.5) * 0.46;
         }
 
-        // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol + Chop Protection)
+        // 1C. Rhythm Flow Analysis (Calibrated Streak Exhaustion & Dragon Momentum Protocol)
         let rhythmLogit = 0.0;
-        if (curStreak >= 4) {
-            // Dragon Momentum: Follow the persistent trend, eliminate streak-fading trap
-            rhythmLogit = (lastToken === 1 ? +0.32 : -0.32);
+        if (curStreak >= 6) {
+            // Runaway climax dragon momentum
+            rhythmLogit = (lastToken === 1 ? +0.24 : -0.24);
+        } else if (curStreak === 5) {
+            // Empirical 64.3% Streak Exhaustion Reversion
+            rhythmLogit = (lastToken === 1 ? -0.34 : +0.34);
+        } else if (curStreak === 4) {
+            // Empirical 58.2% Streak Exhaustion Reversion
+            rhythmLogit = (lastToken === 1 ? -0.26 : +0.26);
         } else if (curStreak === 3) {
-            // Dragon ride bias: ride momentum
-            rhythmLogit = (lastToken === 1 ? +0.18 : -0.18);
+            // Balanced momentum ride
+            rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
         } else if (curStreak === 2) {
-            // Doublet boundary reversion
-            rhythmLogit = (lastToken === 1 ? -0.22 : +0.22);
+            // Doublet transition
+            rhythmLogit = (lastToken === 1 ? -0.10 : +0.10);
         } else if (curStreak === 1) {
-            if (curAlts >= 4) {
-                // Alternation 1-1 Chop Rhythm
-                rhythmLogit = (lastToken === 1 ? -0.38 : +0.38);
+            if (curAlts >= 5) {
+                // Extended chop continuation
+                rhythmLogit = (lastToken === 1 ? -0.34 : +0.34);
             } else if (curAlts >= 2) {
-                rhythmLogit = (lastToken === 1 ? -0.22 : +0.22);
+                // Doublet formation tendency
+                rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
             }
         }
         if (is22Pair) {
@@ -1479,7 +1486,9 @@ export class PredictionEngine {
         // 2B. Meta-Learner Consensus Integration (MoE + Platt SGD calibration)
         const metaLogit = Math.max(-0.35, Math.min(0.35, (calibratedP - 0.50) * 0.70));
 
-        let fusedLogit = rhythmLogit + meanRevPrior + patternLogit + triadLogit + digitPrior + trajectoryLogit + metaLogit;
+        // Base rate empirical prior: SMALL 51.90% vs BIG 48.10% (log(0.481/0.519) = -0.075)
+        const baseRatePrior = -0.075;
+        let fusedLogit = rhythmLogit + meanRevPrior + patternLogit + triadLogit + digitPrior + trajectoryLogit + metaLogit + baseRatePrior;
 
         // 2C. Anti-Sticky Circuit Breaker (Eliminates the "keeps going for only one thing" lock)
         let predStreak = 0;
@@ -1567,11 +1576,17 @@ export class PredictionEngine {
 
         const patternDesc = is22Pair
             ? "Doublet 2-2 Ping-Pong Cycle"
-            : (curStreak >= 3
-                ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                : (curStreak === 1 && curAlts >= 2
-                    ? `Alternation 1-1 Chop Rhythm (${curAlts} switches)`
-                    : `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`));
+            : (curStreak >= 6
+                ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                : (curStreak === 4 || curStreak === 5
+                    ? `Streak Exhaustion Reversion (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                    : (curStreak === 3
+                        ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                        : (curStreak === 1 && curAlts >= 5
+                            ? `Extended 1-1 Chop Rhythm (${curAlts} switches)`
+                            : (curStreak === 1 && curAlts >= 2
+                                ? `Doublet Formation Chop (${curAlts} switches)`
+                                : `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`)))));
 
         const statusReason = isSniper
             ? `🎯 GPT 6 ASTRA Ultra-Sniper Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`

@@ -102,7 +102,7 @@ export function PredictionHero({
               <span>🎯 ULTRA-SNIPER [{prediction?.recommendedStake || '2U'}]</span>
             )}
             {!isLocked && (!prediction?.isSniper && prediction?.tier !== 'SNIPER') && prediction && (
-              <span>⚡ QUANTUM STANDARD [{prediction?.recommendedStake || '1U'}]</span>
+              <span>⚡ ASTRA STANDARD [{prediction?.recommendedStake || '1U'}]</span>
             )}
             {!isLocked && !prediction && (
               <span>⚡ SYNCING FEED...</span>

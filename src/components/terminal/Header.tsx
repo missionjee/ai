@@ -68,7 +68,7 @@ export function Header({
             </span>
           </div>
           <span className="text-[10px] sm:text-[10.5px] font-extrabold tracking-[1.6px] uppercase bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] bg-clip-text text-transparent leading-tight">
-            AI TERMINAL • QUANTUM EDITION
+            AI SIGNAL TERMINAL • ASTRA PRO v6.0
           </span>
         </div>
       </div>
