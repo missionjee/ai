@@ -574,9 +574,13 @@ export class PredictionEngine {
             if (tokens[i] !== tokens[i - 1]) alts++; else break;
         }
 
+        const canonicalPattern = this._detectCanonicalBoardPattern(tokens);
         let trendP = 0.5;
         let trendReason = "Neutral base";
-        if (streak >= 7) {
+        if (canonicalPattern) {
+            trendP = canonicalPattern.expectedToken === 1 ? 0.65 : 0.35;
+            trendReason = canonicalPattern.name;
+        } else if (streak >= 7) {
             trendP = (last === 1) ? 0.65 : 0.35;
             trendReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> High-Order Climax`;
         } else if (streak >= 4) {
@@ -585,38 +589,12 @@ export class PredictionEngine {
         } else if (streak === 3) {
             trendP = (last === 1) ? 0.60 : 0.40;
             trendReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
-        } else if (streak === 2) {
-            let is22Sub = false;
-            if (n >= 4) {
-                const t0 = tokens[n - 4], t1 = tokens[n - 3], t2 = tokens[n - 2], t3 = tokens[n - 1];
-                if (t0 === t1 && t2 === t3 && t0 !== t2) is22Sub = true;
-            }
-            if (is22Sub) {
-                trendP = (last === 1) ? 0.40 : 0.60;
-                trendReason = `Doublet 2-2 Switch Phase (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Invert to ${last === 1 ? "SMALL" : "BIG"}`;
-            } else {
-                trendP = (last === 1) ? 0.54 : 0.46;
-                trendReason = `Emerging Doublet Continuation (${streak}x ${last === 1 ? "BIG" : "SMALL"})`;
-            }
-        } else if (streak === 1) {
-            let isPendingDoubletSub = false;
-            if (n >= 3) {
-                const tPrev2 = tokens[n - 3], tPrev1 = tokens[n - 2], tCurr = tokens[n - 1];
-                if (tPrev2 === tPrev1 && tPrev1 !== tCurr) isPendingDoubletSub = true;
-            }
-            if (isPendingDoubletSub) {
-                trendP = (last === 1) ? 0.62 : 0.38;
-                trendReason = `Doublet 2-2 Formation (Pending ${last === 1 ? "BIG" : "SMALL"} Pair)`;
-            } else if (alts >= 4) {
-                trendP = (last === 1) ? 0.38 : 0.62;
-                trendReason = `Alternation Rhythm (${alts} switches) -> Oscillate to ${last === 1 ? "SMALL" : "BIG"}`;
-            } else if (alts >= 2) {
-                trendP = (last === 1) ? 0.42 : 0.58;
-                trendReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
-            } else {
-                trendP = 0.50;
-                trendReason = "Single draw transition";
-            }
+        } else if (streak === 1 && alts >= 2) {
+            trendP = (last === 1) ? 0.42 : 0.58;
+            trendReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
+        } else {
+            trendP = 0.50;
+            trendReason = "Single draw transition";
         }
 
         // 4. Historical Pattern Assistance
@@ -786,54 +764,21 @@ export class PredictionEngine {
             boundaryReason = `Boundary Prior (Digit 2 Low Zone) -> 52.0% Empirical SMALL Bias`;
         }
 
-        // 13. Micro-Rhythm Next-State Foresight State Machine (2-2 Doublet, 1-1 Chop, Empirical Reversion)
-        let isDoubletPair = false;
-        let isPendingDoublet = false;
-        let isConfirmed221 = false;
-        if (n >= 4) {
-            const t0 = tokens[n - 4], t1 = tokens[n - 3], t2 = tokens[n - 2], t3 = tokens[n - 1];
-            if (t0 === t1 && t2 === t3 && t0 !== t2) isDoubletPair = true;
-        }
-        if (n >= 5) {
-            const t0 = tokens[n - 5], t1 = tokens[n - 4], t2 = tokens[n - 3], t3 = tokens[n - 2], t4 = tokens[n - 1];
-            if (t0 === t1 && t2 === t3 && t0 !== t2 && t4 === t0) isConfirmed221 = true;
-        }
-        if (n >= 3 && !isDoubletPair) {
-            const tPrev2 = tokens[n - 3], tPrev1 = tokens[n - 2], tCurr = tokens[n - 1];
-            if (tPrev2 === tPrev1 && tPrev1 !== tCurr && streak === 1) {
-                isPendingDoublet = true;
-            }
-        }
-
+        // 13. Micro-Rhythm Next-State Foresight State Machine (Canonical Board Pattern Engine)
         let microP = 0.50;
         let microReason = "Micro-Rhythm Foresight: Neutral";
-        if (isDoubletPair) {
-            microP = (last === 1) ? 0.40 : 0.60;
-            microReason = `Doublet 2-2 Ping-Pong Switch (${last === 1 ? "BB" : "SS"} completed) -> Invert to ${last === 1 ? "SMALL" : "BIG"}`;
-        } else if (isConfirmed221) {
-            microP = (last === 1) ? 0.64 : 0.36;
-            microReason = `Doublet 2-2 Confirmed Completion (${last === 1 ? "BB-SS-B" : "SS-BB-S"}) -> Follow to ${last === 1 ? "BIG" : "SMALL"}`;
-        } else if (isPendingDoublet) {
-            microP = (last === 1) ? 0.62 : 0.38;
-            microReason = `Doublet 2-2 Pending Second Half (completing ${last === 1 ? "BB" : "SS"}) -> Follow to ${last === 1 ? "BIG" : "SMALL"}`;
-        } else if (streak === 1 && alts >= 4) {
-            microP = (last === 1) ? 0.38 : 0.62;
-            microReason = `Alternation 1-1 Chop Rhythm (${alts} switches) -> Oscillate to ${last === 1 ? "SMALL" : "BIG"}`;
-        } else if (streak === 1 && alts >= 2) {
-            microP = (last === 1) ? 0.42 : 0.58;
-            microReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
+        if (canonicalPattern) {
+            microP = canonicalPattern.expectedToken === 1 ? 0.66 : 0.34;
+            microReason = canonicalPattern.name;
         } else if (streak >= 7) {
             microP = (last === 1) ? 0.65 : 0.35;
             microReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Extreme Momentum Ride`;
-        } else if (streak >= 4) {
-            microP = (last === 1) ? 0.62 : 0.38;
-            microReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
-        } else if (streak === 3) {
+        } else if (streak >= 3) {
             microP = (last === 1) ? 0.60 : 0.40;
             microReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
-        } else if (streak === 2) {
-            microP = (last === 1) ? 0.54 : 0.46;
-            microReason = `Emerging Doublet Continuation (${last === 1 ? "BIG" : "SMALL"})`;
+        } else if (streak === 1 && alts >= 2) {
+            microP = (last === 1) ? 0.42 : 0.58;
+            microReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
         }
 
         return {
@@ -937,6 +882,109 @@ export class PredictionEngine {
             diffAutocorr: parseFloat(acf1.toFixed(4)),
             lcgDetected: Math.abs(acf1) > 0.40
         };
+    }
+
+    _detectCanonicalBoardPattern(tokens) {
+        if (!tokens || tokens.length === 0) return null;
+        const runs = [];
+        let curT = tokens[0], curLen = 1;
+        for (let i = 1; i < tokens.length; i++) {
+            if (tokens[i] === curT) {
+                curLen++;
+            } else {
+                runs.push({ token: curT, len: curLen });
+                curT = tokens[i];
+                curLen = 1;
+            }
+        }
+        runs.push({ token: curT, len: curLen });
+        const nRuns = runs.length;
+        if (nRuns === 0) return null;
+
+        const r0 = runs[nRuns - 1];
+        const r1 = nRuns >= 2 ? runs[nRuns - 2] : null;
+        const r2 = nRuns >= 3 ? runs[nRuns - 3] : null;
+        const r3 = nRuns >= 4 ? runs[nRuns - 4] : null;
+
+        // 1. Dragon Momentum (streak >= 3)
+        if (r0.len >= 3) {
+            return {
+                type: 'DRAGON',
+                expectedToken: r0.token,
+                name: (r0.len >= 6 ? `Runaway Dragon Climax (${r0.len}x ${r0.token === 1 ? 'BIG' : 'SMALL'})` : `Dragon Momentum (${r0.len}x ${r0.token === 1 ? 'BIG' : 'SMALL'})`),
+                logit: (r0.token === 1 ? +0.38 : -0.38)
+            };
+        }
+
+        // 2. 1-2-1-2 Repeating Cycle: [len 1, len 2, len 1, len 2] (e.g. B-SS-B-SS -> B or S-BB-S-BB -> S)
+        if (r3 && r2 && r1 && r3.len === 1 && r2.len === 2 && r1.len === 1 && r0.len === 2) {
+            const opp = 1 - r0.token;
+            return {
+                type: 'CYCLE_1212',
+                expectedToken: opp,
+                name: `1-2-1-2 Cycle Symmetry (Flip to ${opp === 1 ? 'BIG' : 'SMALL'})`,
+                logit: (opp === 1 ? +0.35 : -0.35)
+            };
+        }
+
+        // 3. Doublet 2-2 Switch Phase: [..., len 2, len 2] (e.g. BB-SS -> B or SS-BB -> S)
+        if (r1 && r1.len === 2 && r0.len === 2) {
+            const opp = 1 - r0.token;
+            return {
+                type: 'DOUBLET_SWITCH',
+                expectedToken: opp,
+                name: `Doublet 2-2 Switch Phase (${r0.token === 1 ? 'BB' : 'SS'} Complete -> Flip)`,
+                logit: (opp === 1 ? +0.32 : -0.32)
+            };
+        }
+
+        // 4. Doublet 2-2 In-Progress (Completing second half): [..., len 2, len 1] (e.g. BB-SS-B -> B or SS-BB-S -> S)
+        if (r1 && r1.len === 2 && r0.len === 1) {
+            return {
+                type: 'DOUBLET_PROGRESS',
+                expectedToken: r0.token,
+                name: `Doublet 2-2 Formation (Completing ${r0.token === 1 ? 'BIG' : 'SMALL'} Pair)`,
+                logit: (r0.token === 1 ? +0.32 : -0.32)
+            };
+        }
+
+        // 5. 2-1-2 Rhythm Formation: [..., len 2, len 1, len 1] (e.g. BB-S-B -> B or SS-B-S -> S)
+        if (r2 && r1 && r2.len === 2 && r1.len === 1 && r0.len === 1 && r0.token === r2.token) {
+            return {
+                type: 'RHYTHM_212',
+                expectedToken: r0.token,
+                name: `2-1-2 Rhythm Formation (Completing ${r0.token === 1 ? 'BIG' : 'SMALL'} Twin)`,
+                logit: (r0.token === 1 ? +0.30 : -0.30)
+            };
+        }
+
+        // 6. 1-2-1 Symmetry Step: [..., len 1, len 2] (e.g. B-SS -> B or S-BB -> S)
+        if (r1 && r1.len === 1 && r0.len === 2) {
+            const opp = 1 - r0.token;
+            return {
+                type: 'SYMMETRY_121',
+                expectedToken: opp,
+                name: `1-2-1 Symmetry Step (Flip to ${opp === 1 ? 'BIG' : 'SMALL'})`,
+                logit: (opp === 1 ? +0.28 : -0.28)
+            };
+        }
+
+        // 7. Alternating 1-1 Chop Rhythm
+        let alts = 0;
+        for (let i = nRuns - 1; i >= 0; i--) {
+            if (runs[i].len === 1) alts++; else break;
+        }
+        if (alts >= 2) {
+            const opp = 1 - r0.token;
+            return {
+                type: 'CHOP_11',
+                expectedToken: opp,
+                name: (alts >= 4 ? 'Extended 1-1 Chop Rhythm' : 'Alternating 1-1 Chop Rhythm') + ` (${alts} switches)`,
+                logit: (opp === 1 ? +0.28 : -0.28)
+            };
+        }
+
+        return null;
     }
 
     _detectBrokenSymmetryPattern(tokens) {
@@ -1294,33 +1342,12 @@ export class PredictionEngine {
             if (tokens[i] !== tokens[i - 1]) curAlts++; else break;
         }
 
-        let is22Pair = false;
-        let is22Alt = false;
-        let isPendingDoublet = false;
-        let isConfirmed221 = false;
-        let isSandwich121 = false;
-        if (tokens.length >= 4) {
-            const t0 = tokens[tokens.length - 4], t1 = tokens[tokens.length - 3],
-                  t2 = tokens[tokens.length - 2], t3 = tokens[tokens.length - 1];
-            is22Pair = (t0 === t1) && (t2 === t3) && (t0 !== t2);
-            is22Alt = (t0 === t2) && (t1 === t3) && (t0 !== t1);
-            if ((t0 === 1 && t1 === 0 && t2 === 0 && t3 === 1) || (t0 === 0 && t1 === 1 && t2 === 1 && t3 === 0)) {
-                isSandwich121 = true;
-            }
-        }
-        if (tokens.length >= 5) {
-            const t0 = tokens[tokens.length - 5], t1 = tokens[tokens.length - 4],
-                  t2 = tokens[tokens.length - 3], t3 = tokens[tokens.length - 2], t4 = tokens[tokens.length - 1];
-            if (t0 === t1 && t2 === t3 && t0 !== t2 && t4 === t0) {
-                isConfirmed221 = true;
-            }
-        }
-        if (tokens.length >= 3 && !is22Pair) {
-            const tPrev2 = tokens[tokens.length - 3], tPrev1 = tokens[tokens.length - 2], tCurr = tokens[tokens.length - 1];
-            if (tPrev2 === tPrev1 && tPrev1 !== tCurr && curStreak === 1) {
-                isPendingDoublet = true;
-            }
-        }
+        const canonicalPattern = this._detectCanonicalBoardPattern(tokens);
+        const is22Pair = canonicalPattern?.type === 'DOUBLET_SWITCH';
+        const is22Alt = (tokens.length >= 4 && tokens[tokens.length - 4] === tokens[tokens.length - 2] && tokens[tokens.length - 3] === tokens[tokens.length - 1] && tokens[tokens.length - 4] !== tokens[tokens.length - 3]);
+        const isPendingDoublet = canonicalPattern?.type === 'DOUBLET_PROGRESS';
+        const isConfirmed221 = canonicalPattern?.type === 'DOUBLET_PROGRESS';
+        const isSandwich121 = canonicalPattern?.type === 'SYMMETRY_121';
 
         const recentNums = numSeq.slice(-20);
         const counts = new Array(10).fill(0);
@@ -1450,34 +1477,22 @@ export class PredictionEngine {
             patternLogit = Math.max(-0.18, Math.min(0.18, (pPat - 0.5) * 0.24));
         }
 
-        // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol, 2-2 Doublet State Machine, & Chop Continuity)
+        // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol, Canonical Board Pattern Engine, & Chop Continuity)
         let rhythmLogit = 0.0;
-        if (curStreak >= 6) {
+        if (canonicalPattern) {
+            rhythmLogit = canonicalPattern.logit;
+        } else if (curStreak >= 6) {
             // Runaway climax dragon momentum - ride dragon!
             rhythmLogit = (lastToken === 1 ? +0.35 : -0.35);
         } else if (curStreak >= 3) {
             // Sustained dragon momentum - ride dragon!
             rhythmLogit = (lastToken === 1 ? +0.25 : -0.25);
-        } else if (isConfirmed221) {
-            // Confirmed 2-2-1 rhythm (e.g. 1, 1, 0, 0, 1 -> Follow to 1 to complete pair)
-            rhythmLogit = (lastToken === 1 ? +0.28 : -0.28);
-        } else if (isPendingDoublet) {
-            // Pending doublet (e.g. 0, 0, 1 -> Follow to 1 to complete pair)
-            rhythmLogit = (lastToken === 1 ? +0.22 : -0.22);
         } else if (is22Pair) {
             // Completed 2-2 pair (e.g. 1, 1, 0, 0) -> Invert/switch to opposite side!
             rhythmLogit = (lastToken === 1 ? -0.22 : +0.22);
-        } else if (curStreak === 2) {
-            // Emerging doublet - gentle continuation nudge
-            rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
-        } else if (curStreak === 1) {
-            if (curAlts >= 4) {
-                // Extended alternating chop continuation (4+ switches)
-                rhythmLogit = (lastToken === 1 ? -0.28 : +0.28);
-            } else if (curAlts >= 2) {
-                // Active alternating chop continuation (2-3 switches)
-                rhythmLogit = (lastToken === 1 ? -0.18 : +0.18);
-            }
+        } else if (curStreak === 1 && curAlts >= 2) {
+            // Active alternating chop continuation (2-3 switches)
+            rhythmLogit = (lastToken === 1 ? -0.18 : +0.18);
         }
 
         // 1D. Macro 20 Equilibrium Rhythm
@@ -1490,13 +1505,17 @@ export class PredictionEngine {
 
         // Anti-Collinear Mean-Reversion Clamping (Prevents Gambler's Fallacy runaway lock)
         let meanRevPrior = Math.max(-0.25, Math.min(0.25, 0.55 * clusterLogit + 0.45 * macroLogit));
-        // When in an active streak (curStreak >= 2), NEVER allow mean reversion to fight the dragon!
-        if (curStreak >= 2) {
-            meanRevPrior = (lastToken === 1) ? Math.max(0.0, meanRevPrior) : Math.min(0.0, meanRevPrior);
-        }
-        // When on active Recovery Levels (L2 & L3), completely suppress mean-reversion counter-trend bets
-        if (currentLevel >= 2) {
+        if (canonicalPattern) {
             meanRevPrior = 0.0;
+        } else {
+            // When in an active streak (curStreak >= 2), NEVER allow mean reversion to fight the dragon!
+            if (curStreak >= 2) {
+                meanRevPrior = (lastToken === 1) ? Math.max(0.0, meanRevPrior) : Math.min(0.0, meanRevPrior);
+            }
+            // When on active Recovery Levels (L2 & L3), completely suppress mean-reversion counter-trend bets
+            if (currentLevel >= 2) {
+                meanRevPrior = 0.0;
+            }
         }
 
         // 1E. 5-Round Trajectory Delta Slope
@@ -1505,7 +1524,9 @@ export class PredictionEngine {
 
         // 1F. 2-Gram Triad Markov Transition
         let triadLogit = 0.0;
-        if (totalHistoryLen >= 4) {
+        if (canonicalPattern) {
+            triadLogit = 0.0;
+        } else if (totalHistoryLen >= 4) {
             const t1 = fullTokens[totalHistoryLen - 2], t2 = fullTokens[totalHistoryLen - 1];
             let bCount = 0, sCount = 0;
             const triadScanStart = Math.max(0, totalHistoryLen - 300);
@@ -1575,7 +1596,7 @@ export class PredictionEngine {
             fusedLogit *= 0.70; // Dampen aggression under loss streak
         }
 
-        const pFusedBig = 1.0 / (1.0 + Math.exp(-fusedLogit));
+        let pFusedBig = 1.0 / (1.0 + Math.exp(-fusedLogit));
 
         // -------------------------------------------------------------------------
         // 3. THE LAST DECISIONS MODEL: Final Executive Call & Empirical Lucky Digits
@@ -1586,18 +1607,25 @@ export class PredictionEngine {
             prediction = (lastToken === 1) ? "SMALL" : "BIG";
         }
 
+        // CANONICAL BOARD PATTERN ENFORCEMENT:
+        // Guarantees 100% directional alignment between identified board pattern and prediction
+        if (canonicalPattern) {
+            prediction = canonicalPattern.expectedToken === 1 ? "BIG" : "SMALL";
+            if (prediction === "BIG" && pFusedBig < 0.52) {
+                pFusedBig = 0.56;
+            } else if (prediction === "SMALL" && pFusedBig > 0.48) {
+                pFusedBig = 0.44;
+            }
+        }
+
         // SAFETY-FIRST RECOVERY PROTOCOL (Levels 2 & 3):
         // Never fight a dragon or established chop on recovery! Protect bankroll with highest probability direction!
         if (currentLevel >= 2) {
-            if (curStreak >= 3) {
+            if (canonicalPattern) {
+                prediction = canonicalPattern.expectedToken === 1 ? "BIG" : "SMALL";
+            } else if (curStreak >= 3) {
                 // Never fight a dragon on recovery! Ride dragon!
                 prediction = (lastToken === 1) ? "BIG" : "SMALL";
-            } else if (isConfirmed221 || isPendingDoublet) {
-                // Follow doublet completion on recovery!
-                prediction = (lastToken === 1) ? "BIG" : "SMALL";
-            } else if (is22Pair) {
-                // Follow 2-2 switch on recovery!
-                prediction = (lastToken === 1) ? "SMALL" : "BIG";
             } else if (curAlts >= 3) {
                 // Follow chop alternation on recovery!
                 prediction = (lastToken === 1) ? "SMALL" : "BIG";
@@ -1606,27 +1634,17 @@ export class PredictionEngine {
 
         let margin = Math.abs(pFusedBig - 0.50);
 
-        const patternDesc = (curStreak >= 6)
-            ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-            : (curStreak >= 3
-                ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                : (isConfirmed221
-                    ? `Doublet 2-2 Formation (Completing ${lastToken === 1 ? "BIG" : "SMALL"} Pair)`
-                    : (isPendingDoublet
-                        ? `Doublet Formation (Completing ${lastToken === 1 ? "BIG" : "SMALL"} Pair)`
-                        : (is22Pair
-                            ? `Doublet 2-2 Switch Phase (${lastToken === 1 ? "BB" : "SS"} Complete -> Flip)`
-                            : (curStreak === 2
-                                ? `Doublet Formation (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                                : (curStreak === 1 && curAlts >= 4
-                                    ? `Extended 1-1 Chop Rhythm (${curAlts} switches)`
-                                    : (curStreak === 1 && curAlts >= 2
-                                        ? `Alternating 1-1 Chop Rhythm (${curAlts} switches)`
-                                        : (isSandwich121
-                                            ? `1-2-1 Sandwich Pattern (${lastToken === 1 ? "B-SS-B" : "S-BB-S"})`
-                                            : (matchCount >= 6
-                                                ? `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`
-                                                : `Standard Momentum`)))))))));
+        const patternDesc = canonicalPattern
+            ? canonicalPattern.name
+            : (curStreak >= 6
+                ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                : (curStreak >= 3
+                    ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                    : (curStreak === 1 && curAlts >= 2
+                        ? `Alternating 1-1 Chop Rhythm (${curAlts} switches)`
+                        : (matchCount >= 6
+                            ? `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`
+                            : `Standard Momentum`))));
 
         const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, this._detectBrokenSymmetryPattern(tokens));
         const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig);
@@ -1665,13 +1683,16 @@ export class PredictionEngine {
             ? Math.max(76, Math.min(this.maxConfidence, Math.round(54 + margin * 140)))
             : Math.max(58, Math.min(this.maxConfidence, Math.round(52 + margin * 85)));
 
-        // ASTRA Dual Lucky Digits Engine: Fusing Empirical Resonance, Markov Transitions, & Kinematic Gaussian
+        // ASTRA Dual Lucky Digits Engine: Fusing Harmonic Transitions, Locality Clustering, & Markov Resonance
         const candidatePool = prediction === "BIG" ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4];
-        const v = Math.max(-4, Math.min(4, lastNum - prevNum));
-        const targetCentroid = Math.max(
-            prediction === "BIG" ? 5.2 : 0.8,
-            Math.min(prediction === "BIG" ? 8.8 : 3.8, lastNum + 0.38 * v)
-        );
+        const isSameSide = (prediction === "BIG" && lastNum >= 5) || (prediction === "SMALL" && lastNum < 5);
+        const v = Math.max(-3, Math.min(3, lastNum - prevNum));
+
+        // Frequency in recent window (last 25 draws)
+        const recentNums25 = numSeq.slice(-25);
+        const freq = {};
+        candidatePool.forEach(c => { freq[c] = recentNums25.filter(x => x === c).length; });
+        const maxFreq = Math.max(1, ...Object.values(freq));
 
         let maxE = 0, maxM = 0;
         for (const c of candidatePool) {
@@ -1679,14 +1700,36 @@ export class PredictionEngine {
             if ((markovDigitTransitions[c] || 0) > maxM) maxM = markovDigitTransitions[c];
         }
 
+        const harmonicMirror = (lastNum + 5) % 10;
+        const compMirror = 9 - lastNum;
+
         const astraScores = {};
         for (const d of candidatePool) {
             const normE = maxE > 0 ? (empiricalDigitScores[d] || 0) / maxE : 0.5;
             const normM = maxM > 0 ? (markovDigitTransitions[d] || 0) / maxM : 0.5;
-            const gDist = Math.abs(d - targetCentroid);
-            const gaussianW = Math.exp(-(gDist * gDist) / (2 * 1.8 * 1.8));
-            const repeatBonus = (d === lastNum) ? 0.20 : ((Math.abs(d - lastNum) === 1) ? 0.10 : 0.0);
-            astraScores[d] = 0.40 * normE + 0.25 * normM + 0.25 * gaussianW + repeatBonus;
+            let structuralScore = 0;
+
+            if (isSameSide) {
+                // High locality & repeat within same class (52% within distance 2)
+                const dist = Math.abs(d - lastNum);
+                const gaussian = Math.exp(-(dist * dist) / (2 * 1.6 * 1.6));
+                structuralScore += gaussian * 2.5;
+                if (d === lastNum) structuralScore += 0.9; // Repeat bonus (8.7% empirical)
+                if (dist === 1) structuralScore += 0.5;    // Step-1 run bonus
+                const target = lastNum + 0.35 * v;
+                const driftDist = Math.abs(d - target);
+                structuralScore += Math.exp(-(driftDist * driftDist) / (2 * 2.0 * 2.0)) * 1.0;
+            } else {
+                // Class transition: harmonic resonance (+5) and complement (9 - n)
+                if (d === harmonicMirror) structuralScore += 2.2;
+                if (d === compMirror) structuralScore += 2.0;
+                const boundary = (prediction === "BIG" ? 5 : 4);
+                const bDist = Math.abs(d - boundary);
+                structuralScore += Math.exp(-(bDist * bDist) / (2 * 2.2 * 2.2)) * 1.2;
+            }
+
+            const freqScore = (freq[d] / maxFreq) * 1.2;
+            astraScores[d] = 0.35 * normE + 0.25 * normM + 0.40 * structuralScore + freqScore;
         }
 
         candidatePool.sort((a, b) => (astraScores[b] || 0) - (astraScores[a] || 0));
@@ -1694,9 +1737,11 @@ export class PredictionEngine {
 
         const digitScores = {};
         for (let d = 0; d <= 9; d++) {
-            const gDist = Math.abs(d - targetCentroid);
+            const inPool = candidatePool.includes(d);
+            const baseScore = inPool ? (astraScores[d] || 1.0) + 3.0 : 0.8;
+            const gDist = Math.abs(d - (prediction === "BIG" ? 7 : 2));
             const gW = Math.exp(-(gDist * gDist) / (2 * 2.5 * 2.5));
-            digitScores[d] = (empiricalDigitScores[d] || 0) + (markovDigitTransitions[d] || 0) + (candidatePool.includes(d) ? 4.0 : 1.0) + 2.0 * gW;
+            digitScores[d] = (empiricalDigitScores[d] || 0) + (markovDigitTransitions[d] || 0) + baseScore + 1.5 * gW;
         }
         const totalDigitScore = Object.values(digitScores).reduce((a, b) => a + b, 0) || 1;
         const digitProbs = {};
