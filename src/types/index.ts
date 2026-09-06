@@ -5,7 +5,7 @@
 // Prediction Signal Types
 export type SignalType = 'BIG' | 'SMALL' | 'HOLD'
 export type StatusType = 'CLEARED' | 'HOLD' | 'SNIPER' | 'STANDARD' | 'SCOUT'
-export type SignalTier = 'SNIPER' | 'STANDARD' | 'SCOUT' | 'HOLD' | 'RECOVERY-L2' | 'MAX-COVER-L3' | 'RESET-L1'
+export type SignalTier = 'SNIPER' | 'STANDARD' | 'SCOUT' | 'HOLD' | 'PASS' | 'RECOVERY-L2' | 'MAX-COVER-L3' | 'RESET-L1'
 export type OutcomeType = 'WIN' | 'LOSS' | 'PENDING'
 export type FilterType = 'ALL' | 'WINS' | 'LOSSES'
 export type RegimeName = 'trending' | 'mean-reverting' | 'mixed' | 'synchronizing'

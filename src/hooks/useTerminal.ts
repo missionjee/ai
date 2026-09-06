@@ -226,8 +226,8 @@ export function useTerminal() {
 
               const cloudIsSniper = s.is_sniper !== undefined ? !!s.is_sniper : (s.tier === 'SNIPER' || !!existing?.isSniper || !!existing?.is_sniper)
               const cloudRecoveryLevel = s.recovery_level || (s as any).recoveryLevel || existing?.recovery_level || existing?.recoveryLevel || 1
-              const cloudTier = s.tier || existing?.tier || (cloudRecoveryLevel === 3 ? 'MAX-COVER-L3' : (cloudRecoveryLevel === 2 ? 'RECOVERY-L2' : (cloudIsSniper ? 'SNIPER' : 'STANDARD')))
-              const cloudStake = s.stake_units || existing?.stake_units || existing?.recommendedStake || (cloudTier === 'MAX-COVER-L3' ? '4U' : ((cloudTier === 'RECOVERY-L2' || cloudIsSniper) ? '2U' : '1U'))
+              const cloudTier = s.tier || existing?.tier || (s.stake_units === '0U' ? 'PASS' : (cloudRecoveryLevel === 3 ? 'MAX-COVER-L3' : (cloudRecoveryLevel === 2 ? 'RECOVERY-L2' : (cloudIsSniper ? 'SNIPER' : 'STANDARD'))))
+              const cloudStake = s.stake_units || existing?.stake_units || existing?.recommendedStake || (cloudTier === 'PASS' ? '0U' : (cloudTier === 'MAX-COVER-L3' ? '4U' : ((cloudTier === 'RECOVERY-L2' || cloudIsSniper) ? '2U' : '1U')))
 
               historyMap.set(k, {
                 issue_number: k,
@@ -383,10 +383,10 @@ export function useTerminal() {
           const centralDigits = ensureLuckyDigits(currentTargetEntry.lucky_digits, currentTargetEntry.predicted_type)
           const isSniper = !!(currentTargetEntry.isSniper ?? currentTargetEntry.is_sniper ?? (currentTargetEntry.tier === 'SNIPER'))
           const recoveryLevel = currentTargetEntry.recovery_level || currentTargetEntry.recoveryLevel || 1
-          const tier: SignalTier = (currentTargetEntry.tier as SignalTier) || (recoveryLevel === 3 ? 'MAX-COVER-L3' : (recoveryLevel === 2 ? 'RECOVERY-L2' : (isSniper ? 'SNIPER' : 'STANDARD')))
-          const recommendedStake = currentTargetEntry.recommendedStake || currentTargetEntry.stake_units || (tier === 'MAX-COVER-L3' ? '4U' : ((tier === 'RECOVERY-L2' || isSniper) ? '2U' : '1U'))
-          const strategy = currentTargetEntry.strategy || (tier === 'MAX-COVER-L3' ? 'Active Level 3 Recovery' : (tier === 'RECOVERY-L2' ? 'Active Level 2 Recovery' : (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker')))
-          const statusReason = currentTargetEntry.reason || (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [${recommendedStake} Stake]` : (tier === 'MAX-COVER-L3' ? `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover` : (tier === 'RECOVERY-L2' ? `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U recovery cover` : `⚡ GPT 6 ASTRA Standard Signal [${recommendedStake} Stake]`)))
+          const tier: SignalTier = (currentTargetEntry.tier as SignalTier) || (currentTargetEntry.stake_units === '0U' || currentTargetEntry.recommendedStake === '0U' ? 'PASS' : (recoveryLevel === 3 ? 'MAX-COVER-L3' : (recoveryLevel === 2 ? 'RECOVERY-L2' : (isSniper ? 'SNIPER' : 'STANDARD'))))
+          const recommendedStake = currentTargetEntry.recommendedStake || currentTargetEntry.stake_units || (tier === 'PASS' ? '0U' : (tier === 'MAX-COVER-L3' ? '4U' : ((tier === 'RECOVERY-L2' || isSniper) ? '2U' : '1U')))
+          const strategy = currentTargetEntry.strategy || (tier === 'PASS' ? '0U [PASS] Filter Gate' : (tier === 'MAX-COVER-L3' ? 'Active Level 3 Recovery' : (tier === 'RECOVERY-L2' ? 'Active Level 2 Recovery' : (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker'))))
+          const statusReason = currentTargetEntry.reason || (tier === 'PASS' ? `⏸️ GPT 6 ASTRA [PASS - 0U]: Low conviction, holding bankroll` : (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [${recommendedStake} Stake]` : (tier === 'MAX-COVER-L3' ? `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover` : (tier === 'RECOVERY-L2' ? `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U recovery cover` : `⚡ GPT 6 ASTRA Standard Signal [${recommendedStake} Stake]`))))
 
           prediction = {
             prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
@@ -518,10 +518,10 @@ export function useTerminal() {
                   // Single-period stabilization: once sniper or 2U stake is detected for this period, NEVER downgrade it
                   const isSniper = cloudIsSniper || prev.prediction?.isSniper || targetPeriodPredictionRef.current?.prediction.isSniper || false
                   const recoveryLevel = cloudRecovery || prev.prediction?.recoveryLevel || 1
-                  const tier: SignalTier = (cloudTier || prev.prediction?.tier || (isSniper ? 'SNIPER' : 'STANDARD')) as SignalTier
-                  const recommendedStake = cloudStake || prev.prediction?.recommendedStake || (tier === 'MAX-COVER-L3' ? '4U' : ((tier === 'RECOVERY-L2' || isSniper) ? '2U' : '1U'))
-                  const strategy = s.strategy || s.strategy_used || prev.prediction?.strategy || (tier === 'MAX-COVER-L3' ? 'Active Level 3 Recovery' : (tier === 'RECOVERY-L2' ? 'Active Level 2 Recovery' : (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker')))
-                  const statusReason = s.statusReason || s.reason || prev.prediction?.statusReason || (tier === 'MAX-COVER-L3' ? `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover` : (tier === 'RECOVERY-L2' ? `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U recovery cover` : (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [2U Stake]` : `⚡ GPT 6 ASTRA Standard Signal [1U Stake]`)))
+                  const tier: SignalTier = (cloudTier || prev.prediction?.tier || (cloudStake === '0U' ? 'PASS' : (isSniper ? 'SNIPER' : 'STANDARD'))) as SignalTier
+                  const recommendedStake = cloudStake || prev.prediction?.recommendedStake || (tier === 'PASS' ? '0U' : (tier === 'MAX-COVER-L3' ? '4U' : ((tier === 'RECOVERY-L2' || isSniper) ? '2U' : '1U')))
+                  const strategy = s.strategy || s.strategy_used || prev.prediction?.strategy || (tier === 'PASS' ? '0U [PASS] Filter Gate' : (tier === 'MAX-COVER-L3' ? 'Active Level 3 Recovery' : (tier === 'RECOVERY-L2' ? 'Active Level 2 Recovery' : (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker'))))
+                  const statusReason = s.statusReason || s.reason || prev.prediction?.statusReason || (tier === 'PASS' ? `⏸️ GPT 6 ASTRA [PASS - 0U]: Low conviction, holding bankroll` : (tier === 'MAX-COVER-L3' ? `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover` : (tier === 'RECOVERY-L2' ? `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U recovery cover` : (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [2U Stake]` : `⚡ GPT 6 ASTRA Standard Signal [1U Stake]`))))
 
                   const updatedPred: PredictionResult = {
                     prediction: cloudPred,

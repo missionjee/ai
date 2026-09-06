@@ -222,8 +222,8 @@ describe('PredictionEngine Core Submodels & Statistics', () => {
         const holdHistory = createHistory([0, 9, 1, 8, 2, 7, 3, 6, 4, 5, 0, 9, 1, 8]);
         const resHold = engine.predict(holdHistory);
         assert.equal(resHold.status, 'CLEARED');
-        assert.ok(['SNIPER', 'STANDARD'].includes(resHold.tier));
-        assert.ok(['2U', '1U'].includes(resHold.recommendedStake));
+        assert.ok(['SNIPER', 'STANDARD', 'PASS'].includes(resHold.tier));
+        assert.ok(['2U', '1U', '0U'].includes(resHold.recommendedStake));
         assert.ok(resHold.prediction === 'BIG' || resHold.prediction === 'SMALL');
     });
 

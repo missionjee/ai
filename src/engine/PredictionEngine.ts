@@ -794,13 +794,9 @@ export class PredictionEngine {
       if (tokens[i] !== tokens[i - 1]) alts++; else break
     }
 
-    const canonicalPattern = this._detectCanonicalBoardPattern(tokens)
     let trendP = 0.5
     let trendReason = "Neutral base"
-    if (canonicalPattern) {
-      trendP = canonicalPattern.expectedToken === 1 ? 0.65 : 0.35
-      trendReason = canonicalPattern.name
-    } else if (streak >= 7) {
+    if (streak >= 7) {
       trendP = (last === 1) ? 0.65 : 0.35
       trendReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> High-Order Climax`
     } else if (streak >= 4) {
@@ -985,21 +981,40 @@ export class PredictionEngine {
       boundaryReason = `Boundary Prior (Digit 2 Low Zone) -> 52.0% Empirical SMALL Bias`
     }
 
-    // 13. Micro-Rhythm Next-State Foresight State Machine (Canonical Board Pattern Engine)
+    // 13. Micro-Rhythm Next-State Foresight State Machine
+    let isDoubletPair = false
+    let isPendingDoublet = false
+    if (n >= 4) {
+      const t0 = tokens[n - 4], t1 = tokens[n - 3], t2 = tokens[n - 2], t3 = tokens[n - 1]
+      if (t0 === t1 && t2 === t3 && t0 !== t2) isDoubletPair = true
+    }
+    if (n >= 3 && !isDoubletPair) {
+      const tPrev2 = tokens[n - 3], tPrev1 = tokens[n - 2], tCurr = tokens[n - 1]
+      if (tPrev2 === tPrev1 && tPrev1 !== tCurr && streak === 1) {
+        isPendingDoublet = true
+      }
+    }
+
     let microP = 0.50
-    let microReason = "Micro-Rhythm Foresight: Neutral"
-    if (canonicalPattern) {
-      microP = canonicalPattern.expectedToken === 1 ? 0.66 : 0.34
-      microReason = canonicalPattern.name
-    } else if (streak >= 7) {
+    let microReason = "Equilibrium micro-state"
+    if (isDoubletPair) {
+      microP = (last === 1) ? 0.42 : 0.58
+      microReason = `Doublet 2-2 Ping-Pong Switch (${last === 1 ? "BB" : "SS"} completed) -> Invert to ${last === 1 ? "SMALL" : "BIG"}`
+    } else if (isPendingDoublet) {
+      microP = (last === 1) ? 0.53 : 0.47
+      microReason = `Doublet 2-2 Pending Second Half (completing ${last === 1 ? "BB" : "SS"}) -> Follow to ${last === 1 ? "BIG" : "SMALL"}`
+    } else if (streak === 1 && alts >= 4) {
+      microP = (last === 1) ? 0.40 : 0.60
+      microReason = `Alternation 1-1 Chop Rhythm (${alts} switches) -> Oscillate to ${last === 1 ? "SMALL" : "BIG"}`
+    } else if (streak === 1 && alts >= 2) {
+      microP = (last === 1) ? 0.45 : 0.55
+      microReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`
+    } else if (streak >= 6) {
       microP = (last === 1) ? 0.65 : 0.35
-      microReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Extreme Momentum Ride`
+      microReason = `Dragon Climax Momentum (${streak}x) -> Ride Streak`
     } else if (streak >= 3) {
       microP = (last === 1) ? 0.60 : 0.40
       microReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`
-    } else if (streak === 1 && alts >= 2) {
-      microP = (last === 1) ? 0.42 : 0.58
-      microReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`
     }
 
     return {
@@ -1269,9 +1284,14 @@ export class PredictionEngine {
       if (tokens[i] !== tokens[i - 1]) curAlts++; else break
     }
 
-    const canonicalPattern = this._detectCanonicalBoardPattern(tokens)
-    const is22Pair = canonicalPattern?.type === 'DOUBLET_SWITCH'
-    const is22Alt = (tokens.length >= 4 && tokens[tokens.length - 4] === tokens[tokens.length - 2] && tokens[tokens.length - 3] === tokens[tokens.length - 1] && tokens[tokens.length - 4] !== tokens[tokens.length - 3])
+    let is22Pair = false
+    let is22Alt = false
+    if (tokens.length >= 4) {
+      const t0 = tokens[tokens.length - 4], t1 = tokens[tokens.length - 3],
+            t2 = tokens[tokens.length - 2], t3 = tokens[tokens.length - 1]
+      is22Pair = (t0 === t1) && (t2 === t3) && (t0 !== t2)
+      is22Alt = (t0 === t2) && (t1 === t3) && (t0 !== t1)
+    }
 
     const recentNums = numSeq.slice(-20)
     const counts = new Array(10).fill(0)
@@ -1396,24 +1416,17 @@ export class PredictionEngine {
     const matchCount = matchCount5 + matchCount3
 
     let patternLogit = 0.0
-    if (canonicalPattern) {
-      // Under canonical pattern activation, canonical board geometry takes total precedence
-      patternLogit = 0.0
-    } else if (matchCount >= 4 && (wBig + wSmall > 0)) {
+    if (wBig + wSmall > 0) {
       const pPat = (wBig + 0.5) / (wBig + wSmall + 1.0)
-      if (Math.abs(pPat - 0.5) >= 0.06) {
-        patternLogit = Math.max(-0.18, Math.min(0.18, (pPat - 0.5) * 0.24))
-      }
+      patternLogit = (pPat - 0.5) * 0.46
     }
 
-    // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol, Canonical Board Pattern Engine, & Chop Continuity)
+    // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol & Chop Continuity)
     let rhythmLogit = 0.0
-    if (canonicalPattern) {
-      rhythmLogit = canonicalPattern.logit
-    } else if (curStreak >= 6) {
-      rhythmLogit = (lastToken === 1 ? +0.35 : -0.35)
+    if (curStreak >= 6) {
+      rhythmLogit = (lastToken === 1 ? +0.32 : -0.32)
     } else if (curStreak >= 3) {
-      rhythmLogit = (lastToken === 1 ? +0.25 : -0.25)
+      rhythmLogit = (lastToken === 1 ? +0.22 : -0.22)
     } else if (is22Pair) {
       rhythmLogit = (lastToken === 1 ? -0.22 : +0.22)
     } else if (curStreak === 1 && curAlts >= 2) {
@@ -1430,17 +1443,13 @@ export class PredictionEngine {
 
     // Anti-Collinear Mean-Reversion Clamping (Prevents Gambler's Fallacy runaway lock)
     let meanRevPrior = Math.max(-0.25, Math.min(0.25, 0.55 * clusterLogit + 0.45 * macroLogit))
-    if (canonicalPattern) {
+    // When in an active streak (curStreak >= 2), NEVER allow mean reversion to fight the dragon!
+    if (curStreak >= 2) {
+      meanRevPrior = (lastToken === 1) ? Math.max(0.0, meanRevPrior) : Math.min(0.0, meanRevPrior)
+    }
+    // When on active Recovery Levels (L2 & L3), completely suppress mean-reversion counter-trend bets
+    if (currentLevel >= 2) {
       meanRevPrior = 0.0
-    } else {
-      // When in an active streak (curStreak >= 2), NEVER allow mean reversion to fight the dragon!
-      if (curStreak >= 2) {
-        meanRevPrior = (lastToken === 1) ? Math.max(0.0, meanRevPrior) : Math.min(0.0, meanRevPrior)
-      }
-      // When on active Recovery Levels (L2 & L3), completely suppress mean-reversion counter-trend bets
-      if (currentLevel >= 2) {
-        meanRevPrior = 0.0
-      }
     }
 
     // 1E. 5-Round Trajectory Delta Slope
@@ -1449,9 +1458,7 @@ export class PredictionEngine {
 
     // 1F. 2-Gram Triad Markov Transition
     let triadLogit = 0.0
-    if (canonicalPattern) {
-      triadLogit = 0.0
-    } else if (totalHistoryLen >= 4) {
+    if (totalHistoryLen >= 4) {
       const t1 = fullTokens[totalHistoryLen - 2], t2 = fullTokens[totalHistoryLen - 1]
       let bCount = 0, sCount = 0
       const triadScanStart = Math.max(0, totalHistoryLen - 300)
@@ -1510,11 +1517,24 @@ export class PredictionEngine {
     // 2B. Meta-Learner Consensus Integration (MoE + Platt SGD calibration)
     const metaLogit = Math.max(-0.35, Math.min(0.35, (calibratedP - 0.50) * 0.70))
 
-    // Base rate prior: Fair 50/50 baseline (Chi2 p=0.097 > 0.05 verifies unbiased Bernoulli null)
-    const baseRatePrior = 0.0
+    // Base rate empirical prior: SMALL 51.90% vs BIG 48.10% (log(0.481/0.519) = -0.075)
+    const baseRatePrior = -0.075
     let fusedLogit = rhythmLogit + meanRevPrior + patternLogit + triadLogit + digitPrior + trajectoryLogit + metaLogit + baseRatePrior
 
-    // 2C. Market Trend Integrity: Strictly evaluate lottery board draws, removing artificial self-prediction dampener
+    // 2C. Anti-Sticky Circuit Breaker (Eliminates the "keeps going for only one thing" lock)
+    let predStreak = 0
+    let lastPredSide: string | null = null
+    for (let k = fullBuffer.length - 1; k >= Math.max(0, fullBuffer.length - 8); k--) {
+      const pt = (fullBuffer[k].predicted_type || "").toUpperCase()
+      if (pt === "BIG" || pt === "SMALL") {
+        if (lastPredSide === null) lastPredSide = pt
+        if (pt === lastPredSide) predStreak++; else break
+      }
+    }
+    if (predStreak >= 3 && lastPredSide) {
+      const stickyDamp = (lastPredSide === "BIG") ? -0.22 * (predStreak - 2) : +0.22 * (predStreak - 2)
+      fusedLogit += Math.max(-0.45, Math.min(0.45, stickyDamp))
+    }
 
     // 2D. ACLR Anti-Drawdown Risk Shield
     if (decisionConsecutiveMisses >= 2) {
@@ -1532,44 +1552,29 @@ export class PredictionEngine {
       prediction = (lastToken === 1) ? "SMALL" : "BIG"
     }
 
-    // CANONICAL BOARD PATTERN ENFORCEMENT:
-    // Guarantees 100% directional alignment between identified board pattern and prediction
-    if (canonicalPattern) {
-      prediction = canonicalPattern.expectedToken === 1 ? "BIG" : "SMALL"
-      if (prediction === "BIG" && pFusedBig < 0.52) {
-        pFusedBig = 0.56
-      } else if (prediction === "SMALL" && pFusedBig > 0.48) {
-        pFusedBig = 0.44
-      }
-    }
-
     // SAFETY-FIRST RECOVERY PROTOCOL (Levels 2 & 3):
     // Never fight a dragon or established chop on recovery! Protect bankroll with highest probability direction!
     if (currentLevel >= 2) {
-      if (canonicalPattern) {
-        prediction = canonicalPattern.expectedToken === 1 ? "BIG" : "SMALL"
-      } else if (curStreak >= 3) {
-        // Never fight a dragon on recovery! Ride dragon!
+      if (curStreak >= 2) {
         prediction = (lastToken === 1) ? "BIG" : "SMALL"
-      } else if (curAlts >= 3) {
-        // Follow chop alternation on recovery!
+      } else if (curAlts >= 2) {
         prediction = (lastToken === 1) ? "SMALL" : "BIG"
       }
     }
 
     let margin = Math.abs(pFusedBig - 0.50)
 
-    const patternDesc = canonicalPattern
-      ? canonicalPattern.name
-      : (curStreak >= 6
-        ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-        : (curStreak >= 3
-          ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+    const patternDesc = curStreak >= 6
+      ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+      : (curStreak >= 3
+        ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+        : (is22Pair
+          ? `Doublet 2-2 Switch Phase (${lastToken === 1 ? "BIG-BIG" : "SMALL-SMALL"} Completed)`
           : (curStreak === 1 && curAlts >= 2
             ? `Alternating 1-1 Chop Rhythm (${curAlts} switches)`
             : (matchCount >= 6
               ? `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`
-              : `Standard Momentum`))))
+              : `Multi-Scale Pattern Resonance`))))
 
     const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, this._detectBrokenSymmetryPattern(tokens))
     const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig)
@@ -1577,6 +1582,12 @@ export class PredictionEngine {
 
     const isSniper = (currentLevel === 1) && Math.abs(fusedLogit) >= 0.38 && decisionConsecutiveMisses <= 1 && curStreak < 5 && matchCount >= 4
     const status: StatusType = "CLEARED"
+
+    const confidence = (isSniper || currentLevel >= 2)
+      ? Math.max(76, Math.min(this.maxConfidence, Math.round(54 + margin * 140)))
+      : Math.max(52, Math.min(this.maxConfidence, Math.round(50 + margin * 85)))
+
+    const executionAction: "BET" | "PASS" = (confidence >= 68 || isSniper || currentLevel >= 2) ? "BET" : "PASS"
 
     let tier: SignalTier = "STANDARD"
     let recommendedStake = "1U"
@@ -1590,27 +1601,24 @@ export class PredictionEngine {
       tier = "RECOVERY-L2"
       recommendedStake = "2U"
       statusReason = `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U trend-shielded recovery cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName}`
-    } else if (isStopLossReset) {
-      tier = "RESET-L1"
-      recommendedStake = "1U"
-      statusReason = `🛑 GPT 6 ASTRA [STOP-LOSS RESET]: Capped at Level 2 stop-loss (max -3U drawdown shield), safe base reset [1U Stake]`
     } else if (isSniper) {
       tier = "SNIPER"
       recommendedStake = "2U"
       statusReason = `🎯 GPT 6 ASTRA Ultra-Sniper: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [2U Stake]`
+    } else if (executionAction === "PASS") {
+      tier = "PASS"
+      recommendedStake = "0U"
+      statusReason = isStopLossReset
+        ? `⏸️ GPT 6 ASTRA [PASS - 0U]: Stop-loss reset cooldown, low conviction (${confidence}% < 68% gate), holding bankroll`
+        : `⏸️ GPT 6 ASTRA [PASS - 0U]: Low conviction (${confidence}% < 68% gate), holding bankroll to eliminate negative churn`
+    } else if (isStopLossReset) {
+      tier = "RESET-L1"
+      recommendedStake = "1U"
+      statusReason = `🛑 GPT 6 ASTRA [STOP-LOSS RESET]: Capped at Level 2 stop-loss (max -3U drawdown shield), safe base reset [1U Stake]`
     } else {
       tier = "STANDARD"
       recommendedStake = "1U"
       statusReason = `⚡ GPT 6 ASTRA: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [1U Stake]`
-    }
-
-    const confidence = (isSniper || currentLevel >= 2 || canonicalPattern)
-      ? Math.max(76, Math.min(this.maxConfidence, Math.round(56 + margin * 140)))
-      : Math.max(58, Math.min(this.maxConfidence, Math.round(52 + margin * 85)))
-
-    const executionAction = (confidence >= 68 || isSniper || currentLevel >= 2) ? "BET" : "PASS"
-    if (executionAction === "PASS" && tier === "STANDARD") {
-      statusReason += " - ⚠️ Sub-68% caution, recommend PASS (0U) or 1U Scout"
     }
 
     // ASTRA Dual Lucky Digits Engine: Fusing Harmonic Transitions, Locality Clustering, & Markov Resonance
@@ -1686,7 +1694,13 @@ export class PredictionEngine {
       confidence,
       status,
       statusReason,
-      strategy: isSniper ? "Ultra-Sniper Holographic Stacker" : (currentLevel >= 2 ? `Active Level ${currentLevel} Recovery` : (isStopLossReset ? "Stop-Loss Reset Protocol" : "GPT 6 ASTRA Holographic Stacker")),
+      strategy: tier === "PASS"
+        ? "0U [PASS] Filter Gate"
+        : (isSniper
+          ? "Ultra-Sniper Holographic Stacker"
+          : (currentLevel >= 2
+            ? `Active Level ${currentLevel} Recovery`
+            : (isStopLossReset ? "Stop-Loss Reset Protocol" : "GPT 6 ASTRA Holographic Stacker"))),
       reason: statusReason,
       bigProb: Math.round(pFusedBig * 100),
       smallProb: Math.round((1.0 - pFusedBig) * 100),

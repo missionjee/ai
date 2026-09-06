@@ -98,19 +98,22 @@ export function PredictionHero({
         <div className={cn('signal-banner', signalKey)}>
           <span className="signal-tag whitespace-nowrap overflow-hidden text-ellipsis max-w-full block">
             {isLocked && <span>🔒 SIGNAL LOCKED</span>}
-            {!isLocked && (prediction?.tier === 'MAX-COVER-L3' || prediction?.recoveryLevel === 3 || (prediction as any)?.recovery_level === 3) && (
+            {!isLocked && (prediction?.tier === 'PASS' || prediction?.recommendedStake === '0U') && (
+              <span className="text-amber-400">⏸️ 0U [PASS - FILTERED GATE]</span>
+            )}
+            {!isLocked && !(prediction?.tier === 'PASS' || prediction?.recommendedStake === '0U') && (prediction?.tier === 'MAX-COVER-L3' || prediction?.recoveryLevel === 3 || (prediction as any)?.recovery_level === 3) && (
               <span>🔥 LEVEL 3 [4U MAX COVER]</span>
             )}
-            {!isLocked && (prediction?.tier === 'RECOVERY-L2' || prediction?.recoveryLevel === 2 || (prediction as any)?.recovery_level === 2) && (
+            {!isLocked && !(prediction?.tier === 'PASS' || prediction?.recommendedStake === '0U') && (prediction?.tier === 'RECOVERY-L2' || prediction?.recoveryLevel === 2 || (prediction as any)?.recovery_level === 2) && (
               <span>🛡️ LEVEL 2 [2U RECOVERY]</span>
             )}
-            {!isLocked && prediction?.tier === 'RESET-L1' && (
+            {!isLocked && !(prediction?.tier === 'PASS' || prediction?.recommendedStake === '0U') && prediction?.tier === 'RESET-L1' && (
               <span>🛑 LEVEL 1 [1U BASE] (RESET)</span>
             )}
-            {!isLocked && (prediction?.tier === 'SNIPER' || prediction?.isSniper) && !(prediction?.tier === 'MAX-COVER-L3' || prediction?.tier === 'RECOVERY-L2' || prediction?.tier === 'RESET-L1' || (prediction?.recoveryLevel && prediction.recoveryLevel > 1) || ((prediction as any)?.recovery_level && (prediction as any).recovery_level > 1)) && (
+            {!isLocked && !(prediction?.tier === 'PASS' || prediction?.recommendedStake === '0U') && (prediction?.tier === 'SNIPER' || prediction?.isSniper) && !(prediction?.tier === 'MAX-COVER-L3' || prediction?.tier === 'RECOVERY-L2' || prediction?.tier === 'RESET-L1' || (prediction?.recoveryLevel && prediction.recoveryLevel > 1) || ((prediction as any)?.recovery_level && (prediction as any).recovery_level > 1)) && (
               <span>🎯 ULTRA-SNIPER [{prediction?.recommendedStake || '2U'}]</span>
             )}
-            {!isLocked && (!prediction?.isSniper && (!prediction?.tier || prediction?.tier === 'STANDARD')) && prediction && !(prediction?.tier === 'MAX-COVER-L3' || prediction?.tier === 'RECOVERY-L2' || prediction?.tier === 'RESET-L1' || (prediction?.recoveryLevel && prediction.recoveryLevel > 1) || ((prediction as any)?.recovery_level && (prediction as any).recovery_level > 1)) && (
+            {!isLocked && !(prediction?.tier === 'PASS' || prediction?.recommendedStake === '0U') && (!prediction?.isSniper && (!prediction?.tier || prediction?.tier === 'STANDARD')) && prediction && !(prediction?.tier === 'MAX-COVER-L3' || prediction?.tier === 'RECOVERY-L2' || prediction?.tier === 'RESET-L1' || (prediction?.recoveryLevel && prediction.recoveryLevel > 1) || ((prediction as any)?.recovery_level && (prediction as any).recovery_level > 1)) && (
               <span>⚡ LEVEL 1 [{prediction?.recommendedStake || '1U'} BASE]</span>
             )}
             {!isLocked && !prediction && (
@@ -130,8 +133,13 @@ export function PredictionHero({
                 <span>Quantitative Model Confidence</span>
                 <div className="flex items-center gap-2">
                   {prediction?.recommendedStake && prediction.status !== 'HOLD' && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00ffcc]/10 text-[#00ffcc] border border-[#00ffcc]/30 stake-tag">
-                      STAKE: {prediction.recommendedStake}
+                    <span className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded border stake-tag",
+                      (prediction.recommendedStake === '0U' || prediction.tier === 'PASS')
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                        : "bg-[#00ffcc]/10 text-[#00ffcc] border-[#00ffcc]/30"
+                    )}>
+                      {(prediction.recommendedStake === '0U' || prediction.tier === 'PASS') ? 'ACTION: 0U [PASS]' : `STAKE: ${prediction.recommendedStake}`}
                     </span>
                   )}
                   <strong>{confidence}%</strong>
