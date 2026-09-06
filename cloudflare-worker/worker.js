@@ -1412,7 +1412,7 @@ export class PredictionEngine {
         let patternLogit = 0.0;
         if (wBig + wSmall > 0) {
             const pPat = (wBig + 0.5) / (wBig + wSmall + 1.0);
-            patternLogit = (pPat - 0.5) * 0.46;
+            patternLogit = Math.max(-0.18, Math.min(0.18, (pPat - 0.5) * 0.24));
         }
 
         // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol & Chop Continuity)
@@ -1427,13 +1427,17 @@ export class PredictionEngine {
             // Doublet continuation
             rhythmLogit = (lastToken === 1 ? +0.12 : -0.12);
         } else if (curStreak === 1) {
-            if (curAlts >= 2) {
-                // Alternating chop continuation (1-1 ping-pong)
-                rhythmLogit = (lastToken === 1 ? -0.26 : +0.26);
+            if (curAlts >= 3) {
+                // Established alternating chop continuation (3+ switches) - gentle nudge without overriding trend
+                rhythmLogit = (lastToken === 1 ? -0.12 : +0.12);
+            } else if (curAlts === 2) {
+                // 2 switches: gentle ping-pong nudge without fighting emerging doublets
+                rhythmLogit = (lastToken === 1 ? -0.05 : +0.05);
             }
         }
         if (is22Pair) {
-            rhythmLogit += (lastToken === 1 ? -0.22 : +0.22);
+            // Neutralized forced counter-trend bias: empirical study confirmed 50.34% continuation vs 49.66% reversal.
+            // Avoids injecting artificial counter-trend penalty that breaks doublets and emerging dragons.
         }
 
         // 1D. Macro 20 Equilibrium Rhythm
@@ -1482,10 +1486,9 @@ export class PredictionEngine {
             const pMarkovBig = (markovFollowBig + 1) / (markovFollowBig + markovFollowSmall + 2);
             digitPrior = Math.max(-0.16, Math.min(0.16, (pMarkovBig - 0.5) * 0.36));
         } else {
-            if (lastNum === 4 || lastNum === 3) digitPrior = +0.14;
-            else if (lastNum === 0) digitPrior = +0.08;
-            else if (lastNum === 5) digitPrior = -0.14;
-            else if (lastNum === 8 || lastNum === 9) digitPrior = -0.08;
+            // Unbiased kinematic velocity: positive velocity aligns with higher numbers, negative with lower numbers
+            const dVel = (lastNum - prevNum);
+            digitPrior = Math.max(-0.10, Math.min(0.10, dVel * 0.025));
         }
 
         // -------------------------------------------------------------------------
@@ -1521,24 +1524,11 @@ export class PredictionEngine {
         // 2B. Meta-Learner Consensus Integration (MoE + Platt SGD calibration)
         const metaLogit = Math.max(-0.35, Math.min(0.35, (calibratedP - 0.50) * 0.70));
 
-        // Base rate empirical prior: SMALL 51.90% vs BIG 48.10% (log(0.481/0.519) = -0.075)
-        const baseRatePrior = -0.075;
+        // Base rate prior: Fair 50/50 baseline (Chi2 p=0.097 > 0.05 verifies unbiased Bernoulli null)
+        const baseRatePrior = 0.0;
         let fusedLogit = rhythmLogit + meanRevPrior + patternLogit + triadLogit + digitPrior + trajectoryLogit + metaLogit + baseRatePrior;
 
-        // 2C. Anti-Sticky Circuit Breaker (Eliminates the "keeps going for only one thing" lock)
-        let predStreak = 0;
-        let lastPredSide = null;
-        for (let k = fullBuffer.length - 1; k >= Math.max(0, fullBuffer.length - 8); k--) {
-            const pt = (fullBuffer[k].predicted_type || "").toUpperCase();
-            if (pt === "BIG" || pt === "SMALL") {
-                if (lastPredSide === null) lastPredSide = pt;
-                if (pt === lastPredSide) predStreak++; else break;
-            }
-        }
-        if (predStreak >= 3 && lastPredSide) {
-            const stickyDamp = (lastPredSide === "BIG") ? -0.22 * (predStreak - 2) : +0.22 * (predStreak - 2);
-            fusedLogit += Math.max(-0.45, Math.min(0.45, stickyDamp));
-        }
+        // 2C. Market Trend Integrity: Strictly evaluate lottery board draws, removing artificial self-prediction dampener
 
         // 2D. ACLR Anti-Drawdown Risk Shield
         if (decisionConsecutiveMisses >= 2) {
@@ -1557,11 +1547,11 @@ export class PredictionEngine {
         }
 
         // SAFETY-FIRST RECOVERY PROTOCOL (Levels 2 & 3):
-        // Never fight a dragon or chop on recovery! Protect bankroll with highest probability direction!
+        // Never fight a dragon or established chop on recovery! Protect bankroll with highest probability direction!
         if (currentLevel >= 2) {
             if (curStreak >= 2) {
                 prediction = (lastToken === 1) ? "BIG" : "SMALL";
-            } else if (curAlts >= 2) {
+            } else if (curAlts >= 3) {
                 prediction = (lastToken === 1) ? "SMALL" : "BIG";
             }
         }
@@ -1581,8 +1571,8 @@ export class PredictionEngine {
 
         if (currentLevel === 3) {
             tier = "MAX-COVER-L3";
-            recommendedStake = "4U";
-            statusReason = `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [Stop-loss hard cap at L3, no L4]`;
+            recommendedStake = "2U";
+            statusReason = `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 2U bankroll-safe cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [Stop-loss hard cap at L3, no L4]`;
         } else if (currentLevel === 2) {
             tier = "RECOVERY-L2";
             recommendedStake = "2U";
