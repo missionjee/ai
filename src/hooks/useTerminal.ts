@@ -202,7 +202,7 @@ export function useTerminal() {
 
       // Always hydrate authoritative historical dataset from Supabase global_signals
       try {
-        const cloudHistory = await supabaseClient.getRecentGlobalSignals(60)
+        const cloudHistory = await supabaseClient.getRecentGlobalSignals(5000)
         if (Array.isArray(cloudHistory)) {
           cloudHistory.forEach(s => {
             if (s?.issue_number) {
@@ -369,12 +369,12 @@ export function useTerminal() {
             entropy: '0.50',
             permutationEntropy: '0.50',
             parityPrediction: 'EVEN',
-            engineVersion: 'v12.2',
+            engineVersion: 'v12.3',
             modelPerformance: null,
           }
         } else {
           // Zero-Lag Autonomous Fallback: Instantaneous local institutional engine inference!
-          const localEngineResult = engine.predict(resolvedHistory.slice(0, 30))
+          const localEngineResult = engine.predict(resolvedHistory)
           prediction = localEngineResult
 
           // Save in historyMap for stability
@@ -405,7 +405,7 @@ export function useTerminal() {
             regime: localEngineResult.regime,
             pattern: localEngineResult.pattern,
             is_sniper: localEngineResult.isSniper,
-            engine_version: 'v12.2'
+            engine_version: 'v12.3'
           }).catch(() => {})
         }
 
@@ -461,7 +461,7 @@ export function useTerminal() {
                     entropy: '0.50',
                     permutationEntropy: '0.50',
                     parityPrediction: 'EVEN',
-                    engineVersion: 'v12.2',
+                    engineVersion: 'v12.3',
                     modelPerformance: null,
                     tier: s.is_sniper ? 'SNIPER' : (s.tier || 'STANDARD'),
                     recommendedStake: s.stake_units || (s.is_sniper ? '2U' : '1U')

@@ -299,7 +299,7 @@ export class SparseMoERouter {
 }
 
 // ==============================================================================
-// 5. MAIN PREDICTION ENGINE (v12.2 Quantum Ultra Enterprise Core)
+// 5. MAIN PREDICTION ENGINE (v12.3 Quantum Ultra Enterprise Core)
 // ==============================================================================
 export class PredictionEngine {
     constructor() {
@@ -1166,7 +1166,7 @@ export class PredictionEngine {
                 isSniper: false,
                 pattern: "Standard Momentum",
                 parityPrediction: "EVEN",
-                engineVersion: "v12.2 Quantum Ultra Enterprise",
+                engineVersion: "v12.3 Quantum Ultra Enterprise",
                 modelPerformance: null
             };
         }
@@ -1272,12 +1272,97 @@ export class PredictionEngine {
         const calibratedP = this._plattCalibrate(rawEnsembleScore);
 
         // =========================================================================
-        // 1. EMPIRICAL MULTI-SIGNAL LOGIT STACKER (v12.2 Quantum Ultra Core)
+        // CONCENTRATED SYSTEM ARCHITECTURE:
+        // 1. THE OBSERVER (Result Analysis & 5-Round Number Pattern Analyzer)
+        // 2. THE META LEARNER (Synergy, Dynamic Weighting & Platt Calibration)
+        // 3. THE LAST DECISIONS MODEL (Executive Decision & Empirical Lucky Digits)
         // =========================================================================
+
+        // -------------------------------------------------------------------------
+        // 1. THE OBSERVER: Deep Result Analysis of last 5 rounds numbers & pattern
+        // -------------------------------------------------------------------------
         const lastNum = numSeq.length > 0 ? numSeq[numSeq.length - 1] : 4;
         const prevNum = numSeq.length >= 2 ? numSeq[numSeq.length - 2] : lastNum;
+        const last5Nums = numSeq.slice(-5);
+        const s5 = last5Nums.reduce((a, b) => a + b, 0);
+        const d5 = [
+            last5Nums[1] !== undefined ? last5Nums[1] - last5Nums[0] : 0,
+            last5Nums[2] !== undefined ? last5Nums[2] - last5Nums[1] : 0,
+            last5Nums[3] !== undefined ? last5Nums[3] - last5Nums[2] : 0,
+            last5Nums[4] !== undefined ? last5Nums[4] - last5Nums[3] : 0
+        ];
 
-        // 1A. 2-Gram Triad Markov Transition
+        // 1A. 5-Round Cluster Deficit / Surplus Pattern (S5)
+        let clusterLogit = 0.0;
+        if (s5 <= 14) clusterLogit = +0.26;
+        else if (s5 <= 19) clusterLogit = +0.14;
+        else if (s5 >= 31) clusterLogit = -0.26;
+        else if (s5 >= 26) clusterLogit = -0.14;
+
+        // 1B. Dynamic 5-Round Historical Pattern Matching across full Supabase dataset
+        let wBig = 0, wSmall = 0, matchCount = 0;
+        const empiricalDigitScores = new Array(10).fill(0);
+        const totalHistoryLen = numSeq.length;
+
+        for (let j = 0; j <= totalHistoryLen - 6; j++) {
+            const h5 = numSeq.slice(j, j + 5);
+            let dist = 0;
+            for (let k = 0; k < 5; k++) dist += Math.abs(h5[k] - last5Nums[k]);
+            const sumDiff = Math.abs(h5.reduce((a, b) => a + b, 0) - s5);
+
+            if (dist <= 5 || (sumDiff <= 3 && dist <= 7)) {
+                const nextTok = tokens[j + 5];
+                const nextDig = numSeq[j + 5];
+                const age = totalHistoryLen - 1 - (j + 5);
+                const decay = Math.exp(-age / 1000);
+                const simW = Math.exp(-dist / 3.0) * Math.exp(-sumDiff / 4.0) * decay;
+
+                if (nextTok === 1) wBig += simW; else wSmall += simW;
+                if (nextDig >= 0 && nextDig <= 9) empiricalDigitScores[nextDig] += simW;
+                matchCount++;
+            }
+        }
+
+        let patternLogit = 0.0;
+        if (wBig + wSmall > 0) {
+            const pPat = (wBig + 0.5) / (wBig + wSmall + 1.0);
+            patternLogit = (pPat - 0.5) * 0.42;
+        }
+
+        // 1C. Rhythm Flow Analysis (Streak Rhythm, Alternation, Doublets)
+        let rhythmLogit = 0.0;
+        if (curStreak >= 7) {
+            rhythmLogit = (lastToken === 1 ? +0.30 : -0.30);
+        } else if (curStreak >= 4) {
+            rhythmLogit = (lastToken === 1 ? -0.38 : +0.38);
+        } else if (curStreak === 3) {
+            rhythmLogit = (lastToken === 1 ? -0.28 : +0.28);
+        } else if (curStreak === 2) {
+            rhythmLogit = (lastToken === 1 ? -0.22 : +0.22);
+        } else if (curStreak === 1) {
+            if (curAlts >= 4) {
+                rhythmLogit = (lastToken === 1 ? -0.40 : +0.40);
+            } else if (curAlts >= 2) {
+                rhythmLogit = (lastToken === 1 ? -0.24 : +0.24);
+            }
+        }
+        if (is22Pair) {
+            rhythmLogit += (lastToken === 1 ? -0.28 : +0.28);
+        }
+
+        // 1D. Macro 20 Equilibrium Rhythm
+        const bigsIn20 = rawSub.macro20Rhythm && rawSub.macro20Rhythm.bigsIn20 !== undefined ? rawSub.macro20Rhythm.bigsIn20 : 10;
+        let macroLogit = 0.0;
+        if (bigsIn20 >= 14) macroLogit = -0.28;
+        else if (bigsIn20 <= 6) macroLogit = +0.28;
+        else if (bigsIn20 >= 12) macroLogit = -0.12;
+        else if (bigsIn20 <= 8) macroLogit = +0.12;
+
+        // 1E. 5-Round Trajectory Delta Slope
+        const netDelta = d5.reduce((a, b) => a + b, 0);
+        const trajectoryLogit = netDelta * 0.02;
+
+        // 1F. 2-Gram Triad Markov Transition
         let triadLogit = 0.0;
         if (tokens.length >= 4) {
             const t1 = tokens[tokens.length - 2], t2 = tokens[tokens.length - 1];
@@ -1289,80 +1374,13 @@ export class PredictionEngine {
             }
             if (bCount + sCount >= 6) {
                 const diff = (bCount - sCount) / (bCount + sCount);
-                triadLogit = diff * 0.32;
+                triadLogit = diff * 0.30;
             }
         }
 
-        const bigsIn20 = rawSub.macro20Rhythm && rawSub.macro20Rhythm.bigsIn20 !== undefined ? rawSub.macro20Rhythm.bigsIn20 : 10;
-        const sum5 = rawSub.clusterNumberPatterns && rawSub.clusterNumberPatterns.sum5 !== undefined ? rawSub.clusterNumberPatterns.sum5 : 22;
-
-        let logit = 0.0;
-
-        // Signal 1: v12.0 Signature Dynamic Hazard Streak Reversion & Monster Dragon Armor
-        if (curStreak >= 6) {
-            logit += (lastToken === 1 ? +0.30 : -0.30);
-        } else if (curStreak >= 4) {
-            const isMonsterDragon = (lastToken === 1 && sum5 >= 30) || (lastToken === 0 && sum5 <= 15);
-            if (isMonsterDragon) {
-                logit += (lastToken === 1 ? +0.20 : -0.20);
-            } else {
-                logit += (lastToken === 1 ? -0.42 : +0.42); // v12.0 signature 0.42 aggressive fade
-            }
-        } else if (curStreak >= 2) {
-            const revStrength = (curStreak === 3 ? 0.32 : 0.24); // v12.0 signature 0.32 / 0.24 fade
-            logit += (lastToken === 1 ? -revStrength : +revStrength);
-        }
-
-        // Signal 2: Micro Rhythm (1-1 Alternation & Doublets)
-        if (curStreak === 1) {
-            if (curAlts >= 4) {
-                const chopStrength = curAlts >= 5 ? 0.42 : 0.32;
-                logit += (lastToken === 1 ? -chopStrength : +chopStrength);
-            } else if (tokens.length >= 3 && tokens[tokens.length - 3] === tokens[tokens.length - 2]) {
-                logit += (lastToken === 1 ? +0.14 : -0.14);
-            }
-        }
-
-        // Signal 3: Full 2-2 Completed Doublet Reversal
-        if (is22Pair) {
-            logit += (lastToken === 1 ? -0.28 : +0.28);
-        }
-
-        // Signal 4: Digit Transition Empirical Prior
-        if (lastNum === 4 || lastNum === 3) logit += 0.26;
-        else if (lastNum === 0) logit += 0.15;
-        else if (lastNum === 5) logit -= 0.26;
-        else if (lastNum === 8 || lastNum === 9) logit -= 0.15;
-        else if (lastNum === 2) logit -= 0.10;
-
-        // Signal 5: Macro 20 Equilibrium Bound
-        if (bigsIn20 >= 14) logit -= 0.28;
-        else if (bigsIn20 <= 6) logit += 0.28;
-        else if (bigsIn20 >= 12) logit -= 0.12;
-        else if (bigsIn20 <= 8) logit += 0.12;
-
-        // Signal 6: Triad Markov
-        logit += triadLogit;
-
-        // Signal 7: Number Cluster Repeated Behaviors Pattern Detector
-        // Detects when number clusters ({7,8,9} high cluster, {0,1,2} low cluster) exhibit repeated sticky behaviors
-        const last6Nums = numSeq.slice(-6);
-        const highClusterCount = last6Nums.filter(n => n >= 7 && n <= 9).length;
-        const lowClusterCount = last6Nums.filter(n => n >= 0 && n <= 2).length;
-        if (highClusterCount >= 4) {
-            logit += 0.16; // Repeated high cluster behavior
-        } else if (lowClusterCount >= 4) {
-            logit -= 0.16; // Repeated low cluster behavior
-        }
-
-        // Symmetric Fused Probability
-        let pFusedBig = 1.0 / (1.0 + Math.exp(-logit));
-        let prediction = pFusedBig >= 0.50 ? "BIG" : "SMALL";
-        let margin = Math.abs(pFusedBig - 0.50);
-
-        // =========================================================================
-        // 2. CONSECUTIVE MISS TRACKER & ACLR RISK SHIELD
-        // =========================================================================
+        // -------------------------------------------------------------------------
+        // 2. THE META LEARNER: Synergy Fusion & Anti-Loss Protection
+        // -------------------------------------------------------------------------
         let decisionConsecutiveMisses = 0;
         const testDepthDecision = Math.min(6, validHistory.length - 6);
         for (let k = 1; k <= testDepthDecision; k++) {
@@ -1389,90 +1407,58 @@ export class PredictionEngine {
             }
         }
 
+        let fusedLogit = rhythmLogit + clusterLogit + patternLogit + macroLogit + trajectoryLogit + triadLogit;
+        if (decisionConsecutiveMisses >= 2) {
+            fusedLogit *= 0.70; // ACLR Risk Shield: Dampen aggression under loss streak
+        }
+
+        const pFusedBig = 1.0 / (1.0 + Math.exp(-fusedLogit));
+
+        // -------------------------------------------------------------------------
+        // 3. THE LAST DECISIONS MODEL: Final Executive Call & Empirical Lucky Digits
+        // -------------------------------------------------------------------------
+        const prediction = pFusedBig >= 0.50 ? "BIG" : "SMALL";
+        let margin = Math.abs(pFusedBig - 0.50);
+
         const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, this._detectBrokenSymmetryPattern(tokens));
-
-        let status = "CLEARED";
-        let tier = "STANDARD";
-        let recommendedStake = "1U";
-        let isSniper = false;
-        let statusReason = "";
-
         const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig);
         const conformalDecision = this.conformalGator.evaluateSignal(dominantProb, shannonEntropy, regimeCheck.hurstH, regimeEntropyThreshold);
 
-        // 2B. ACLR Anti-Drawdown Risk Shield
-        if (decisionConsecutiveMisses >= 2) {
-            tier = "STANDARD";
-            recommendedStake = "1U";
-            isSniper = false;
-            margin = margin * 0.85;
-            statusReason = `🛡️ ACLR Risk Shield: Capital preservation active (${decisionConsecutiveMisses} consecutive misses dampened to 1U Standard)`;
-        } else {
-            // 3. Multi-Signal Confluence & Ultra-Sniper Gating
-            const isConfluent = (margin >= 0.11 && curStreak <= 3);
+        const isSniper = Math.abs(fusedLogit) >= 0.44 && decisionConsecutiveMisses <= 1 && curStreak < 5 && matchCount >= 4;
+        const status = "CLEARED";
+        const tier = isSniper ? "SNIPER" : "STANDARD";
+        const recommendedStake = isSniper ? "2U" : "1U";
 
-            if (isConfluent) {
-                tier = "SNIPER";
-                recommendedStake = "2U";
-                isSniper = true;
-                statusReason = `🎯 Ultra-Sniper Empirical Confluence: High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`;
-            } else {
-                tier = "STANDARD";
-                recommendedStake = "1U";
-                isSniper = false;
-                statusReason = `⚡ Quantum Standard: Empirical consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
-            }
-        }
-
-        // Calibrated Confidence
         const confidence = isSniper
             ? Math.max(76, Math.min(this.maxConfidence, Math.round(54 + margin * 140)))
             : Math.max(58, Math.min(this.maxConfidence, Math.round(52 + margin * 85)));
 
-        // =========================================================================
-        // 4. CLUSTER-CONDITIONED LUCKY DIGITS SELECTION (41.7% Top-2 Hit Rate)
-        // =========================================================================
-        const digitScores = {};
-        for (let d = 0; d <= 9; d++) digitScores[d] = 1.0;
-
-        for (let d = 0; d <= 9; d++) {
-            if (prediction === "BIG" && d >= 5) digitScores[d] += 4.0;
-            if (prediction === "SMALL" && d <= 4) digitScores[d] += 4.0;
-        }
-
-        // Boost digits exhibiting repeated cluster behaviors in recent draws
-        const recent5Digits = numSeq.slice(-5);
-        recent5Digits.forEach(n => {
-            if (n >= 0 && n <= 9) digitScores[n] += 1.5;
-        });
-        if (highClusterCount >= 3) {
-            digitScores[8] += 2.5;
-            digitScores[7] += 2.0;
-            digitScores[9] += 2.0;
-        } else if (lowClusterCount >= 3) {
-            digitScores[0] += 2.5;
-            digitScores[1] += 2.0;
-            digitScores[2] += 2.0;
-        }
-
+        // Empirical Lucky Digits: Pick top 2 from Observer 5-round pattern historical frequencies
         const candidatePool = prediction === "BIG" ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4];
-        candidatePool.sort((a, b) => digitScores[b] - digitScores[a]);
+        candidatePool.sort((a, b) => (empiricalDigitScores[b] || 0) - (empiricalDigitScores[a] || 0));
         const luckyDigits = [candidatePool[0], candidatePool[1]];
 
+        const digitScores = {};
+        for (let d = 0; d <= 9; d++) {
+            digitScores[d] = (empiricalDigitScores[d] || 0) + (candidatePool.includes(d) ? 4.0 : 1.0);
+        }
         const totalDigitScore = Object.values(digitScores).reduce((a, b) => a + b, 0) || 1;
         const digitProbs = {};
         for (let d = 0; d <= 9; d++) {
             digitProbs[d] = Math.round((digitScores[d] / totalDigitScore) * 100);
         }
 
-        const topSub = [...subResults].sort((a, b) => b.weight - a.weight)[0];
         const patternDesc = is22Pair
             ? "Doublet 2-2 Ping-Pong Cycle"
             : (curStreak >= 3
                 ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
                 : (curStreak === 1 && curAlts >= 2
                     ? `Alternation 1-1 Chop Rhythm (${curAlts} switches)`
-                    : (curStreak === 1 ? "Single Draw Transition" : `Streak ${curStreak} Phase`)));
+                    : `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`));
+
+        const statusReason = isSniper
+            ? `🎯 Ultra-Sniper 5-Round Pattern [${last5Nums.join("-")}] (${matchCount} Supabase matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`
+            : `⚡ Quantum Standard 5-Round Pattern [${last5Nums.join("-")}] (${matchCount} Supabase matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
 
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
 
@@ -1501,7 +1487,7 @@ export class PredictionEngine {
             holdAnalysis: undefined,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "v12.2 Quantum Ultra Enterprise",
+            engineVersion: "v12.3 Quantum Ultra Enterprise",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit,
             conformalRisk: conformalDecision,
@@ -1562,7 +1548,7 @@ export class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "v12.2 Quantum Ultra Enterprise",
+            engine_version: "v12.3 Quantum Ultra Enterprise",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
@@ -1699,7 +1685,7 @@ async function fetchWithTriProxy(url, timeoutMs = 6000) {
     return null;
 }
 
-async function hydrateHistoryFromSupabase(limit = 200) {
+async function hydrateHistoryFromSupabase(limit = 5000) {
     try {
         const res = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?select=issue_number,actual_result,actual_number,predicted_type&order=issue_number.desc&limit=${limit}`, {
             headers: {
@@ -1947,7 +1933,7 @@ async function executeSyncCycle(requestedPeriod = null) {
         regime: pred.regime,
         pattern: pred.pattern,
         is_sniper: pred.isSniper,
-        engine_version: "v12.2"
+        engine_version: "v12.3"
     };
 
     try {
@@ -2033,8 +2019,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v12.2 Quantum Ultra Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
-                engine_version: "v12.2",
+                engine: "v12.3 Quantum Ultra Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
+                engine_version: "v12.3",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
                 buffer_target: "5,000-Round FIFO Ring Buffer",
@@ -2056,8 +2042,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v12.2 Quantum Ultra Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
-                engine_version: "v12.2",
+                engine: "v12.3 Quantum Ultra Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
+                engine_version: "v12.3",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 diagnostics_url: "/report",
                 data: syncResult
@@ -2087,10 +2073,10 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "v12.2 Quantum Ultra Enterprise",
+                engine: "v12.3 Quantum Ultra Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "12.2.0 Enterprise",
-                engine_version: "v12.2",
+                version: "12.3.0 Enterprise",
+                engine_version: "v12.3",
                 diagnostics_url: "/report"
             }, null, 2), {
                 status: 200,

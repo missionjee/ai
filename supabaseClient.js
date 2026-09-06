@@ -348,7 +348,7 @@ class SupabaseService {
     /**
      * Fetch recent global signals strictly filtered to lottery periods (like.20*)
      */
-    async getRecentGlobalSignals(limit = 60) {
+    async getRecentGlobalSignals(limit = 5000) {
         try {
             const res = await fetch(`${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?issue_number=like.20*&order=issue_number.desc&limit=${limit}`, {
                 headers: {

@@ -348,7 +348,7 @@ class SupabaseService {
               regime: d.regime || 'trending',
               pattern: d.pattern || 'Standard',
               is_sniper: !!d.isSniper,
-              engine_version: d.engine_version || 'v12.2',
+              engine_version: d.engine_version || 'v12.3',
               created_at: new Date().toISOString()
             }
           }
@@ -398,7 +398,7 @@ class SupabaseService {
         },
         body: JSON.stringify({
           ...signal,
-          engine_version: signal.engine_version || 'v12.2',
+          engine_version: signal.engine_version || 'v12.3',
           created_at: new Date().toISOString()
         })
       })
@@ -605,7 +605,7 @@ class SupabaseService {
   /**
    * Fetch recent global signals with win/loss calculations (strictly filtered to lottery periods)
    */
-  async getRecentGlobalSignals(limit = 60): Promise<GlobalSignal[]> {
+  async getRecentGlobalSignals(limit = 5000): Promise<GlobalSignal[]> {
     try {
       const res = await fetch(
         `${SUPABASE_CONFIG.API_URL}/rest/v1/global_signals?issue_number=like.20*&order=issue_number.desc&limit=${limit}`,
@@ -644,7 +644,7 @@ class SupabaseService {
   async getAdminStats(): Promise<AdminStats> {
     const [profiles, signals] = await Promise.all([
       this.getAllUserProfiles(),
-      this.getRecentGlobalSignals(100)
+      this.getRecentGlobalSignals(5000)
     ])
 
     const totalKeys = profiles.length
