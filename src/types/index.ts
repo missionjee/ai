@@ -140,6 +140,10 @@ export interface HistoryEntry {
   status?: string | null
   strategy?: string | null
   reason?: string | null
+  is_sniper?: boolean
+  isSniper?: boolean
+  recommendedStake?: string
+  stake_units?: string
 }
 
 // Supabase user profile
@@ -232,6 +236,7 @@ export interface GlobalSignal {
   regime: string
   pattern: string
   is_sniper: boolean
+  tier?: SignalTier | string
   engine_version?: string
   created_at?: string
 }

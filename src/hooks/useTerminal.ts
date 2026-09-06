@@ -9,7 +9,7 @@ import { PeriodHelper } from '@/engine/periodHelper'
 import { SoundFx } from '@/engine/soundFx'
 import { PredictionEngine } from '@/engine/PredictionEngine'
 import { supabaseClient } from '@/services/supabase'
-import type { AppState, FilterType, HistoryEntry, PredictionResult } from '@/types'
+import type { AppState, FilterType, HistoryEntry, PredictionResult, SignalTier } from '@/types'
 
 const API_LATEST = 'https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json'
 const PROXIES = [
@@ -218,6 +218,10 @@ export function useTerminal() {
                 ? (num >= 5 ? 'big' : 'small')
                 : (s.actual_result ? String(s.actual_result).toLowerCase() : (existing?.actual_result ? String(existing.actual_result).toLowerCase() : null))
 
+              const cloudIsSniper = s.is_sniper !== undefined ? !!s.is_sniper : (s.tier === 'SNIPER' || !!existing?.isSniper || !!existing?.is_sniper)
+              const cloudTier = cloudIsSniper ? 'SNIPER' : (s.tier || existing?.tier || 'STANDARD')
+              const cloudStake = s.stake_units || existing?.stake_units || existing?.recommendedStake || (cloudIsSniper ? '2U' : '1U')
+
               historyMap.set(k, {
                 issue_number: k,
                 actual_result: resType,
@@ -225,6 +229,14 @@ export function useTerminal() {
                 predicted_type: (s.predicted_type as 'BIG' | 'SMALL') || (existing ? existing.predicted_type : null),
                 prediction_confidence: s.confidence || (existing ? existing.prediction_confidence : null),
                 lucky_digits: mappedDigits,
+                status: s.status || existing?.status || 'CLEARED',
+                strategy: s.strategy || existing?.strategy || (cloudIsSniper ? 'Ultra-Sniper Empirical Stacker' : 'GPT 5.6 SOL Empirical Stacker'),
+                reason: s.reason || existing?.reason || null,
+                tier: cloudTier,
+                is_sniper: cloudIsSniper,
+                isSniper: cloudIsSniper,
+                recommendedStake: cloudStake,
+                stake_units: cloudStake,
               })
             }
           })
@@ -351,19 +363,27 @@ export function useTerminal() {
       if (tokensBalance > 0 && hasActiveSession) {
         if (currentTargetEntry && currentTargetEntry.predicted_type) {
           const centralDigits = ensureLuckyDigits(currentTargetEntry.lucky_digits, currentTargetEntry.predicted_type)
+          const isSniper = !!(currentTargetEntry.isSniper ?? currentTargetEntry.is_sniper ?? (currentTargetEntry.tier === 'SNIPER'))
+          const tier: SignalTier = isSniper ? 'SNIPER' : ((currentTargetEntry.tier as SignalTier) || 'STANDARD')
+          const recommendedStake = currentTargetEntry.recommendedStake || currentTargetEntry.stake_units || (isSniper ? '2U' : '1U')
+          const strategy = currentTargetEntry.strategy || (isSniper ? 'Ultra-Sniper Empirical Stacker' : 'GPT 5.6 SOL Empirical Stacker')
+          const statusReason = currentTargetEntry.reason || (isSniper ? `🎯 GPT 5.6 SOL Ultra-Sniper Signal [${recommendedStake} Stake]` : `⚡ GPT 5.6 SOL Standard Signal [${recommendedStake} Stake]`)
+
           prediction = {
             prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
             confidence: currentTargetEntry.prediction_confidence || 54,
             status: (currentTargetEntry.status as any) || 'CLEARED',
-            statusReason: currentTargetEntry.reason || 'Verified Institutional Quantum Signal (Supabase)',
+            statusReason,
             luckyDigits: centralDigits,
-            strategy: currentTargetEntry.strategy || 'Quantitative Meta-Learner (Central Cloud)',
+            strategy,
             reason: currentTargetEntry.reason || 'Central Institutional Model Consensus',
             bigProb: currentTargetEntry.predicted_type === 'BIG' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
             smallProb: currentTargetEntry.predicted_type === 'SMALL' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
             regime: 'trending',
             pattern: 'Standard',
-            isSniper: false,
+            isSniper,
+            tier,
+            recommendedStake,
             digitProbs: {},
             volatility: '0.48',
             entropy: '0.50',
@@ -377,7 +397,7 @@ export function useTerminal() {
           const localEngineResult = engine.predict(resolvedHistory)
           prediction = localEngineResult
 
-          // Save in historyMap for stability
+          // Save in historyMap for stability with full fidelity
           historyMap.set(currentTargetPeriod, {
             issue_number: currentTargetPeriod,
             predicted_type: localEngineResult.prediction,
@@ -388,6 +408,11 @@ export function useTerminal() {
             status: localEngineResult.status,
             reason: localEngineResult.statusReason || localEngineResult.reason,
             strategy: localEngineResult.strategy,
+            tier: localEngineResult.tier || (localEngineResult.isSniper ? 'SNIPER' : 'STANDARD'),
+            is_sniper: localEngineResult.isSniper,
+            isSniper: localEngineResult.isSniper,
+            recommendedStake: localEngineResult.recommendedStake || (localEngineResult.isSniper ? '2U' : '1U'),
+            stake_units: localEngineResult.recommendedStake || (localEngineResult.isSniper ? '2U' : '1U'),
           })
 
           // Asynchronously publish to Supabase so other devices share this exact prediction
@@ -429,6 +454,9 @@ export function useTerminal() {
               const cloudConf = s.confidence || s.prediction_confidence || 54
               const cloudStatus = (s.status as any) || (s.prediction_status as any) || 'CLEARED'
               const cloudDigits = ensureLuckyDigits(s.lucky_digits || s.luckyDigits, cloudPred)
+              const cloudIsSniper = s.is_sniper !== undefined ? !!s.is_sniper : (s.tier === 'SNIPER')
+              const cloudTier: SignalTier = cloudIsSniper ? 'SNIPER' : ((s.tier as SignalTier) || 'STANDARD')
+              const cloudStake = s.stake_units || (cloudIsSniper ? '2U' : '1U')
 
               // Update history map & universal cache with central signal
               const entry = historyMap.get(currentTargetPeriod)
@@ -437,34 +465,46 @@ export function useTerminal() {
                 entry.prediction_confidence = cloudConf
                 entry.lucky_digits = cloudDigits
                 entry.status = cloudStatus
+                entry.strategy = s.strategy || s.strategy_used || entry.strategy
+                entry.reason = s.reason || s.statusReason || entry.reason
+                entry.is_sniper = cloudIsSniper
+                entry.isSniper = cloudIsSniper
+                entry.tier = cloudTier
+                entry.recommendedStake = cloudStake
+                entry.stake_units = cloudStake
               }
 
               setState(prev => {
                 if (prev.targetPeriod !== currentTargetPeriod) return prev
+                // Single-period stabilization: once sniper or 2U stake is detected for this period, NEVER downgrade it
+                const isSniper = cloudIsSniper || prev.prediction?.isSniper || false
+                const tier: SignalTier = isSniper ? 'SNIPER' : (cloudTier || prev.prediction?.tier || 'STANDARD')
+                const recommendedStake = isSniper ? '2U' : (cloudStake || prev.prediction?.recommendedStake || '1U')
+
                 return {
                   ...prev,
                   prediction: {
                     prediction: cloudPred,
                     confidence: cloudConf,
                     status: cloudStatus,
-                    statusReason: s.reason || s.statusReason || '',
+                    statusReason: s.reason || s.statusReason || prev.prediction?.statusReason || '',
                     luckyDigits: cloudDigits,
-                    strategy: s.strategy || s.strategy_used || 'Autonomous Meta-Learner (Cloud)',
+                    strategy: s.strategy || s.strategy_used || (isSniper ? 'Ultra-Sniper Empirical Stacker' : 'GPT 5.6 SOL Empirical Stacker'),
                     reason: s.reason || 'Edge Ensemble Convergence',
                     bigProb: s.big_prob ?? (cloudPred === 'BIG' ? cloudConf : 100 - cloudConf),
                     smallProb: s.small_prob ?? (cloudPred === 'SMALL' ? cloudConf : 100 - cloudConf),
                     regime: (s.regime as any) || 'trending',
                     pattern: s.pattern || 'Standard',
-                    isSniper: s.is_sniper !== undefined ? s.is_sniper : false,
-                    digitProbs: {},
+                    isSniper,
+                    tier,
+                    recommendedStake,
+                    digitProbs: prev.prediction?.digitProbs || {},
                     volatility: '0.48',
                     entropy: '0.50',
                     permutationEntropy: '0.50',
                     parityPrediction: 'EVEN',
                     engineVersion: 'gpt 5.6 sol',
                     modelPerformance: null,
-                    tier: s.is_sniper ? 'SNIPER' : (s.tier || 'STANDARD'),
-                    recommendedStake: s.stake_units || (s.is_sniper ? '2U' : '1U')
                   },
                   tokensBalance: typeof authRes.tokensBalance === 'number' ? authRes.tokensBalance : supabaseClient.getTokenBalance(),
                 }
@@ -480,17 +520,42 @@ export function useTerminal() {
       const finalTokens = supabaseClient.getTokenBalance()
       const streak = calculateStreak(resolvedHistory)
 
-      setState(prev => ({
-        ...prev,
-        targetPeriod: currentTargetPeriod,
-        prediction: tokensBalance > 0 ? prediction : null,
-        history: resolvedHistory,
-        stats: { streak },
-        tokensBalance: finalTokens,
-        isLiveFeed: isLive,
-        isResolving: isResolvingNow,
-        lastSettledPeriod: isPreviousSettled ? previousPeriod : prev.lastSettledPeriod,
-      }))
+      setState(prev => {
+        let finalPrediction: PredictionResult | null = null
+        if (tokensBalance > 0) {
+          // If we are within the exact same targetPeriod and already have an active prediction,
+          // lock in its tier, stake, sniper status, and direction so it NEVER fluctuates or flickers!
+          if (prev.targetPeriod === currentTargetPeriod && prev.prediction) {
+            finalPrediction = {
+              ...prev.prediction,
+              ...(prediction || {}),
+              // Strict anti-fluctuation invariant: NEVER downgrade tier or stake within the same period
+              isSniper: prev.prediction.isSniper || (prediction?.isSniper ?? false),
+              tier: (prev.prediction.tier === 'SNIPER' || prediction?.tier === 'SNIPER') ? 'SNIPER' : (prediction?.tier || prev.prediction.tier || 'STANDARD'),
+              recommendedStake: (prev.prediction.recommendedStake === '2U' || prediction?.recommendedStake === '2U') ? '2U' : (prediction?.recommendedStake || prev.prediction.recommendedStake || '1U'),
+              prediction: prev.prediction.prediction || prediction?.prediction || 'BIG',
+              confidence: prediction?.confidence || prev.prediction.confidence,
+              luckyDigits: prediction?.luckyDigits || prev.prediction.luckyDigits,
+              strategy: prediction?.strategy || prev.prediction.strategy,
+              statusReason: prediction?.statusReason || prev.prediction.statusReason,
+            }
+          } else {
+            finalPrediction = prediction
+          }
+        }
+
+        return {
+          ...prev,
+          targetPeriod: currentTargetPeriod,
+          prediction: finalPrediction,
+          history: resolvedHistory,
+          stats: { streak },
+          tokensBalance: finalTokens,
+          isLiveFeed: isLive,
+          isResolving: isResolvingNow,
+          lastSettledPeriod: isPreviousSettled ? previousPeriod : prev.lastSettledPeriod,
+        }
+      })
     } finally {
       syncInProgressRef.current = false
     }
