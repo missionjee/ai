@@ -1229,10 +1229,8 @@ export class PredictionEngine {
             }
             if (trailingLosses === 1) {
                 currentLevel = 2;
-            } else if (trailingLosses === 2) {
-                currentLevel = 3;
-            } else if (trailingLosses >= 3) {
-                // Hard Stop-Loss Reset! Capped at max 2-3 levels.
+            } else if (trailingLosses >= 2) {
+                // Hard Stop-Loss Reset! Capped strictly at Level 2 (max -3U drawdown shield).
                 currentLevel = 1;
                 isStopLossReset = true;
             } else {
@@ -1472,9 +1470,14 @@ export class PredictionEngine {
         const matchCount = matchCount5 + matchCount3;
 
         let patternLogit = 0.0;
-        if (wBig + wSmall > 0) {
+        if (canonicalPattern) {
+            // Under canonical pattern activation, canonical board geometry takes total precedence
+            patternLogit = 0.0;
+        } else if (matchCount >= 4 && (wBig + wSmall > 0)) {
             const pPat = (wBig + 0.5) / (wBig + wSmall + 1.0);
-            patternLogit = Math.max(-0.18, Math.min(0.18, (pPat - 0.5) * 0.24));
+            if (Math.abs(pPat - 0.5) >= 0.06) {
+                patternLogit = Math.max(-0.18, Math.min(0.18, (pPat - 0.5) * 0.24));
+            }
         }
 
         // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol, Canonical Board Pattern Engine, & Chop Continuity)
@@ -1668,7 +1671,7 @@ export class PredictionEngine {
         } else if (isStopLossReset) {
             tier = "RESET-L1";
             recommendedStake = "1U";
-            statusReason = `🛑 GPT 6 ASTRA [LEVEL 1 RESET]: Capped at max 3 levels stop-loss, safe base reset [1U Stake]`;
+            statusReason = `🛑 GPT 6 ASTRA [STOP-LOSS RESET]: Capped at Level 2 stop-loss (max -3U drawdown shield), safe base reset [1U Stake]`;
         } else if (isSniper) {
             tier = "SNIPER";
             recommendedStake = "2U";
@@ -1679,9 +1682,14 @@ export class PredictionEngine {
             statusReason = `⚡ GPT 6 ASTRA: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [1U Stake]`;
         }
 
-        const confidence = (isSniper || currentLevel >= 2)
-            ? Math.max(76, Math.min(this.maxConfidence, Math.round(54 + margin * 140)))
+        const confidence = (isSniper || currentLevel >= 2 || canonicalPattern)
+            ? Math.max(76, Math.min(this.maxConfidence, Math.round(56 + margin * 140)))
             : Math.max(58, Math.min(this.maxConfidence, Math.round(52 + margin * 85)));
+
+        const executionAction = (confidence >= 68 || isSniper || currentLevel >= 2) ? "BET" : "PASS";
+        if (executionAction === "PASS" && tier === "STANDARD") {
+            statusReason += " - ⚠️ Sub-68% caution, recommend PASS (0U) or 1U Scout";
+        }
 
         // ASTRA Dual Lucky Digits Engine: Fusing Harmonic Transitions, Locality Clustering, & Markov Resonance
         const candidatePool = prediction === "BIG" ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4];
@@ -1770,6 +1778,7 @@ export class PredictionEngine {
             permutationEntropy: permEntropy.toFixed(2),
             continuousVal: parseFloat((0.6 * lastNum + 0.4 * prevNum).toFixed(2)),
             isSniper,
+            executionAction,
             tier,
             recommendedStake,
             recoveryLevel: currentLevel,
@@ -2038,19 +2047,36 @@ async function settlePastDrawsInSupabase(upstreamDraws, supabaseHistory) {
         });
     }
 
+    // Actively query Supabase for up to 50 recent unsettled signals to guarantee zero dropped settlements
+    const unsettledInDb = new Set();
+    try {
+        const res = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?actual_result=is.null&select=issue_number&order=issue_number.desc&limit=50`, {
+            headers: {
+                "apikey": CONFIG.SUPABASE_KEY,
+                "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
+            }
+        });
+        if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows)) {
+                rows.forEach(r => { if (r && r.issue_number) unsettledInDb.add(String(r.issue_number)); });
+            }
+        }
+    } catch (e) {}
+
     // Filter strictly for real upstream draws that have a valid lottery number
     const pendingSettlement = upstreamDraws.filter(d => {
         if (!d || !d.issue_number) return false;
         const k = String(d.issue_number);
-        if (alreadySettled.has(k)) return false;
+        if (alreadySettled.has(k) && !unsettledInDb.has(k)) return false;
         const hasNum = d.actual_number !== undefined && d.actual_number !== null && !isNaN(parseInt(d.actual_number, 10));
         return hasNum;
     });
 
     if (pendingSettlement.length === 0) return;
 
-    // Settle newly drawn rounds in parallel
-    const patches = pendingSettlement.slice(0, 5).map(draw => {
+    // Settle newly drawn rounds in parallel (expand slice up to 50 draws)
+    const patches = pendingSettlement.slice(0, 50).map(draw => {
         const issue = String(draw.issue_number);
         const num = parseInt(draw.actual_number, 10);
         const resType = num >= 5 ? "big" : "small";
@@ -2269,8 +2295,7 @@ async function executeSyncCycle(requestedPeriod = null) {
 
     let recoveryLevel = 1;
     if (trailingLosses === 1) recoveryLevel = 2;
-    else if (trailingLosses === 2) recoveryLevel = 3;
-    else if (trailingLosses >= 3) recoveryLevel = 1; // Hard Stop-Loss Reset! Capped at max 2-3 levels!
+    else if (trailingLosses >= 2) recoveryLevel = 1; // Hard Stop-Loss Reset! Capped strictly at Level 2 (max -3U drawdown shield).
     else recoveryLevel = 1;
 
     // 9. Canonical slice: Pass verified draw numbers up to 5,000 rounds for deep deterministic inference
