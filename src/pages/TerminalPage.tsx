@@ -100,7 +100,7 @@ export function TerminalPage() {
             <span className="dot">•</span>
             <span>Single Device Locked</span>
             <span className="dot">•</span>
-            <span>Astra Engine GPT 6.0</span>
+            <span>ASTRA PRO v6.0</span>
           </div>
         </footer>
       </div>

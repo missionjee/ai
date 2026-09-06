@@ -341,7 +341,7 @@ class SupabaseService {
               status: d.status || 'CLEARED',
               lucky_digits: d.luckyDigits || d.lucky_digits || [7, 8],
               stake_units: d.recommendedStake || d.stake_units || (d.tier === 'PASS' ? '0U' : (d.isSniper || d.tier === 'SNIPER' ? '2U' : '1U')),
-              strategy: d.strategy || (d.tier === 'PASS' ? '0U [PASS] Filter Gate' : (d.isSniper || d.tier === 'SNIPER' ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker')),
+              strategy: d.strategy || (d.tier === 'PASS' ? '0U [PASS] Filter Gate' : (d.isSniper || d.tier === 'SNIPER' ? 'Ultra-Sniper Holographic Stacker' : 'ASTRA PRO v6.0 Holographic Stacker')),
               reason: d.reason || 'Edge Ensemble Convergence',
               big_prob: d.bigProb || 50,
               small_prob: d.smallProb || 50,

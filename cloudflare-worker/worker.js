@@ -1667,29 +1667,29 @@ export class PredictionEngine {
         if (currentLevel === 3) {
             tier = "MAX-COVER-L3";
             recommendedStake = "2U";
-            statusReason = `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 2U bankroll-safe cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [Stop-loss hard cap at L3, no L4]`;
+            statusReason = `🔥 ASTRA PRO v6.0 [LEVEL 3 MAX COVER]: 2U bankroll-safe cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [Stop-loss hard cap at L3, no L4]`;
         } else if (currentLevel === 2) {
             tier = "RECOVERY-L2";
             recommendedStake = "2U";
-            statusReason = `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U trend-shielded recovery cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName}`;
+            statusReason = `🛡️ ASTRA PRO v6.0 [LEVEL 2 RECOVERY]: 2U trend-shielded recovery cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName}`;
         } else if (isSniper) {
             tier = "SNIPER";
             recommendedStake = "2U";
-            statusReason = `🎯 GPT 6 ASTRA Ultra-Sniper: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [2U Stake]`;
+            statusReason = `🎯 ASTRA PRO v6.0 Ultra-Sniper: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [2U Stake]`;
         } else if (executionAction === "PASS") {
             tier = "PASS";
             recommendedStake = "0U";
             statusReason = isStopLossReset
-                ? `⏸️ GPT 6 ASTRA [PASS - 0U]: Stop-loss reset cooldown, low conviction (${confidence}% < 68% gate), holding bankroll`
-                : `⏸️ GPT 6 ASTRA [PASS - 0U]: Low conviction (${confidence}% < 68% gate), holding bankroll to eliminate negative churn`;
+                ? `⏸️ ASTRA PRO v6.0 [PASS - 0U]: Stop-loss reset cooldown, low conviction (${confidence}% < 68% gate), holding bankroll`
+                : `⏸️ ASTRA PRO v6.0 [PASS - 0U]: Low conviction (${confidence}% < 68% gate), holding bankroll to eliminate negative churn`;
         } else if (isStopLossReset) {
             tier = "RESET-L1";
             recommendedStake = "1U";
-            statusReason = `🛑 GPT 6 ASTRA [STOP-LOSS RESET]: Capped at Level 2 stop-loss (max -3U drawdown shield), safe base reset [1U Stake]`;
+            statusReason = `🛑 ASTRA PRO v6.0 [STOP-LOSS RESET]: Capped at Level 2 stop-loss (max -3U drawdown shield), safe base reset [1U Stake]`;
         } else {
             tier = "STANDARD";
             recommendedStake = "1U";
-            statusReason = `⚡ GPT 6 ASTRA: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [1U Stake]`;
+            statusReason = `⚡ ASTRA PRO v6.0: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [1U Stake]`;
         }
 
         // ASTRA Dual Lucky Digits Engine: Fusing Harmonic Transitions, Locality Clustering, & Markov Resonance
@@ -1771,7 +1771,7 @@ export class PredictionEngine {
                     ? "Ultra-Sniper Holographic Stacker"
                     : (currentLevel >= 2
                         ? `Active Level ${currentLevel} Recovery`
-                        : (isStopLossReset ? "Stop-Loss Reset Protocol" : "GPT 6 ASTRA Holographic Stacker"))),
+                        : (isStopLossReset ? "Stop-Loss Reset Protocol" : "ASTRA PRO v6.0 Holographic Stacker"))),
             reason: statusReason,
             bigProb: Math.round(pFusedBig * 100),
             smallProb: Math.round((1.0 - pFusedBig) * 100),
