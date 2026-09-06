@@ -98,11 +98,20 @@ export function PredictionHero({
         <div className={cn('signal-banner', signalKey)}>
           <span className="signal-tag whitespace-nowrap overflow-hidden text-ellipsis max-w-full block">
             {isLocked && <span>🔒 SIGNAL LOCKED</span>}
-            {!isLocked && (prediction?.tier === 'SNIPER' || prediction?.isSniper) && (
+            {!isLocked && (prediction?.tier === 'MAX-COVER-L3' || prediction?.recoveryLevel === 3 || (prediction as any)?.recovery_level === 3) && (
+              <span>🔥 LEVEL 3 [4U MAX COVER]</span>
+            )}
+            {!isLocked && (prediction?.tier === 'RECOVERY-L2' || prediction?.recoveryLevel === 2 || (prediction as any)?.recovery_level === 2) && (
+              <span>🛡️ LEVEL 2 [2U RECOVERY]</span>
+            )}
+            {!isLocked && prediction?.tier === 'RESET-L1' && (
+              <span>🛑 LEVEL 1 [1U BASE] (RESET)</span>
+            )}
+            {!isLocked && (prediction?.tier === 'SNIPER' || prediction?.isSniper) && !(prediction?.tier === 'MAX-COVER-L3' || prediction?.tier === 'RECOVERY-L2' || prediction?.tier === 'RESET-L1' || (prediction?.recoveryLevel && prediction.recoveryLevel > 1) || ((prediction as any)?.recovery_level && (prediction as any).recovery_level > 1)) && (
               <span>🎯 ULTRA-SNIPER [{prediction?.recommendedStake || '2U'}]</span>
             )}
-            {!isLocked && (!prediction?.isSniper && prediction?.tier !== 'SNIPER') && prediction && (
-              <span>⚡ ASTRA STANDARD [{prediction?.recommendedStake || '1U'}]</span>
+            {!isLocked && (!prediction?.isSniper && (!prediction?.tier || prediction?.tier === 'STANDARD')) && prediction && !(prediction?.tier === 'MAX-COVER-L3' || prediction?.tier === 'RECOVERY-L2' || prediction?.tier === 'RESET-L1' || (prediction?.recoveryLevel && prediction.recoveryLevel > 1) || ((prediction as any)?.recovery_level && (prediction as any).recovery_level > 1)) && (
+              <span>⚡ LEVEL 1 [{prediction?.recommendedStake || '1U'} BASE]</span>
             )}
             {!isLocked && !prediction && (
               <span>⚡ SYNCING FEED...</span>

@@ -1053,7 +1053,7 @@ export class PredictionEngine {
         };
     }
 
-    predict(history) {
+    predict(history, options = {}) {
         this.modelTrackers = this.defaultModelTrackers();
         this.plattCalibrator = new OnlinePlattCalibrator(2.40, -0.05);
         this.plattA = 2.40;
@@ -1108,6 +1108,41 @@ export class PredictionEngine {
             validHistory = sorted.slice(-120);
         }
 
+        let currentLevel = 1;
+        let isStopLossReset = false;
+        if (options && options.recoveryLevel && [1, 2, 3].includes(options.recoveryLevel)) {
+            currentLevel = options.recoveryLevel;
+        } else if (options && (options.enableRecovery || options.autoRecovery) && Array.isArray(validHistory) && validHistory.length > 0) {
+            let trailingLosses = 0;
+            for (let k = validHistory.length - 1; k >= 0; k--) {
+                const row = validHistory[k];
+                if (!row) continue;
+                const predType = (row.predicted_type || row.predictedType || "").toUpperCase();
+                let actRes = (row.actual_result || row.result_type || "").toUpperCase();
+                if (!actRes && row.actual_number !== null && row.actual_number !== undefined && !isNaN(row.actual_number)) {
+                    actRes = Number(row.actual_number) >= 5 ? "BIG" : "SMALL";
+                }
+                if ((predType === "BIG" || predType === "SMALL") && (actRes === "BIG" || actRes === "SMALL")) {
+                    if (predType === actRes) {
+                        break;
+                    } else {
+                        trailingLosses++;
+                    }
+                }
+            }
+            if (trailingLosses === 1) {
+                currentLevel = 2;
+            } else if (trailingLosses === 2) {
+                currentLevel = 3;
+            } else if (trailingLosses >= 3) {
+                // Hard Stop-Loss Reset! Capped at max 2-3 levels.
+                currentLevel = 1;
+                isStopLossReset = true;
+            } else {
+                currentLevel = 1;
+            }
+        }
+
         if (validHistory.length < 5) {
             const fallbackPred = (validHistory.length > 0 && validHistory[validHistory.length - 1].actual_number !== null && validHistory[validHistory.length - 1].actual_number !== undefined)
                 ? (validHistory[validHistory.length - 1].actual_number >= 5 ? "SMALL" : "BIG")
@@ -1118,6 +1153,7 @@ export class PredictionEngine {
                 status: "CLEARED",
                 tier: "STANDARD",
                 recommendedStake: "1U",
+                recoveryLevel: 1,
                 regimeEntropyThreshold: 0.88,
                 holdAnalysis: undefined,
                 statusReason: `Active real-time quantum inference (${validHistory.length} rounds buffered)`,
@@ -1346,34 +1382,25 @@ export class PredictionEngine {
             patternLogit = (pPat - 0.5) * 0.46;
         }
 
-        // 1C. Rhythm Flow Analysis (Calibrated Streak Exhaustion & Dragon Momentum Protocol)
+        // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol & Chop Continuity)
         let rhythmLogit = 0.0;
         if (curStreak >= 6) {
             // Runaway climax dragon momentum
-            rhythmLogit = (lastToken === 1 ? +0.24 : -0.24);
-        } else if (curStreak === 5) {
-            // Empirical 64.3% Streak Exhaustion Reversion
-            rhythmLogit = (lastToken === 1 ? -0.34 : +0.34);
-        } else if (curStreak === 4) {
-            // Empirical 58.2% Streak Exhaustion Reversion
-            rhythmLogit = (lastToken === 1 ? -0.26 : +0.26);
-        } else if (curStreak === 3) {
-            // Balanced momentum ride
-            rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
+            rhythmLogit = (lastToken === 1 ? +0.32 : -0.32);
+        } else if (curStreak >= 3) {
+            // Sustained dragon momentum
+            rhythmLogit = (lastToken === 1 ? +0.22 : -0.22);
         } else if (curStreak === 2) {
-            // Doublet transition
-            rhythmLogit = (lastToken === 1 ? -0.10 : +0.10);
+            // Doublet continuation
+            rhythmLogit = (lastToken === 1 ? +0.12 : -0.12);
         } else if (curStreak === 1) {
-            if (curAlts >= 5) {
-                // Extended chop continuation
-                rhythmLogit = (lastToken === 1 ? -0.34 : +0.34);
-            } else if (curAlts >= 2) {
-                // Doublet formation tendency
-                rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
+            if (curAlts >= 2) {
+                // Alternating chop continuation (1-1 ping-pong)
+                rhythmLogit = (lastToken === 1 ? -0.26 : +0.26);
             }
         }
         if (is22Pair) {
-            rhythmLogit += (lastToken === 1 ? -0.26 : +0.26);
+            rhythmLogit += (lastToken === 1 ? -0.22 : +0.22);
         }
 
         // 1D. Macro 20 Equilibrium Rhythm
@@ -1385,7 +1412,15 @@ export class PredictionEngine {
         else if (bigsIn20 <= 8) macroLogit = +0.11;
 
         // Anti-Collinear Mean-Reversion Clamping (Prevents Gambler's Fallacy runaway lock)
-        const meanRevPrior = Math.max(-0.25, Math.min(0.25, 0.55 * clusterLogit + 0.45 * macroLogit));
+        let meanRevPrior = Math.max(-0.25, Math.min(0.25, 0.55 * clusterLogit + 0.45 * macroLogit));
+        // When in an active streak (curStreak >= 2), NEVER allow mean reversion to fight the dragon!
+        if (curStreak >= 2) {
+            meanRevPrior = (lastToken === 1) ? Math.max(0.0, meanRevPrior) : Math.min(0.0, meanRevPrior);
+        }
+        // When on active Recovery Levels (L2 & L3), completely suppress mean-reversion counter-trend bets
+        if (currentLevel >= 2) {
+            meanRevPrior = 0.0;
+        }
 
         // 1E. 5-Round Trajectory Delta Slope
         const netDelta = d5.reduce((a, b) => a + b, 0);
@@ -1488,18 +1523,52 @@ export class PredictionEngine {
             prediction = (lastToken === 1) ? "SMALL" : "BIG";
         }
 
+        // SAFETY-FIRST RECOVERY PROTOCOL (Levels 2 & 3):
+        // Never fight a dragon or chop on recovery! Protect bankroll with highest probability direction!
+        if (currentLevel >= 2) {
+            if (curStreak >= 2) {
+                prediction = (lastToken === 1) ? "BIG" : "SMALL";
+            } else if (curAlts >= 2) {
+                prediction = (lastToken === 1) ? "SMALL" : "BIG";
+            }
+        }
+
         let margin = Math.abs(pFusedBig - 0.50);
 
         const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, this._detectBrokenSymmetryPattern(tokens));
         const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig);
         const conformalDecision = this.conformalGator.evaluateSignal(dominantProb, shannonEntropy, regimeCheck.hurstH, regimeEntropyThreshold);
 
-        const isSniper = Math.abs(fusedLogit) >= 0.38 && decisionConsecutiveMisses <= 1 && curStreak < 5 && matchCount >= 4;
+        const isSniper = (currentLevel === 1) && Math.abs(fusedLogit) >= 0.38 && decisionConsecutiveMisses <= 1 && curStreak < 5 && matchCount >= 4;
         const status = "CLEARED";
-        const tier = isSniper ? "SNIPER" : "STANDARD";
-        const recommendedStake = isSniper ? "2U" : "1U";
 
-        const confidence = isSniper
+        let tier = "STANDARD";
+        let recommendedStake = "1U";
+        let statusReason = "";
+
+        if (currentLevel === 3) {
+            tier = "MAX-COVER-L3";
+            recommendedStake = "4U";
+            statusReason = `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [Stop-loss hard cap at L3, no L4]`;
+        } else if (currentLevel === 2) {
+            tier = "RECOVERY-L2";
+            recommendedStake = "2U";
+            statusReason = `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U trend-shielded recovery cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName}`;
+        } else if (isStopLossReset) {
+            tier = "RESET-L1";
+            recommendedStake = "1U";
+            statusReason = `🛑 GPT 6 ASTRA [LEVEL 1 RESET]: Capped at max 3 levels stop-loss, safe base reset [1U Stake]`;
+        } else if (isSniper) {
+            tier = "SNIPER";
+            recommendedStake = "2U";
+            statusReason = `🎯 GPT 6 ASTRA Ultra-Sniper Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`;
+        } else {
+            tier = "STANDARD";
+            recommendedStake = "1U";
+            statusReason = `⚡ GPT 6 ASTRA Standard Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
+        }
+
+        const confidence = (isSniper || currentLevel >= 2)
             ? Math.max(76, Math.min(this.maxConfidence, Math.round(54 + margin * 140)))
             : Math.max(58, Math.min(this.maxConfidence, Math.round(52 + margin * 85)));
 
@@ -1545,19 +1614,15 @@ export class PredictionEngine {
             ? "Doublet 2-2 Ping-Pong Cycle"
             : (curStreak >= 6
                 ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                : (curStreak === 4 || curStreak === 5
-                    ? `Streak Exhaustion Reversion (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                    : (curStreak === 3
-                        ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                : (curStreak >= 3
+                    ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                    : (curStreak === 2
+                        ? `Doublet Formation (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
                         : (curStreak === 1 && curAlts >= 5
                             ? `Extended 1-1 Chop Rhythm (${curAlts} switches)`
                             : (curStreak === 1 && curAlts >= 2
-                                ? `Doublet Formation Chop (${curAlts} switches)`
+                                ? `Alternating 1-1 Chop Rhythm (${curAlts} switches)`
                                 : `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`)))));
-
-        const statusReason = isSniper
-            ? `🎯 GPT 6 ASTRA Ultra-Sniper Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`
-            : `⚡ GPT 6 ASTRA Standard Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
 
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
 
@@ -1566,7 +1631,7 @@ export class PredictionEngine {
             confidence,
             status,
             statusReason,
-            strategy: isSniper ? "Ultra-Sniper Holographic Stacker" : "GPT 6 ASTRA Holographic Stacker",
+            strategy: isSniper ? "Ultra-Sniper Holographic Stacker" : (currentLevel >= 2 ? `Active Level ${currentLevel} Recovery` : (isStopLossReset ? "Stop-Loss Reset Protocol" : "GPT 6 ASTRA Holographic Stacker")),
             reason: statusReason,
             bigProb: Math.round(pFusedBig * 100),
             smallProb: Math.round((1.0 - pFusedBig) * 100),
@@ -1582,6 +1647,7 @@ export class PredictionEngine {
             isSniper,
             tier,
             recommendedStake,
+            recoveryLevel: currentLevel,
             regimeEntropyThreshold,
             holdAnalysis: undefined,
             pattern: patternDesc,
@@ -1595,7 +1661,8 @@ export class PredictionEngine {
                 runsZ: runsTest.runsZ,
                 fourierPeriod: spectral.dominantPeriod,
                 plattParameters: { a: this.plattA, b: this.plattB },
-                decisionConsecutiveMisses
+                decisionConsecutiveMisses,
+                recoveryLevel: currentLevel
             }
         };
     }

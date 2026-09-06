@@ -1086,7 +1086,7 @@ export class PredictionEngine {
         };
     }
 
-    predict(history) {
+    predict(history, options = {}) {
         this.modelTrackers = this.defaultModelTrackers();
         this.plattCalibrator = new OnlinePlattCalibrator(2.40, -0.05);
         this.plattA = 2.40;
@@ -1141,6 +1141,41 @@ export class PredictionEngine {
             validHistory = sorted.slice(-120);
         }
 
+        let currentLevel = 1;
+        let isStopLossReset = false;
+        if (options && options.recoveryLevel && [1, 2, 3].includes(options.recoveryLevel)) {
+            currentLevel = options.recoveryLevel;
+        } else if (options && (options.enableRecovery || options.autoRecovery) && Array.isArray(validHistory) && validHistory.length > 0) {
+            let trailingLosses = 0;
+            for (let k = validHistory.length - 1; k >= 0; k--) {
+                const row = validHistory[k];
+                if (!row) continue;
+                const predType = (row.predicted_type || row.predictedType || "").toUpperCase();
+                let actRes = (row.actual_result || row.result_type || "").toUpperCase();
+                if (!actRes && row.actual_number !== null && row.actual_number !== undefined && !isNaN(row.actual_number)) {
+                    actRes = Number(row.actual_number) >= 5 ? "BIG" : "SMALL";
+                }
+                if ((predType === "BIG" || predType === "SMALL") && (actRes === "BIG" || actRes === "SMALL")) {
+                    if (predType === actRes) {
+                        break;
+                    } else {
+                        trailingLosses++;
+                    }
+                }
+            }
+            if (trailingLosses === 1) {
+                currentLevel = 2;
+            } else if (trailingLosses === 2) {
+                currentLevel = 3;
+            } else if (trailingLosses >= 3) {
+                // Hard Stop-Loss Reset! Capped at max 2-3 levels.
+                currentLevel = 1;
+                isStopLossReset = true;
+            } else {
+                currentLevel = 1;
+            }
+        }
+
         if (validHistory.length < 5) {
             const fallbackPred = (validHistory.length > 0 && validHistory[validHistory.length - 1].actual_number !== null && validHistory[validHistory.length - 1].actual_number !== undefined)
                 ? (validHistory[validHistory.length - 1].actual_number >= 5 ? "SMALL" : "BIG")
@@ -1151,6 +1186,7 @@ export class PredictionEngine {
                 status: "CLEARED",
                 tier: "STANDARD",
                 recommendedStake: "1U",
+                recoveryLevel: 1,
                 regimeEntropyThreshold: 0.88,
                 holdAnalysis: undefined,
                 statusReason: `Active real-time quantum inference (${validHistory.length} rounds buffered)`,
@@ -1379,34 +1415,25 @@ export class PredictionEngine {
             patternLogit = (pPat - 0.5) * 0.46;
         }
 
-        // 1C. Rhythm Flow Analysis (Calibrated Streak Exhaustion & Dragon Momentum Protocol)
+        // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol & Chop Continuity)
         let rhythmLogit = 0.0;
         if (curStreak >= 6) {
             // Runaway climax dragon momentum
-            rhythmLogit = (lastToken === 1 ? +0.24 : -0.24);
-        } else if (curStreak === 5) {
-            // Empirical 64.3% Streak Exhaustion Reversion
-            rhythmLogit = (lastToken === 1 ? -0.34 : +0.34);
-        } else if (curStreak === 4) {
-            // Empirical 58.2% Streak Exhaustion Reversion
-            rhythmLogit = (lastToken === 1 ? -0.26 : +0.26);
-        } else if (curStreak === 3) {
-            // Balanced momentum ride
-            rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
+            rhythmLogit = (lastToken === 1 ? +0.32 : -0.32);
+        } else if (curStreak >= 3) {
+            // Sustained dragon momentum
+            rhythmLogit = (lastToken === 1 ? +0.22 : -0.22);
         } else if (curStreak === 2) {
-            // Doublet transition
-            rhythmLogit = (lastToken === 1 ? -0.10 : +0.10);
+            // Doublet continuation
+            rhythmLogit = (lastToken === 1 ? +0.12 : -0.12);
         } else if (curStreak === 1) {
-            if (curAlts >= 5) {
-                // Extended chop continuation
-                rhythmLogit = (lastToken === 1 ? -0.34 : +0.34);
-            } else if (curAlts >= 2) {
-                // Doublet formation tendency
-                rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
+            if (curAlts >= 2) {
+                // Alternating chop continuation (1-1 ping-pong)
+                rhythmLogit = (lastToken === 1 ? -0.26 : +0.26);
             }
         }
         if (is22Pair) {
-            rhythmLogit += (lastToken === 1 ? -0.26 : +0.26);
+            rhythmLogit += (lastToken === 1 ? -0.22 : +0.22);
         }
 
         // 1D. Macro 20 Equilibrium Rhythm
@@ -1418,7 +1445,15 @@ export class PredictionEngine {
         else if (bigsIn20 <= 8) macroLogit = +0.11;
 
         // Anti-Collinear Mean-Reversion Clamping (Prevents Gambler's Fallacy runaway lock)
-        const meanRevPrior = Math.max(-0.25, Math.min(0.25, 0.55 * clusterLogit + 0.45 * macroLogit));
+        let meanRevPrior = Math.max(-0.25, Math.min(0.25, 0.55 * clusterLogit + 0.45 * macroLogit));
+        // When in an active streak (curStreak >= 2), NEVER allow mean reversion to fight the dragon!
+        if (curStreak >= 2) {
+            meanRevPrior = (lastToken === 1) ? Math.max(0.0, meanRevPrior) : Math.min(0.0, meanRevPrior);
+        }
+        // When on active Recovery Levels (L2 & L3), completely suppress mean-reversion counter-trend bets
+        if (currentLevel >= 2) {
+            meanRevPrior = 0.0;
+        }
 
         // 1E. 5-Round Trajectory Delta Slope
         const netDelta = d5.reduce((a, b) => a + b, 0);
@@ -1521,18 +1556,52 @@ export class PredictionEngine {
             prediction = (lastToken === 1) ? "SMALL" : "BIG";
         }
 
+        // SAFETY-FIRST RECOVERY PROTOCOL (Levels 2 & 3):
+        // Never fight a dragon or chop on recovery! Protect bankroll with highest probability direction!
+        if (currentLevel >= 2) {
+            if (curStreak >= 2) {
+                prediction = (lastToken === 1) ? "BIG" : "SMALL";
+            } else if (curAlts >= 2) {
+                prediction = (lastToken === 1) ? "SMALL" : "BIG";
+            }
+        }
+
         let margin = Math.abs(pFusedBig - 0.50);
 
         const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, this._detectBrokenSymmetryPattern(tokens));
         const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig);
         const conformalDecision = this.conformalGator.evaluateSignal(dominantProb, shannonEntropy, regimeCheck.hurstH, regimeEntropyThreshold);
 
-        const isSniper = Math.abs(fusedLogit) >= 0.38 && decisionConsecutiveMisses <= 1 && curStreak < 5 && matchCount >= 4;
+        const isSniper = (currentLevel === 1) && Math.abs(fusedLogit) >= 0.38 && decisionConsecutiveMisses <= 1 && curStreak < 5 && matchCount >= 4;
         const status = "CLEARED";
-        const tier = isSniper ? "SNIPER" : "STANDARD";
-        const recommendedStake = isSniper ? "2U" : "1U";
 
-        const confidence = isSniper
+        let tier = "STANDARD";
+        let recommendedStake = "1U";
+        let statusReason = "";
+
+        if (currentLevel === 3) {
+            tier = "MAX-COVER-L3";
+            recommendedStake = "4U";
+            statusReason = `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [Stop-loss hard cap at L3, no L4]`;
+        } else if (currentLevel === 2) {
+            tier = "RECOVERY-L2";
+            recommendedStake = "2U";
+            statusReason = `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U trend-shielded recovery cover (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName}`;
+        } else if (isStopLossReset) {
+            tier = "RESET-L1";
+            recommendedStake = "1U";
+            statusReason = `🛑 GPT 6 ASTRA [LEVEL 1 RESET]: Capped at max 3 levels stop-loss, safe base reset [1U Stake]`;
+        } else if (isSniper) {
+            tier = "SNIPER";
+            recommendedStake = "2U";
+            statusReason = `🎯 GPT 6 ASTRA Ultra-Sniper Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`;
+        } else {
+            tier = "STANDARD";
+            recommendedStake = "1U";
+            statusReason = `⚡ GPT 6 ASTRA Standard Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
+        }
+
+        const confidence = (isSniper || currentLevel >= 2)
             ? Math.max(76, Math.min(this.maxConfidence, Math.round(54 + margin * 140)))
             : Math.max(58, Math.min(this.maxConfidence, Math.round(52 + margin * 85)));
 
@@ -1578,19 +1647,15 @@ export class PredictionEngine {
             ? "Doublet 2-2 Ping-Pong Cycle"
             : (curStreak >= 6
                 ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                : (curStreak === 4 || curStreak === 5
-                    ? `Streak Exhaustion Reversion (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                    : (curStreak === 3
-                        ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                : (curStreak >= 3
+                    ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                    : (curStreak === 2
+                        ? `Doublet Formation (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
                         : (curStreak === 1 && curAlts >= 5
                             ? `Extended 1-1 Chop Rhythm (${curAlts} switches)`
                             : (curStreak === 1 && curAlts >= 2
-                                ? `Doublet Formation Chop (${curAlts} switches)`
+                                ? `Alternating 1-1 Chop Rhythm (${curAlts} switches)`
                                 : `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`)))));
-
-        const statusReason = isSniper
-            ? `🎯 GPT 6 ASTRA Ultra-Sniper Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`
-            : `⚡ GPT 6 ASTRA Standard Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
 
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
 
@@ -1599,7 +1664,7 @@ export class PredictionEngine {
             confidence,
             status,
             statusReason,
-            strategy: isSniper ? "Ultra-Sniper Holographic Stacker" : "GPT 6 ASTRA Holographic Stacker",
+            strategy: isSniper ? "Ultra-Sniper Holographic Stacker" : (currentLevel >= 2 ? `Active Level ${currentLevel} Recovery` : (isStopLossReset ? "Stop-Loss Reset Protocol" : "GPT 6 ASTRA Holographic Stacker")),
             reason: statusReason,
             bigProb: Math.round(pFusedBig * 100),
             smallProb: Math.round((1.0 - pFusedBig) * 100),
@@ -1615,6 +1680,7 @@ export class PredictionEngine {
             isSniper,
             tier,
             recommendedStake,
+            recoveryLevel: currentLevel,
             regimeEntropyThreshold,
             holdAnalysis: undefined,
             pattern: patternDesc,
@@ -1628,7 +1694,8 @@ export class PredictionEngine {
                 runsZ: runsTest.runsZ,
                 fourierPeriod: spectral.dominantPeriod,
                 plattParameters: { a: this.plattA, b: this.plattB },
-                decisionConsecutiveMisses
+                decisionConsecutiveMisses,
+                recoveryLevel: currentLevel
             }
         };
     }
@@ -1753,6 +1820,37 @@ function calculateNextPeriod(latestIssueStr) {
     return `${datePart}${gameCode}${String(nextIdx).padStart(4, "0")}`;
 }
 
+function calculatePreviousPeriod(issueNumber) {
+    if (!issueNumber) return "";
+    const s = String(issueNumber).trim();
+    if (!s) return "";
+    if (s.length < 17) {
+        try {
+            return String(BigInt(s) - 1n);
+        } catch (e) {
+            return s;
+        }
+    }
+    const datePart = s.slice(0, 8);
+    const gameCode = s.slice(8, 13);
+    const periodIdx = parseInt(s.slice(13), 10);
+    if (periodIdx <= 1) {
+        try {
+            const year = parseInt(datePart.slice(0, 4), 10);
+            const month = parseInt(datePart.slice(4, 6), 10) - 1;
+            const day = parseInt(datePart.slice(6, 8), 10);
+            const d = new Date(Date.UTC(year, month, day));
+            d.setUTCDate(d.getUTCDate() - 1);
+            const prevYear = d.getUTCFullYear();
+            const prevMonth = String(d.getUTCMonth() + 1).padStart(2, "0");
+            const prevDay = String(d.getUTCDate()).padStart(2, "0");
+            return `${prevYear}${prevMonth}${prevDay}${gameCode}1440`;
+        } catch (e) {}
+    }
+    const prevIdx = periodIdx - 1;
+    return `${datePart}${gameCode}${String(prevIdx).padStart(4, "0")}`;
+}
+
 function getUtcCurrentPeriod(date = new Date()) {
     const y = date.getUTCFullYear();
     const m = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -1762,24 +1860,21 @@ function getUtcCurrentPeriod(date = new Date()) {
     return `${y}${m}${d}10001${String(periodIdx).padStart(4, "0")}`;
 }
 
-async function fetchWithTriProxy(url, timeoutMs = 6000) {
+async function fetchWithTriProxy(url, timeoutMs = 4000) {
     const timestamp = Date.now();
     const targetUrl = url.includes("?") ? `${url}&ts=${timestamp}` : `${url}?ts=${timestamp}`;
-    const proxies = [
-        targetUrl,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
-    ];
 
-    for (const target of proxies) {
+    for (let attempt = 0; attempt < 3; attempt++) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const res = await fetch(target, {
+            const res = await fetch(`${targetUrl}&attempt=${attempt}`, {
                 signal: controller.signal,
                 headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                    "Accept": "application/json, text/plain, */*"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache"
                 }
             });
             clearTimeout(timer);
@@ -1812,6 +1907,9 @@ async function fetchWithTriProxy(url, timeoutMs = 6000) {
             }
         } catch (e) {
             clearTimeout(timer);
+        }
+        if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 600));
         }
     }
     return null;
@@ -1938,9 +2036,21 @@ async function executeSyncCycle(requestedPeriod = null) {
     // 2. Clear expired items from memory cache
     cleanCache();
 
-    // 3. Fetch upstream live draws with fallback proxies
-    let upstreamHistory = await fetchWithTriProxy(CONFIG.LOTTERY_API, 6000);
+    // 3. Fetch upstream live draws with fast retry
+    let upstreamHistory = await fetchWithTriProxy(CONFIG.LOTTERY_API, 4000);
     const supabaseHistory = await hydrateHistoryFromSupabase(200);
+
+    // Staleness guard: If upstream API hasn't delivered the round that just settled, fast-wait and retry
+    const currentUtcPeriod = getUtcCurrentPeriod();
+    const expectedPrevPeriod = calculatePreviousPeriod(currentUtcPeriod);
+    const hasExpectedPrev = Array.isArray(upstreamHistory) && upstreamHistory.some(d => String(d.issue_number) === expectedPrevPeriod);
+    if (!hasExpectedPrev && new Date().getUTCSeconds() <= 15) {
+        await new Promise(r => setTimeout(r, 1500));
+        const retryHistory = await fetchWithTriProxy(CONFIG.LOTTERY_API, 3500);
+        if (Array.isArray(retryHistory) && retryHistory.length > 0) {
+            upstreamHistory = retryHistory;
+        }
+    }
 
     // 4. Merge, deduplicate, and sort all draws descending by issue_number
     const historyMap = new Map();
@@ -1992,14 +2102,10 @@ async function executeSyncCycle(requestedPeriod = null) {
     }
 
     // 6. Timing reconciliation: Find the latest genuinely settled draw (must have actual_number)
-    const currentUtcPeriod = getUtcCurrentPeriod();
     const latestSettled = mergedHistory.find(h => h.actual_number !== null && h.actual_number !== undefined);
     const latestIssue = latestSettled ? latestSettled.issue_number : "";
     const candidateNext = latestIssue ? calculateNextPeriod(latestIssue) : currentUtcPeriod;
 
-    // Guard against delayed upstream lottery API latency:
-    // If upstream lottery API hasn't delivered the newest draw yet, candidateNext will lag behind.
-    // We always synchronize to currentUtcPeriod so we never predict for an already-expired round!
     let nextPeriod = requestedPeriod;
     if (!nextPeriod) {
         if (!candidateNext || candidateNext < currentUtcPeriod) {
@@ -2031,8 +2137,9 @@ async function executeSyncCycle(requestedPeriod = null) {
                     prediction: row.predicted_type,
                     confidence: row.confidence,
                     status: row.status,
-                    tier: row.is_sniper ? "SNIPER" : "STANDARD",
+                    tier: row.is_sniper ? "SNIPER" : (row.stake_units === "4U" ? "MAX-COVER-L3" : (row.stake_units === "2U" ? "RECOVERY-L2" : "STANDARD")),
                     recommendedStake: row.stake_units || "1U",
+                    recoveryLevel: row.stake_units === "4U" ? 3 : (row.stake_units === "2U" && !row.is_sniper ? 2 : 1),
                     pattern: row.pattern,
                     strategy: row.strategy,
                     reason: row.reason,
@@ -2047,9 +2154,36 @@ async function executeSyncCycle(requestedPeriod = null) {
         }
     } catch (e) {}
 
-    // 8. Canonical slice: Pass verified draw numbers up to 5,000 rounds for deep deterministic inference
+    // 8. Dynamic 2-3 Level Recovery State Calculation from Supabase settled signals
+    let trailingLosses = 0;
+    try {
+        const checkSettled = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/global_signals?actual_result=not.is.null&predicted_type=not.is.null&order=issue_number.desc&limit=10`, {
+            headers: {
+                "apikey": CONFIG.SUPABASE_KEY,
+                "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
+            }
+        });
+        if (checkSettled.ok) {
+            const settledRows = await checkSettled.json();
+            if (Array.isArray(settledRows) && settledRows.length > 0) {
+                for (const r of settledRows) {
+                    const win = String(r.actual_result).toLowerCase() === String(r.predicted_type).toLowerCase();
+                    if (win) break;
+                    trailingLosses++;
+                }
+            }
+        }
+    } catch (e) {}
+
+    let recoveryLevel = 1;
+    if (trailingLosses === 1) recoveryLevel = 2;
+    else if (trailingLosses === 2) recoveryLevel = 3;
+    else if (trailingLosses >= 3) recoveryLevel = 1; // Hard Stop-Loss Reset! Capped at max 2-3 levels!
+    else recoveryLevel = 1;
+
+    // 9. Canonical slice: Pass verified draw numbers up to 5,000 rounds for deep deterministic inference
     const canonicalHistory = mergedHistory.filter(h => h.actual_number !== null && h.actual_number !== undefined).slice(0, 5000);
-    const pred = engine.predict(canonicalHistory);
+    const pred = engine.predict(canonicalHistory, { recoveryLevel });
 
     const payload = {
         issue_number: nextPeriod,
@@ -2117,6 +2251,7 @@ async function executeSyncCycle(requestedPeriod = null) {
         status: pred.status,
         tier: pred.tier,
         recommendedStake: pred.recommendedStake,
+        recoveryLevel: pred.recoveryLevel || recoveryLevel,
         pattern: pred.pattern,
         strategy: pred.strategy,
         reason: pred.reason,

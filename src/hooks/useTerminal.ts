@@ -225,8 +225,9 @@ export function useTerminal() {
                 : (s.actual_result ? String(s.actual_result).toLowerCase() : (existing?.actual_result ? String(existing.actual_result).toLowerCase() : null))
 
               const cloudIsSniper = s.is_sniper !== undefined ? !!s.is_sniper : (s.tier === 'SNIPER' || !!existing?.isSniper || !!existing?.is_sniper)
-              const cloudTier = cloudIsSniper ? 'SNIPER' : (s.tier || existing?.tier || 'STANDARD')
-              const cloudStake = s.stake_units || existing?.stake_units || existing?.recommendedStake || (cloudIsSniper ? '2U' : '1U')
+              const cloudRecoveryLevel = s.recovery_level || (s as any).recoveryLevel || existing?.recovery_level || existing?.recoveryLevel || 1
+              const cloudTier = s.tier || existing?.tier || (cloudRecoveryLevel === 3 ? 'MAX-COVER-L3' : (cloudRecoveryLevel === 2 ? 'RECOVERY-L2' : (cloudIsSniper ? 'SNIPER' : 'STANDARD')))
+              const cloudStake = s.stake_units || existing?.stake_units || existing?.recommendedStake || (cloudTier === 'MAX-COVER-L3' ? '4U' : ((cloudTier === 'RECOVERY-L2' || cloudIsSniper) ? '2U' : '1U'))
 
               historyMap.set(k, {
                 issue_number: k,
@@ -243,6 +244,8 @@ export function useTerminal() {
                 isSniper: cloudIsSniper,
                 recommendedStake: cloudStake,
                 stake_units: cloudStake,
+                recovery_level: cloudRecoveryLevel,
+                recoveryLevel: cloudRecoveryLevel,
               })
             }
           })
@@ -379,10 +382,11 @@ export function useTerminal() {
         } else if (currentTargetEntry && currentTargetEntry.predicted_type) {
           const centralDigits = ensureLuckyDigits(currentTargetEntry.lucky_digits, currentTargetEntry.predicted_type)
           const isSniper = !!(currentTargetEntry.isSniper ?? currentTargetEntry.is_sniper ?? (currentTargetEntry.tier === 'SNIPER'))
-          const tier: SignalTier = isSniper ? 'SNIPER' : ((currentTargetEntry.tier as SignalTier) || 'STANDARD')
-          const recommendedStake = currentTargetEntry.recommendedStake || currentTargetEntry.stake_units || (isSniper ? '2U' : '1U')
-          const strategy = currentTargetEntry.strategy || (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker')
-          const statusReason = currentTargetEntry.reason || (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [${recommendedStake} Stake]` : `⚡ GPT 6 ASTRA Standard Signal [${recommendedStake} Stake]`)
+          const recoveryLevel = currentTargetEntry.recovery_level || currentTargetEntry.recoveryLevel || 1
+          const tier: SignalTier = (currentTargetEntry.tier as SignalTier) || (recoveryLevel === 3 ? 'MAX-COVER-L3' : (recoveryLevel === 2 ? 'RECOVERY-L2' : (isSniper ? 'SNIPER' : 'STANDARD')))
+          const recommendedStake = currentTargetEntry.recommendedStake || currentTargetEntry.stake_units || (tier === 'MAX-COVER-L3' ? '4U' : ((tier === 'RECOVERY-L2' || isSniper) ? '2U' : '1U'))
+          const strategy = currentTargetEntry.strategy || (tier === 'MAX-COVER-L3' ? 'Active Level 3 Recovery' : (tier === 'RECOVERY-L2' ? 'Active Level 2 Recovery' : (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker')))
+          const statusReason = currentTargetEntry.reason || (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [${recommendedStake} Stake]` : (tier === 'MAX-COVER-L3' ? `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover` : (tier === 'RECOVERY-L2' ? `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U recovery cover` : `⚡ GPT 6 ASTRA Standard Signal [${recommendedStake} Stake]`)))
 
           prediction = {
             prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
@@ -399,6 +403,7 @@ export function useTerminal() {
             isSniper,
             tier,
             recommendedStake,
+            recoveryLevel,
             digitProbs: {},
             volatility: '0.48',
             entropy: '0.50',
@@ -414,7 +419,7 @@ export function useTerminal() {
           }
         } else {
           // Zero-Lag Autonomous Fallback: Instantaneous local engine inference!
-          const localEngineResult = engine.predict(resolvedHistory)
+          const localEngineResult = engine.predict(resolvedHistory, { autoRecovery: true })
           prediction = localEngineResult
 
           // Save in historyMap for stability with full fidelity
@@ -433,6 +438,8 @@ export function useTerminal() {
             isSniper: localEngineResult.isSniper,
             recommendedStake: localEngineResult.recommendedStake || (localEngineResult.isSniper ? '2U' : '1U'),
             stake_units: localEngineResult.recommendedStake || (localEngineResult.isSniper ? '2U' : '1U'),
+            recovery_level: localEngineResult.recoveryLevel || 1,
+            recoveryLevel: localEngineResult.recoveryLevel || 1,
           })
 
           targetPeriodPredictionRef.current = {
@@ -484,8 +491,9 @@ export function useTerminal() {
                 const cloudStatus = (s.status as any) || (s.prediction_status as any) || 'CLEARED'
                 const cloudDigits = ensureLuckyDigits(s.lucky_digits || s.luckyDigits, cloudPred)
                 const cloudIsSniper = s.is_sniper !== undefined ? !!s.is_sniper : (s.tier === 'SNIPER')
-                const cloudTier: SignalTier = cloudIsSniper ? 'SNIPER' : ((s.tier as SignalTier) || 'STANDARD')
-                const cloudStake = s.stake_units || (cloudIsSniper ? '2U' : '1U')
+                const cloudRecovery = s.recovery_level || s.recoveryLevel || 1
+                const cloudTier: SignalTier = (s.tier as SignalTier) || (cloudRecovery === 3 ? 'MAX-COVER-L3' : (cloudRecovery === 2 ? 'RECOVERY-L2' : (cloudIsSniper ? 'SNIPER' : 'STANDARD')))
+                const cloudStake = s.stake_units || (cloudTier === 'MAX-COVER-L3' ? '4U' : ((cloudTier === 'RECOVERY-L2' || cloudIsSniper) ? '2U' : '1U'))
 
                 // Update history map & universal cache with central signal
                 const entry = historyMap.get(currentTargetPeriod)
@@ -501,18 +509,19 @@ export function useTerminal() {
                   entry.tier = cloudTier
                   entry.recommendedStake = cloudStake
                   entry.stake_units = cloudStake
+                  entry.recovery_level = cloudRecovery
+                  entry.recoveryLevel = cloudRecovery
                 }
 
                 setState(prev => {
                   if (prev.targetPeriod !== currentTargetPeriod) return prev
                   // Single-period stabilization: once sniper or 2U stake is detected for this period, NEVER downgrade it
                   const isSniper = cloudIsSniper || prev.prediction?.isSniper || targetPeriodPredictionRef.current?.prediction.isSniper || false
-                  const tier: SignalTier = isSniper ? 'SNIPER' : (cloudTier || prev.prediction?.tier || 'STANDARD')
-                  const recommendedStake = isSniper ? '2U' : (cloudStake || prev.prediction?.recommendedStake || '1U')
-                  const strategy = isSniper ? 'Ultra-Sniper Holographic Stacker' : (s.strategy || s.strategy_used || prev.prediction?.strategy || 'GPT 6 ASTRA Holographic Stacker')
-                  const statusReason = isSniper
-                    ? (s.statusReason || s.reason || `🎯 GPT 6 ASTRA Ultra-Sniper Signal [2U Stake]`)
-                    : (s.statusReason || s.reason || prev.prediction?.statusReason || `⚡ GPT 6 ASTRA Standard Signal [1U Stake]`)
+                  const recoveryLevel = cloudRecovery || prev.prediction?.recoveryLevel || 1
+                  const tier: SignalTier = (cloudTier || prev.prediction?.tier || (isSniper ? 'SNIPER' : 'STANDARD')) as SignalTier
+                  const recommendedStake = cloudStake || prev.prediction?.recommendedStake || (tier === 'MAX-COVER-L3' ? '4U' : ((tier === 'RECOVERY-L2' || isSniper) ? '2U' : '1U'))
+                  const strategy = s.strategy || s.strategy_used || prev.prediction?.strategy || (tier === 'MAX-COVER-L3' ? 'Active Level 3 Recovery' : (tier === 'RECOVERY-L2' ? 'Active Level 2 Recovery' : (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker')))
+                  const statusReason = s.statusReason || s.reason || prev.prediction?.statusReason || (tier === 'MAX-COVER-L3' ? `🔥 GPT 6 ASTRA [LEVEL 3 MAX COVER]: 4U final cover` : (tier === 'RECOVERY-L2' ? `🛡️ GPT 6 ASTRA [LEVEL 2 RECOVERY]: 2U recovery cover` : (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [2U Stake]` : `⚡ GPT 6 ASTRA Standard Signal [1U Stake]`)))
 
                   const updatedPred: PredictionResult = {
                     prediction: cloudPred,
@@ -529,6 +538,7 @@ export function useTerminal() {
                     isSniper,
                     tier,
                     recommendedStake,
+                    recoveryLevel,
                     digitProbs: prev.prediction?.digitProbs || {},
                     volatility: '0.48',
                     entropy: '0.50',

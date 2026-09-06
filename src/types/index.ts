@@ -5,7 +5,7 @@
 // Prediction Signal Types
 export type SignalType = 'BIG' | 'SMALL' | 'HOLD'
 export type StatusType = 'CLEARED' | 'HOLD' | 'SNIPER' | 'STANDARD' | 'SCOUT'
-export type SignalTier = 'SNIPER' | 'STANDARD' | 'SCOUT' | 'HOLD'
+export type SignalTier = 'SNIPER' | 'STANDARD' | 'SCOUT' | 'HOLD' | 'RECOVERY-L2' | 'MAX-COVER-L3' | 'RESET-L1'
 export type OutcomeType = 'WIN' | 'LOSS' | 'PENDING'
 export type FilterType = 'ALL' | 'WINS' | 'LOSSES'
 export type RegimeName = 'trending' | 'mean-reverting' | 'mixed' | 'synchronizing'
@@ -107,6 +107,7 @@ export interface PredictionResult {
   isSniper: boolean
   tier?: SignalTier
   recommendedStake?: string
+  recoveryLevel?: number
   regimeEntropyThreshold?: number
   conformalRisk?: ConformalRiskDecision
   holdAnalysis?: {
@@ -144,6 +145,8 @@ export interface HistoryEntry {
   isSniper?: boolean
   recommendedStake?: string
   stake_units?: string
+  recovery_level?: number
+  recoveryLevel?: number
 }
 
 // Supabase user profile
@@ -214,6 +217,8 @@ export interface AuthorizedPredictionResult {
     is_sniper: boolean
     stake_units?: string
     tier?: string
+    recovery_level?: number
+    recoveryLevel?: number
   }
   tokensBalance?: number
   error?: string
@@ -237,6 +242,8 @@ export interface GlobalSignal {
   pattern: string
   is_sniper: boolean
   tier?: SignalTier | string
+  recovery_level?: number
+  recoveryLevel?: number
   engine_version?: string
   created_at?: string
 }
