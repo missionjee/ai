@@ -577,14 +577,14 @@ export class PredictionEngine {
         let trendP = 0.5;
         let trendReason = "Neutral base";
         if (streak >= 7) {
-            trendP = (last === 1) ? 0.54 : 0.46;
+            trendP = (last === 1) ? 0.65 : 0.35;
             trendReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> High-Order Climax`;
         } else if (streak >= 4) {
-            trendP = (last === 1) ? 0.42 : 0.58;
-            trendReason = `Dragon Exhaustion Hazard (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> 58% Reversal Bias`;
+            trendP = (last === 1) ? 0.62 : 0.38;
+            trendReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
         } else if (streak === 3) {
-            trendP = (last === 1) ? 0.44 : 0.56;
-            trendReason = `Weibull Hazard Fade (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> 54.3% Reversal Bias`;
+            trendP = (last === 1) ? 0.60 : 0.40;
+            trendReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
         } else if (streak === 2) {
             let is22Sub = false;
             if (n >= 4) {
@@ -592,18 +592,26 @@ export class PredictionEngine {
                 if (t0 === t1 && t2 === t3 && t0 !== t2) is22Sub = true;
             }
             if (is22Sub) {
-                trendP = (last === 1) ? 0.42 : 0.58;
-                trendReason = `Doublet 2-2 Switch Phase (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> 58% Reversal Bias`;
+                trendP = (last === 1) ? 0.40 : 0.60;
+                trendReason = `Doublet 2-2 Switch Phase (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Invert to ${last === 1 ? "SMALL" : "BIG"}`;
             } else {
-                trendP = (last === 1) ? 0.45 : 0.55;
-                trendReason = `Doublet Boundary Reversion (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> 54.9% Reversal Bias`;
+                trendP = (last === 1) ? 0.54 : 0.46;
+                trendReason = `Emerging Doublet Continuation (${streak}x ${last === 1 ? "BIG" : "SMALL"})`;
             }
         } else if (streak === 1) {
-            if (alts >= 4) {
-                trendP = (last === 1) ? 0.40 : 0.60;
+            let isPendingDoubletSub = false;
+            if (n >= 3) {
+                const tPrev2 = tokens[n - 3], tPrev1 = tokens[n - 2], tCurr = tokens[n - 1];
+                if (tPrev2 === tPrev1 && tPrev1 !== tCurr) isPendingDoubletSub = true;
+            }
+            if (isPendingDoubletSub) {
+                trendP = (last === 1) ? 0.62 : 0.38;
+                trendReason = `Doublet 2-2 Formation (Pending ${last === 1 ? "BIG" : "SMALL"} Pair)`;
+            } else if (alts >= 4) {
+                trendP = (last === 1) ? 0.38 : 0.62;
                 trendReason = `Alternation Rhythm (${alts} switches) -> Oscillate to ${last === 1 ? "SMALL" : "BIG"}`;
             } else if (alts >= 2) {
-                trendP = (last === 1) ? 0.44 : 0.56;
+                trendP = (last === 1) ? 0.42 : 0.58;
                 trendReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
             } else {
                 trendP = 0.50;
@@ -781,9 +789,14 @@ export class PredictionEngine {
         // 13. Micro-Rhythm Next-State Foresight State Machine (2-2 Doublet, 1-1 Chop, Empirical Reversion)
         let isDoubletPair = false;
         let isPendingDoublet = false;
+        let isConfirmed221 = false;
         if (n >= 4) {
             const t0 = tokens[n - 4], t1 = tokens[n - 3], t2 = tokens[n - 2], t3 = tokens[n - 1];
             if (t0 === t1 && t2 === t3 && t0 !== t2) isDoubletPair = true;
+        }
+        if (n >= 5) {
+            const t0 = tokens[n - 5], t1 = tokens[n - 4], t2 = tokens[n - 3], t3 = tokens[n - 2], t4 = tokens[n - 1];
+            if (t0 === t1 && t2 === t3 && t0 !== t2 && t4 === t0) isConfirmed221 = true;
         }
         if (n >= 3 && !isDoubletPair) {
             const tPrev2 = tokens[n - 3], tPrev1 = tokens[n - 2], tCurr = tokens[n - 1];
@@ -795,29 +808,32 @@ export class PredictionEngine {
         let microP = 0.50;
         let microReason = "Micro-Rhythm Foresight: Neutral";
         if (isDoubletPair) {
-            microP = (last === 1) ? 0.42 : 0.58;
+            microP = (last === 1) ? 0.40 : 0.60;
             microReason = `Doublet 2-2 Ping-Pong Switch (${last === 1 ? "BB" : "SS"} completed) -> Invert to ${last === 1 ? "SMALL" : "BIG"}`;
+        } else if (isConfirmed221) {
+            microP = (last === 1) ? 0.64 : 0.36;
+            microReason = `Doublet 2-2 Confirmed Completion (${last === 1 ? "BB-SS-B" : "SS-BB-S"}) -> Follow to ${last === 1 ? "BIG" : "SMALL"}`;
         } else if (isPendingDoublet) {
-            microP = (last === 1) ? 0.53 : 0.47;
+            microP = (last === 1) ? 0.62 : 0.38;
             microReason = `Doublet 2-2 Pending Second Half (completing ${last === 1 ? "BB" : "SS"}) -> Follow to ${last === 1 ? "BIG" : "SMALL"}`;
         } else if (streak === 1 && alts >= 4) {
-            microP = (last === 1) ? 0.40 : 0.60;
+            microP = (last === 1) ? 0.38 : 0.62;
             microReason = `Alternation 1-1 Chop Rhythm (${alts} switches) -> Oscillate to ${last === 1 ? "SMALL" : "BIG"}`;
         } else if (streak === 1 && alts >= 2) {
-            microP = (last === 1) ? 0.45 : 0.55;
+            microP = (last === 1) ? 0.42 : 0.58;
             microReason = `Alternation Rhythm (${alts} switches) -> Follow Oscillation`;
         } else if (streak >= 7) {
-            microP = (last === 1) ? 0.53 : 0.47;
+            microP = (last === 1) ? 0.65 : 0.35;
             microReason = `Super-Dragon Climax (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Extreme Momentum Ride`;
         } else if (streak >= 4) {
-            microP = (last === 1) ? 0.42 : 0.58;
-            microReason = `Dragon Exhaustion Hazard (${streak}x) -> 58% Empirical Reversal Bias`;
+            microP = (last === 1) ? 0.62 : 0.38;
+            microReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
         } else if (streak === 3) {
-            microP = (last === 1) ? 0.44 : 0.56;
-            microReason = `Dragon Hazard Fade (${streak}x) -> 54.3% Reversal Bias`;
+            microP = (last === 1) ? 0.60 : 0.40;
+            microReason = `Dragon Momentum (${streak}x ${last === 1 ? "BIG" : "SMALL"}) -> Ride Trend`;
         } else if (streak === 2) {
-            microP = (last === 1) ? 0.45 : 0.55;
-            microReason = `Streak-2 Doublet Transition (${last === 1 ? "BIG" : "SMALL"}) -> 54.9% Reversal Bias`;
+            microP = (last === 1) ? 0.54 : 0.46;
+            microReason = `Emerging Doublet Continuation (${last === 1 ? "BIG" : "SMALL"})`;
         }
 
         return {
@@ -1280,11 +1296,30 @@ export class PredictionEngine {
 
         let is22Pair = false;
         let is22Alt = false;
+        let isPendingDoublet = false;
+        let isConfirmed221 = false;
+        let isSandwich121 = false;
         if (tokens.length >= 4) {
             const t0 = tokens[tokens.length - 4], t1 = tokens[tokens.length - 3],
                   t2 = tokens[tokens.length - 2], t3 = tokens[tokens.length - 1];
             is22Pair = (t0 === t1) && (t2 === t3) && (t0 !== t2);
             is22Alt = (t0 === t2) && (t1 === t3) && (t0 !== t1);
+            if ((t0 === 1 && t1 === 0 && t2 === 0 && t3 === 1) || (t0 === 0 && t1 === 1 && t2 === 1 && t3 === 0)) {
+                isSandwich121 = true;
+            }
+        }
+        if (tokens.length >= 5) {
+            const t0 = tokens[tokens.length - 5], t1 = tokens[tokens.length - 4],
+                  t2 = tokens[tokens.length - 3], t3 = tokens[tokens.length - 2], t4 = tokens[tokens.length - 1];
+            if (t0 === t1 && t2 === t3 && t0 !== t2 && t4 === t0) {
+                isConfirmed221 = true;
+            }
+        }
+        if (tokens.length >= 3 && !is22Pair) {
+            const tPrev2 = tokens[tokens.length - 3], tPrev1 = tokens[tokens.length - 2], tCurr = tokens[tokens.length - 1];
+            if (tPrev2 === tPrev1 && tPrev1 !== tCurr && curStreak === 1) {
+                isPendingDoublet = true;
+            }
         }
 
         const recentNums = numSeq.slice(-20);
@@ -1415,29 +1450,34 @@ export class PredictionEngine {
             patternLogit = Math.max(-0.18, Math.min(0.18, (pPat - 0.5) * 0.24));
         }
 
-        // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol & Chop Continuity)
+        // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol, 2-2 Doublet State Machine, & Chop Continuity)
         let rhythmLogit = 0.0;
         if (curStreak >= 6) {
-            // Runaway climax dragon momentum
-            rhythmLogit = (lastToken === 1 ? +0.32 : -0.32);
+            // Runaway climax dragon momentum - ride dragon!
+            rhythmLogit = (lastToken === 1 ? +0.35 : -0.35);
         } else if (curStreak >= 3) {
-            // Sustained dragon momentum
+            // Sustained dragon momentum - ride dragon!
+            rhythmLogit = (lastToken === 1 ? +0.25 : -0.25);
+        } else if (isConfirmed221) {
+            // Confirmed 2-2-1 rhythm (e.g. 1, 1, 0, 0, 1 -> Follow to 1 to complete pair)
+            rhythmLogit = (lastToken === 1 ? +0.28 : -0.28);
+        } else if (isPendingDoublet) {
+            // Pending doublet (e.g. 0, 0, 1 -> Follow to 1 to complete pair)
             rhythmLogit = (lastToken === 1 ? +0.22 : -0.22);
+        } else if (is22Pair) {
+            // Completed 2-2 pair (e.g. 1, 1, 0, 0) -> Invert/switch to opposite side!
+            rhythmLogit = (lastToken === 1 ? -0.22 : +0.22);
         } else if (curStreak === 2) {
-            // Doublet continuation
-            rhythmLogit = (lastToken === 1 ? +0.12 : -0.12);
+            // Emerging doublet - gentle continuation nudge
+            rhythmLogit = (lastToken === 1 ? +0.08 : -0.08);
         } else if (curStreak === 1) {
-            if (curAlts >= 3) {
-                // Established alternating chop continuation (3+ switches) - gentle nudge without overriding trend
-                rhythmLogit = (lastToken === 1 ? -0.12 : +0.12);
-            } else if (curAlts === 2) {
-                // 2 switches: gentle ping-pong nudge without fighting emerging doublets
-                rhythmLogit = (lastToken === 1 ? -0.05 : +0.05);
+            if (curAlts >= 4) {
+                // Extended alternating chop continuation (4+ switches)
+                rhythmLogit = (lastToken === 1 ? -0.28 : +0.28);
+            } else if (curAlts >= 2) {
+                // Active alternating chop continuation (2-3 switches)
+                rhythmLogit = (lastToken === 1 ? -0.18 : +0.18);
             }
-        }
-        if (is22Pair) {
-            // Neutralized forced counter-trend bias: empirical study confirmed 50.34% continuation vs 49.66% reversal.
-            // Avoids injecting artificial counter-trend penalty that breaks doublets and emerging dragons.
         }
 
         // 1D. Macro 20 Equilibrium Rhythm
@@ -1549,14 +1589,44 @@ export class PredictionEngine {
         // SAFETY-FIRST RECOVERY PROTOCOL (Levels 2 & 3):
         // Never fight a dragon or established chop on recovery! Protect bankroll with highest probability direction!
         if (currentLevel >= 2) {
-            if (curStreak >= 2) {
+            if (curStreak >= 3) {
+                // Never fight a dragon on recovery! Ride dragon!
                 prediction = (lastToken === 1) ? "BIG" : "SMALL";
+            } else if (isConfirmed221 || isPendingDoublet) {
+                // Follow doublet completion on recovery!
+                prediction = (lastToken === 1) ? "BIG" : "SMALL";
+            } else if (is22Pair) {
+                // Follow 2-2 switch on recovery!
+                prediction = (lastToken === 1) ? "SMALL" : "BIG";
             } else if (curAlts >= 3) {
+                // Follow chop alternation on recovery!
                 prediction = (lastToken === 1) ? "SMALL" : "BIG";
             }
         }
 
         let margin = Math.abs(pFusedBig - 0.50);
+
+        const patternDesc = (curStreak >= 6)
+            ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+            : (curStreak >= 3
+                ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                : (isConfirmed221
+                    ? `Doublet 2-2 Formation (Completing ${lastToken === 1 ? "BIG" : "SMALL"} Pair)`
+                    : (isPendingDoublet
+                        ? `Doublet Formation (Completing ${lastToken === 1 ? "BIG" : "SMALL"} Pair)`
+                        : (is22Pair
+                            ? `Doublet 2-2 Switch Phase (${lastToken === 1 ? "BB" : "SS"} Complete -> Flip)`
+                            : (curStreak === 2
+                                ? `Doublet Formation (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
+                                : (curStreak === 1 && curAlts >= 4
+                                    ? `Extended 1-1 Chop Rhythm (${curAlts} switches)`
+                                    : (curStreak === 1 && curAlts >= 2
+                                        ? `Alternating 1-1 Chop Rhythm (${curAlts} switches)`
+                                        : (isSandwich121
+                                            ? `1-2-1 Sandwich Pattern (${lastToken === 1 ? "B-SS-B" : "S-BB-S"})`
+                                            : (matchCount >= 6
+                                                ? `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`
+                                                : `Standard Momentum`)))))))));
 
         const regimeEntropyThreshold = this._getRegimeEntropyThreshold(regimeCheck, curStreak, curAlts, is22Pair, this._detectBrokenSymmetryPattern(tokens));
         const dominantProb = Math.max(pFusedBig, 1.0 - pFusedBig);
@@ -1584,11 +1654,11 @@ export class PredictionEngine {
         } else if (isSniper) {
             tier = "SNIPER";
             recommendedStake = "2U";
-            statusReason = `🎯 GPT 6 ASTRA Ultra-Sniper Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`;
+            statusReason = `🎯 GPT 6 ASTRA Ultra-Sniper: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [2U Stake]`;
         } else {
             tier = "STANDARD";
             recommendedStake = "1U";
-            statusReason = `⚡ GPT 6 ASTRA Standard Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
+            statusReason = `⚡ GPT 6 ASTRA: ${patternDesc} (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}% conviction) in ${regimeCheck.regimeName} [1U Stake]`;
         }
 
         const confidence = (isSniper || currentLevel >= 2)
@@ -1615,7 +1685,8 @@ export class PredictionEngine {
             const normM = maxM > 0 ? (markovDigitTransitions[d] || 0) / maxM : 0.5;
             const gDist = Math.abs(d - targetCentroid);
             const gaussianW = Math.exp(-(gDist * gDist) / (2 * 1.8 * 1.8));
-            astraScores[d] = 0.45 * normE + 0.30 * normM + 0.25 * gaussianW;
+            const repeatBonus = (d === lastNum) ? 0.20 : ((Math.abs(d - lastNum) === 1) ? 0.10 : 0.0);
+            astraScores[d] = 0.40 * normE + 0.25 * normM + 0.25 * gaussianW + repeatBonus;
         }
 
         candidatePool.sort((a, b) => (astraScores[b] || 0) - (astraScores[a] || 0));
@@ -1632,20 +1703,6 @@ export class PredictionEngine {
         for (let d = 0; d <= 9; d++) {
             digitProbs[d] = Math.round((digitScores[d] / totalDigitScore) * 100);
         }
-
-        const patternDesc = is22Pair
-            ? "Doublet 2-2 Ping-Pong Cycle"
-            : (curStreak >= 6
-                ? `Runaway Dragon Climax (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                : (curStreak >= 3
-                    ? `Dragon Momentum (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                    : (curStreak === 2
-                        ? `Doublet Formation (${curStreak}x ${lastToken === 1 ? "BIG" : "SMALL"})`
-                        : (curStreak === 1 && curAlts >= 5
-                            ? `Extended 1-1 Chop Rhythm (${curAlts} switches)`
-                            : (curStreak === 1 && curAlts >= 2
-                                ? `Alternating 1-1 Chop Rhythm (${curAlts} switches)`
-                                : `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`)))));
 
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
 
