@@ -230,7 +230,7 @@ export function useTerminal() {
                 prediction_confidence: s.confidence || (existing ? existing.prediction_confidence : null),
                 lucky_digits: mappedDigits,
                 status: s.status || existing?.status || 'CLEARED',
-                strategy: s.strategy || existing?.strategy || (cloudIsSniper ? 'Ultra-Sniper Empirical Stacker' : 'GPT 5.6 SOL Empirical Stacker'),
+                strategy: s.strategy || existing?.strategy || (cloudIsSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker'),
                 reason: s.reason || existing?.reason || null,
                 tier: cloudTier,
                 is_sniper: cloudIsSniper,
@@ -366,8 +366,8 @@ export function useTerminal() {
           const isSniper = !!(currentTargetEntry.isSniper ?? currentTargetEntry.is_sniper ?? (currentTargetEntry.tier === 'SNIPER'))
           const tier: SignalTier = isSniper ? 'SNIPER' : ((currentTargetEntry.tier as SignalTier) || 'STANDARD')
           const recommendedStake = currentTargetEntry.recommendedStake || currentTargetEntry.stake_units || (isSniper ? '2U' : '1U')
-          const strategy = currentTargetEntry.strategy || (isSniper ? 'Ultra-Sniper Empirical Stacker' : 'GPT 5.6 SOL Empirical Stacker')
-          const statusReason = currentTargetEntry.reason || (isSniper ? `🎯 GPT 5.6 SOL Ultra-Sniper Signal [${recommendedStake} Stake]` : `⚡ GPT 5.6 SOL Standard Signal [${recommendedStake} Stake]`)
+          const strategy = currentTargetEntry.strategy || (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker')
+          const statusReason = currentTargetEntry.reason || (isSniper ? `🎯 GPT 6 ASTRA Ultra-Sniper Signal [${recommendedStake} Stake]` : `⚡ GPT 6 ASTRA Standard Signal [${recommendedStake} Stake]`)
 
           prediction = {
             prediction: currentTargetEntry.predicted_type as 'BIG' | 'SMALL',
@@ -376,7 +376,7 @@ export function useTerminal() {
             statusReason,
             luckyDigits: centralDigits,
             strategy,
-            reason: currentTargetEntry.reason || 'Central Institutional Model Consensus',
+            reason: currentTargetEntry.reason || 'Central Quantum Model Consensus',
             bigProb: currentTargetEntry.predicted_type === 'BIG' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
             smallProb: currentTargetEntry.predicted_type === 'SMALL' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
             regime: 'trending',
@@ -389,11 +389,11 @@ export function useTerminal() {
             entropy: '0.50',
             permutationEntropy: '0.50',
             parityPrediction: 'EVEN',
-            engineVersion: 'gpt 5.6 sol',
+            engineVersion: 'gpt 6 astra',
             modelPerformance: null,
           }
         } else {
-          // Zero-Lag Autonomous Fallback: Instantaneous local institutional engine inference!
+          // Zero-Lag Autonomous Fallback: Instantaneous local quantum engine inference!
           const localEngineResult = engine.predict(resolvedHistory)
           prediction = localEngineResult
 
@@ -430,7 +430,7 @@ export function useTerminal() {
             regime: localEngineResult.regime,
             pattern: localEngineResult.pattern,
             is_sniper: localEngineResult.isSniper,
-            engine_version: 'gpt 5.6 sol'
+            engine_version: 'gpt 6 astra'
           }).catch(() => {})
         }
 
@@ -489,7 +489,7 @@ export function useTerminal() {
                     status: cloudStatus,
                     statusReason: s.reason || s.statusReason || prev.prediction?.statusReason || '',
                     luckyDigits: cloudDigits,
-                    strategy: s.strategy || s.strategy_used || (isSniper ? 'Ultra-Sniper Empirical Stacker' : 'GPT 5.6 SOL Empirical Stacker'),
+                    strategy: s.strategy || s.strategy_used || (isSniper ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker'),
                     reason: s.reason || 'Edge Ensemble Convergence',
                     bigProb: s.big_prob ?? (cloudPred === 'BIG' ? cloudConf : 100 - cloudConf),
                     smallProb: s.small_prob ?? (cloudPred === 'SMALL' ? cloudConf : 100 - cloudConf),
@@ -503,7 +503,7 @@ export function useTerminal() {
                     entropy: '0.50',
                     permutationEntropy: '0.50',
                     parityPrediction: 'EVEN',
-                    engineVersion: 'gpt 5.6 sol',
+                    engineVersion: 'gpt 6 astra',
                     modelPerformance: null,
                   },
                   tokensBalance: typeof authRes.tokensBalance === 'number' ? authRes.tokensBalance : supabaseClient.getTokenBalance(),

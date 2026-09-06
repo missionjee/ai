@@ -299,7 +299,7 @@ export class SparseMoERouter {
 }
 
 // ==============================================================================
-// 5. MAIN PREDICTION ENGINE (GPT 5.6 SOL Quantum Ultra Enterprise Core)
+// 5. MAIN PREDICTION ENGINE (GPT 6 ASTRA Quantum Ultra Enterprise Core)
 // ==============================================================================
 export class PredictionEngine {
     constructor() {
@@ -1153,7 +1153,7 @@ export class PredictionEngine {
                 recommendedStake: "1U",
                 regimeEntropyThreshold: 0.88,
                 holdAnalysis: undefined,
-                statusReason: `Active real-time institutional inference (${validHistory.length} rounds buffered)`,
+                statusReason: `Active real-time quantum inference (${validHistory.length} rounds buffered)`,
                 strategy: "Active Meta-Learner",
                 reason: "Active real-time consensus",
                 bigProb: fallbackPred === "BIG" ? 58 : 42,
@@ -1167,7 +1167,7 @@ export class PredictionEngine {
                 isSniper: false,
                 pattern: "Standard Momentum",
                 parityPrediction: "EVEN",
-                engineVersion: "gpt 5.6 sol",
+                engineVersion: "gpt 6 astra",
                 modelPerformance: null
             };
         }
@@ -1307,34 +1307,76 @@ export class PredictionEngine {
         else if (s5 >= 31) clusterLogit = -0.22;
         else if (s5 >= 26) clusterLogit = -0.11;
 
-        // 1B. Dynamic 5-Round Historical Pattern Matching across full Supabase dataset (up to 5,000 rounds)
-        let wBig = 0, wSmall = 0, matchCount = 0;
+        // 1B. Multi-Scale Holographic Historical Pattern Matching across full Supabase dataset (Scale-5 + Scale-3)
+        let wBig5 = 0, wSmall5 = 0, matchCount5 = 0;
+        let wBig3 = 0, wSmall3 = 0, matchCount3 = 0;
         const empiricalDigitScores = new Array(10).fill(0);
+        const markovDigitTransitions = new Array(10).fill(0);
+        let markovFollowBig = 0, markovFollowSmall = 0;
         const scanDepth = Math.min(3000, totalHistoryLen);
         const startScan = Math.max(0, totalHistoryLen - scanDepth);
 
-        for (let j = startScan; j <= totalHistoryLen - 6; j++) {
-            let dist = 0;
-            for (let k = 0; k < 5; k++) dist += Math.abs(fullNumSeq[j + k] - last5Nums[k]);
-            const sumDiff = Math.abs((fullNumSeq[j] + fullNumSeq[j+1] + fullNumSeq[j+2] + fullNumSeq[j+3] + fullNumSeq[j+4]) - s5);
+        const last3Nums = numSeq.slice(-3);
+        const s3 = last3Nums.reduce((a, b) => a + b, 0);
 
-            if (dist <= 5 || (sumDiff <= 3 && dist <= 7)) {
-                const nextTok = fullTokens[j + 5];
-                const nextDig = fullNumSeq[j + 5];
-                const age = totalHistoryLen - 1 - (j + 5);
-                const decay = Math.exp(-age / 1000);
-                const simW = Math.exp(-dist / 3.0) * Math.exp(-sumDiff / 4.0) * decay;
+        for (let j = startScan; j <= totalHistoryLen - 2; j++) {
+            const curDig = fullNumSeq[j];
+            const nextTok = fullTokens[j + 1];
+            const nextDig = fullNumSeq[j + 1];
 
-                if (nextTok === 1) wBig += simW; else wSmall += simW;
-                if (nextDig >= 0 && nextDig <= 9) empiricalDigitScores[nextDig] += simW;
-                matchCount++;
+            // 1st-Order Markov transition stats from lastNum
+            if (curDig === lastNum) {
+                if (nextTok === 1) markovFollowBig++; else markovFollowSmall++;
+                if (nextDig >= 0 && nextDig <= 9) markovDigitTransitions[nextDig]++;
+            }
+
+            // Scale-5 Meso pattern matching (needs at least 5 rounds prior to j+5)
+            if (j <= totalHistoryLen - 6) {
+                let dist5 = 0;
+                for (let k = 0; k < 5; k++) dist5 += Math.abs(fullNumSeq[j + k] - last5Nums[k]);
+                const sumDiff5 = Math.abs((fullNumSeq[j] + fullNumSeq[j+1] + fullNumSeq[j+2] + fullNumSeq[j+3] + fullNumSeq[j+4]) - s5);
+
+                if (dist5 <= 6 || (sumDiff5 <= 3 && dist5 <= 8)) {
+                    const outcomeTok = fullTokens[j + 5];
+                    const outcomeDig = fullNumSeq[j + 5];
+                    const age = totalHistoryLen - 1 - (j + 5);
+                    const decay = Math.exp(-age / 1500);
+                    const simW5 = Math.exp(-dist5 / 3.2) * Math.exp(-sumDiff5 / 4.5) * decay;
+
+                    if (outcomeTok === 1) wBig5 += simW5; else wSmall5 += simW5;
+                    if (outcomeDig >= 0 && outcomeDig <= 9) empiricalDigitScores[outcomeDig] += 0.65 * simW5;
+                    matchCount5++;
+                }
+            }
+
+            // Scale-3 Micro pattern matching (triad trajectory)
+            if (j <= totalHistoryLen - 4) {
+                let dist3 = 0;
+                for (let k = 0; k < 3; k++) dist3 += Math.abs(fullNumSeq[j + k] - last3Nums[k]);
+                const sumDiff3 = Math.abs((fullNumSeq[j] + fullNumSeq[j+1] + fullNumSeq[j+2]) - s3);
+
+                if (dist3 <= 3 || (sumDiff3 <= 2 && dist3 <= 5)) {
+                    const outcomeTok = fullTokens[j + 3];
+                    const outcomeDig = fullNumSeq[j + 3];
+                    const age = totalHistoryLen - 1 - (j + 3);
+                    const decay = Math.exp(-age / 1500);
+                    const simW3 = Math.exp(-dist3 / 2.2) * Math.exp(-sumDiff3 / 3.0) * decay;
+
+                    if (outcomeTok === 1) wBig3 += simW3; else wSmall3 += simW3;
+                    if (outcomeDig >= 0 && outcomeDig <= 9) empiricalDigitScores[outcomeDig] += 0.35 * simW3;
+                    matchCount3++;
+                }
             }
         }
+
+        const wBig = 0.65 * wBig5 + 0.35 * wBig3;
+        const wSmall = 0.65 * wSmall5 + 0.35 * wSmall3;
+        const matchCount = matchCount5 + matchCount3;
 
         let patternLogit = 0.0;
         if (wBig + wSmall > 0) {
             const pPat = (wBig + 0.5) / (wBig + wSmall + 1.0);
-            patternLogit = (pPat - 0.5) * 0.44;
+            patternLogit = (pPat - 0.5) * 0.46;
         }
 
         // 1C. Rhythm Flow Analysis (Dragon Momentum Protocol + Chop Protection)
@@ -1392,12 +1434,17 @@ export class PredictionEngine {
             }
         }
 
-        // 1G. Digit Prior
+        // 1G. Dynamic 1st-Order Markov Digit-to-Token Prior
         let digitPrior = 0.0;
-        if (lastNum === 4 || lastNum === 3) digitPrior = +0.16;
-        else if (lastNum === 0) digitPrior = +0.10;
-        else if (lastNum === 5) digitPrior = -0.16;
-        else if (lastNum === 8 || lastNum === 9) digitPrior = -0.10;
+        if (markovFollowBig + markovFollowSmall >= 6) {
+            const pMarkovBig = (markovFollowBig + 1) / (markovFollowBig + markovFollowSmall + 2);
+            digitPrior = Math.max(-0.16, Math.min(0.16, (pMarkovBig - 0.5) * 0.36));
+        } else {
+            if (lastNum === 4 || lastNum === 3) digitPrior = +0.14;
+            else if (lastNum === 0) digitPrior = +0.08;
+            else if (lastNum === 5) digitPrior = -0.14;
+            else if (lastNum === 8 || lastNum === 9) digitPrior = -0.08;
+        }
 
         // -------------------------------------------------------------------------
         // 2. THE META LEARNER: Synergy Fusion & Anti-Loss Protection
@@ -1480,14 +1527,37 @@ export class PredictionEngine {
             ? Math.max(76, Math.min(this.maxConfidence, Math.round(54 + margin * 140)))
             : Math.max(58, Math.min(this.maxConfidence, Math.round(52 + margin * 85)));
 
-        // Empirical Lucky Digits: Pick top 2 from Observer 5-round pattern historical frequencies across 5k Supabase buffer
+        // ASTRA Dual Lucky Digits Engine: Fusing Empirical Resonance, Markov Transitions, & Kinematic Gaussian
         const candidatePool = prediction === "BIG" ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4];
-        candidatePool.sort((a, b) => (empiricalDigitScores[b] || 0) - (empiricalDigitScores[a] || 0));
+        const v = Math.max(-4, Math.min(4, lastNum - prevNum));
+        const targetCentroid = Math.max(
+            prediction === "BIG" ? 5.2 : 0.8,
+            Math.min(prediction === "BIG" ? 8.8 : 3.8, lastNum + 0.38 * v)
+        );
+
+        let maxE = 0, maxM = 0;
+        for (const c of candidatePool) {
+            if ((empiricalDigitScores[c] || 0) > maxE) maxE = empiricalDigitScores[c];
+            if ((markovDigitTransitions[c] || 0) > maxM) maxM = markovDigitTransitions[c];
+        }
+
+        const astraScores = {};
+        for (const d of candidatePool) {
+            const normE = maxE > 0 ? (empiricalDigitScores[d] || 0) / maxE : 0.5;
+            const normM = maxM > 0 ? (markovDigitTransitions[d] || 0) / maxM : 0.5;
+            const gDist = Math.abs(d - targetCentroid);
+            const gaussianW = Math.exp(-(gDist * gDist) / (2 * 1.8 * 1.8));
+            astraScores[d] = 0.45 * normE + 0.30 * normM + 0.25 * gaussianW;
+        }
+
+        candidatePool.sort((a, b) => (astraScores[b] || 0) - (astraScores[a] || 0));
         const luckyDigits = [candidatePool[0], candidatePool[1]];
 
         const digitScores = {};
         for (let d = 0; d <= 9; d++) {
-            digitScores[d] = (empiricalDigitScores[d] || 0) + (candidatePool.includes(d) ? 4.0 : 1.0);
+            const gDist = Math.abs(d - targetCentroid);
+            const gW = Math.exp(-(gDist * gDist) / (2 * 2.5 * 2.5));
+            digitScores[d] = (empiricalDigitScores[d] || 0) + (markovDigitTransitions[d] || 0) + (candidatePool.includes(d) ? 4.0 : 1.0) + 2.0 * gW;
         }
         const totalDigitScore = Object.values(digitScores).reduce((a, b) => a + b, 0) || 1;
         const digitProbs = {};
@@ -1504,8 +1574,8 @@ export class PredictionEngine {
                     : `5-Round Pattern [${last5Nums.join("-")}] (Sum ${s5})`));
 
         const statusReason = isSniper
-            ? `🎯 GPT 5.6 SOL Ultra-Sniper 5-Round Pattern [${last5Nums.join("-")}] (${matchCount} Supabase matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`
-            : `⚡ GPT 5.6 SOL Standard 5-Round Pattern [${last5Nums.join("-")}] (${matchCount} Supabase matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
+            ? `🎯 GPT 6 ASTRA Ultra-Sniper Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): High conviction (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [2U Stake]`
+            : `⚡ GPT 6 ASTRA Standard Multi-Scale Pattern [${last5Nums.join("-")}] (${matchCount} Resonance matches): Consensus (${(Math.max(pFusedBig, 1 - pFusedBig) * 100).toFixed(0)}%) in ${regimeCheck.regimeName} [1U Stake]`;
 
         const prngAudit = this._auditPRNGStructure(numSeq.slice(-60));
 
@@ -1514,7 +1584,7 @@ export class PredictionEngine {
             confidence,
             status,
             statusReason,
-            strategy: isSniper ? "Ultra-Sniper Empirical Stacker" : "GPT 5.6 SOL Empirical Stacker",
+            strategy: isSniper ? "Ultra-Sniper Holographic Stacker" : "GPT 6 ASTRA Holographic Stacker",
             reason: statusReason,
             bigProb: Math.round(pFusedBig * 100),
             smallProb: Math.round((1.0 - pFusedBig) * 100),
@@ -1534,7 +1604,7 @@ export class PredictionEngine {
             holdAnalysis: undefined,
             pattern: patternDesc,
             parityPrediction: (lastNum % 2 === 1) ? "EVEN" : "ODD",
-            engineVersion: "gpt 5.6 sol",
+            engineVersion: "gpt 6 astra",
             modelPerformance: this.modelTrackers,
             prngForensics: prngAudit,
             conformalRisk: conformalDecision,
@@ -1595,7 +1665,7 @@ export class PredictionEngine {
 
         return {
             status: "ONLINE",
-            engine_version: "gpt 5.6 sol",
+            engine_version: "gpt 6 astra",
             timestamp: new Date().toISOString(),
             historical_rounds_buffered: this.historyBuffer ? this.historyBuffer.size : 0,
             buffer_capacity: 5000,
@@ -1980,7 +2050,7 @@ async function executeSyncCycle(requestedPeriod = null) {
         regime: pred.regime,
         pattern: pred.pattern,
         is_sniper: pred.isSniper,
-        engine_version: "gpt 5.6 sol"
+        engine_version: "gpt 6 astra"
     };
 
     try {
@@ -2066,8 +2136,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "HEALTHY",
                 platform: "Cloudflare Workers 24/7",
-                engine: "GPT 5.6 SOL Quantum Ultra Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
-                engine_version: "gpt 5.6 sol",
+                engine: "GPT 6 ASTRA Quantum Ultra Enterprise (Tri-Proxy Fallback + Continuous FIFO Buffer + Supabase Sync)",
+                engine_version: "gpt 6 astra",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 upstream_lottery_api: CONFIG.LOTTERY_API,
                 buffer_target: "5,000-Round FIFO Ring Buffer",
@@ -2089,8 +2159,8 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "GPT 5.6 SOL Quantum Ultra Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
-                engine_version: "gpt 5.6 sol",
+                engine: "GPT 6 ASTRA Quantum Ultra Enterprise (Tri-Proxy + 5k Continuous FIFO Buffer)",
+                engine_version: "gpt 6 astra",
                 historical_rounds_buffered: engine.historyBuffer.size,
                 diagnostics_url: "/report",
                 data: syncResult
@@ -2120,10 +2190,10 @@ const workerHandler = {
             return new Response(JSON.stringify({
                 status: "ONLINE",
                 platform: "Cloudflare Workers 24/7",
-                engine: "GPT 5.6 SOL Quantum Ultra Enterprise",
+                engine: "GPT 6 ASTRA Quantum Ultra Enterprise",
                 historical_rounds_buffered: engine.historyBuffer.size,
-                version: "5.6.0 SOL",
-                engine_version: "gpt 5.6 sol",
+                version: "6.0.0 ASTRA",
+                engine_version: "gpt 6 astra",
                 diagnostics_url: "/report"
             }, null, 2), {
                 status: 200,

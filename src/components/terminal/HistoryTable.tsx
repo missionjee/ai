@@ -1,6 +1,6 @@
 /**
  * HistoryTable — Draw history with 3D tactile bevels, strict column proportions,
- * and authentic institutional styling matching demo.html.
+ * and authentic quantum styling matching demo.html.
  */
 
 import { cn } from '@/lib/utils'

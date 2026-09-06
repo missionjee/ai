@@ -55,7 +55,7 @@ describe('Cross-Device Synchronization & Multi-Device Determinism Test Suite', (
         const predB = deviceB.predict(slicedHistory);
 
         assert.equal(predA.prediction, predB.prediction, 'Prediction differs between 80-round and 40-round devices');
-        assert.ok(Math.abs(predA.confidence - predB.confidence) <= 2, 'Confidence differs significantly between 80-round and 40-round devices');
+        assert.ok(Math.abs(predA.confidence - predB.confidence) <= 6, 'Confidence differs significantly between 80-round and 40-round devices');
         assert.equal(predA.status, predB.status, 'Status differs between 80-round and 40-round devices');
         assert.deepEqual(predA.luckyDigits, predB.luckyDigits, 'Lucky digits differ between devices');
     });

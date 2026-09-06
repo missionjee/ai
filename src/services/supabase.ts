@@ -341,7 +341,7 @@ class SupabaseService {
               status: d.status || 'CLEARED',
               lucky_digits: d.luckyDigits || d.lucky_digits || [7, 8],
               stake_units: d.recommendedStake || d.stake_units || (d.isSniper || d.tier === 'SNIPER' ? '2U' : '1U'),
-              strategy: d.strategy || (d.isSniper || d.tier === 'SNIPER' ? 'Ultra-Sniper Empirical Stacker' : 'GPT 5.6 SOL Empirical Stacker'),
+              strategy: d.strategy || (d.isSniper || d.tier === 'SNIPER' ? 'Ultra-Sniper Holographic Stacker' : 'GPT 6 ASTRA Holographic Stacker'),
               reason: d.reason || 'Edge Ensemble Convergence',
               big_prob: d.bigProb || 50,
               small_prob: d.smallProb || 50,
@@ -349,7 +349,7 @@ class SupabaseService {
               pattern: d.pattern || 'Standard',
               is_sniper: !!(d.isSniper || d.is_sniper || d.tier === 'SNIPER'),
               tier: (d.isSniper || d.is_sniper || d.tier === 'SNIPER') ? 'SNIPER' : (d.tier || 'STANDARD'),
-              engine_version: d.engine_version || 'gpt 5.6 sol',
+              engine_version: d.engine_version || 'gpt 6 astra',
               created_at: new Date().toISOString()
             }
           }
@@ -372,7 +372,7 @@ class SupabaseService {
   }
 
   /**
-   * Publish institutional prediction to Supabase global_signals for cross-device parity
+   * Publish quantum prediction to Supabase global_signals for cross-device parity
    */
   async publishGlobalSignal(signal: {
     issue_number: string
@@ -399,7 +399,7 @@ class SupabaseService {
         },
         body: JSON.stringify({
           ...signal,
-          engine_version: signal.engine_version || 'gpt 5.6 sol',
+          engine_version: signal.engine_version || 'gpt 6 astra',
           created_at: new Date().toISOString()
         })
       })

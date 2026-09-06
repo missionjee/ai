@@ -1,9 +1,9 @@
 /**
- * Header Component — AMOLED 3D tactile top bar with institutional branding & status indicator
+ * Header Component — AMOLED 3D tactile top bar with quantum branding & status indicator
  * Upgraded to match demo.html specification:
  * - Removed sign out button, speaker button, and reload button as instructed.
  * - Retains live feed status pill with ambient glowing beacon.
- * - Adds institutional version badge and gold subline.
+ * - Adds quantum version badge and gold subline.
  */
 
 import { useState, useEffect } from 'react'
@@ -64,11 +64,11 @@ export function Header({
               HIROTO
             </h1>
             <span className="font-mono text-[9px] font-semibold text-[#f59e0b] bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded tracking-wider version-badge">
-              GPT 5.6 SOL
+              GPT 6 ASTRA
             </span>
           </div>
           <span className="text-[10px] sm:text-[10.5px] font-extrabold tracking-[1.6px] uppercase bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] bg-clip-text text-transparent leading-tight">
-            AI TERMINAL • INSTITUTIONAL
+            AI TERMINAL • QUANTUM EDITION
           </span>
         </div>
       </div>

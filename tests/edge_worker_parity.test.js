@@ -63,7 +63,7 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.status, 'ONLINE');
-        assert.equal(body.engine_version, 'gpt 5.6 sol');
+        assert.equal(body.engine_version, 'gpt 6 astra');
         assert.equal(body.diagnostics_url, '/report');
     });
 
@@ -74,7 +74,7 @@ describe('Cloudflare Worker Edge Engine & Client Parity Test Suite', () => {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.status, 'ONLINE');
-        assert.equal(body.engine_version, 'gpt 5.6 sol');
+        assert.equal(body.engine_version, 'gpt 6 astra');
         assert.equal(body.buffer_capacity, 5000);
         assert.ok(typeof body.hold_audit_summary === 'object');
         assert.ok(typeof body.meta_learner_models === 'object');

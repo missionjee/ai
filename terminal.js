@@ -1,5 +1,5 @@
 /**
- * HIROTO AI — Institutional Terminal Controller (AMOLED Edition)
+ * HIROTO AI — Quantum Terminal Controller (AMOLED Edition)
  * Core Architecture:
  * - Deterministic Period Synchronization (Zero Up/Down Table Drift)
  * - Precision Settlement Polling (XX:01, XX:02, XX:04s)
@@ -458,10 +458,10 @@ async function syncCycle() {
                     prediction: currentTargetEntry.predicted_type,
                     confidence: currentTargetEntry.prediction_confidence || 54,
                     status: currentTargetEntry.status || 'CLEARED',
-                    statusReason: currentTargetEntry.reason || 'Verified Institutional Quantum Signal (Supabase)',
+                    statusReason: currentTargetEntry.reason || 'Verified Quantum Signal (Supabase)',
                     luckyDigits: centralDigits,
                     strategy: currentTargetEntry.strategy || 'Autonomous Meta-Learner (Central Cloud)',
-                    reason: currentTargetEntry.reason || 'Central Institutional Model Consensus',
+                    reason: currentTargetEntry.reason || 'Central Quantum Model Consensus',
                     bigProb: currentTargetEntry.predicted_type === 'BIG' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
                     smallProb: currentTargetEntry.predicted_type === 'SMALL' ? (currentTargetEntry.prediction_confidence || 54) : (100 - (currentTargetEntry.prediction_confidence || 54)),
                     regime: 'trending',

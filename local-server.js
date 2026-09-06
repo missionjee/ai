@@ -1,5 +1,5 @@
 /**
- * HIROTO AI — Institutional Terminal Backend Server
+ * HIROTO AI — Quantum Terminal Backend Server
  * - Serves Static Assets & PWA
  * - Injects Supabase Environment Variables securely
  * - Supports @supabase/server & @supabase/supabase-js
