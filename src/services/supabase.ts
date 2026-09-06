@@ -348,7 +348,7 @@ class SupabaseService {
               regime: d.regime || 'trending',
               pattern: d.pattern || 'Standard',
               is_sniper: !!d.isSniper,
-              engine_version: d.engine_version || 'v12.3',
+              engine_version: d.engine_version || 'gpt 5.6 sol',
               created_at: new Date().toISOString()
             }
           }
@@ -398,7 +398,7 @@ class SupabaseService {
         },
         body: JSON.stringify({
           ...signal,
-          engine_version: signal.engine_version || 'v12.3',
+          engine_version: signal.engine_version || 'gpt 5.6 sol',
           created_at: new Date().toISOString()
         })
       })

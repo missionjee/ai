@@ -418,7 +418,7 @@ class SupabaseService {
                             regime: d.regime || "trending",
                             pattern: d.pattern || "Standard",
                             is_sniper: !!d.isSniper,
-                            engine_version: d.engine_version || "v12.2",
+                            engine_version: d.engine_version || "gpt 5.6 sol",
                             created_at: new Date().toISOString()
                         };
                     }
